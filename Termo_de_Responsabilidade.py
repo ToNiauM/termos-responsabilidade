@@ -6,8 +6,11 @@ from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 def gerar_termos(filtrar_ccusto=None):
-
-    locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
+    
+    try:
+        locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
+    except locale.Error:
+        locale.setlocale(locale.LC_ALL, 'C')  # fallback
 
     # Caminho para o arquivo Excel
     diretorio_atual = os.path.dirname(__file__)  # Obtém o diretório onde o script está localizado
