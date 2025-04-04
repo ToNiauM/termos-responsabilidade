@@ -6,7 +6,11 @@ from docx.shared import Pt
 import locale
 
 # Configura o locale para o padrão brasileiro
-locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
+try:
+    locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
+except locale.Error:
+    locale.setlocale(locale.LC_ALL, '')  # usa o locale padrão do servidor se o 'pt_BR' não estiver disponível
+
 
 def centralizar_celula(celula):
     """Centraliza o texto horizontal e verticalmente em uma célula."""
