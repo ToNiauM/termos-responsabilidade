@@ -24,7 +24,7 @@ def centralizar_celula(celula):
 
 def criar_termo_responsabilidade(nome, bens):
     # Carregar o modelo de documento com o fundo padrão
-    template_path = '../pythonProject1/Automacao/Termo_de_Responsabilidade_Individual/timbrado.docx'
+    template_path = 'timbrado.docx'
     doc = Document(template_path)
 
     # Adiciona cabeçalho
