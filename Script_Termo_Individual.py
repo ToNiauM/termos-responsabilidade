@@ -24,6 +24,7 @@ def criar_termo_responsabilidade(nome, bens):
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = p.add_run('TERMO DE RESPONSABILIDADE')
     run.bold = True
+    run.italic = False
     run.font.size = Pt(14)
 
     doc.add_paragraph("")
