@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Menu Principal</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .botao {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            margin-top: 15px;
+            cursor: pointer;
+            color: white;
+        }
+
+        .botao i {
+            margin-right: 8px;
+        }
+
+        .botao.primario {
+            background-color: #007bff;
+        }
+
+        .botao.secundario {
+            background-color: #6c757d;
+        }
+
+        .logo {
+            max-width: 180px;
+            height: auto;
+            display: block;
+            margin: 0 auto 20px auto;
+            box-shadow: 0 0 8px rgba(0,0,0,0.1);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo da empresa" class="logo">
+
+    <h1>Menu Principal</h1>
+
+    <form action="{{ url_for('centro_custos') }}">
+        <button type="submit" class="botao primario">
+            <i class="fa-solid fa-building-user"></i> Termos por Unidade Organizacional
+        </button>
+    </form>
+
+    <form action="{{ url_for('termos_individuais') }}">
+        <button type="submit" class="botao primario">
+            <i class="fa-solid fa-user-check"></i> Termos Individuais
+        </button>
+    </form>
+
+    <form action="{{ url_for('termo_devolucao') }}">
+        <button type="submit" class="botao primario">
+            <i class="fa-solid fa-box-open"></i> Termos de Devolução
+        </button>
+    </form>
+
+    <form action="{{ url_for('upload') }}">
+        <button type="submit" class="botao secundario">
+            <i class="fa-solid fa-upload"></i> Atualizar Base de Dados
+        </button>
+    </form>
+
+</body>
+</html>

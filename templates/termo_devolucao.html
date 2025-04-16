@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Termo de Devolução</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+
+        .botao {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            margin-top: 10px;
+            cursor: pointer;
+            color: white;
+        }
+
+        .botao.primario {
+            background-color: #007bff;
+        }
+
+        .botao.secundario {
+            background-color: #6c757d;
+        }
+
+        .mensagem {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: white;
+        }
+
+        table, th, td {
+            border: 1px solid #ccc;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+
+        .total {
+            text-align: right;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .remover {
+            padding: 5px 10px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .remover:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+
+{% set nome_gerado = request.args.get('nome_gerado') %}
+
+<div style="text-align: center;">
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo CFC"
+         style="max-width: 180px; height: auto; box-shadow: 0 0 8px rgba(0,0,0,0.1); border-radius: 10px; margin-bottom: 20px;">
+</div>
+
+<h1>Termo de Devolução</h1>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="mensagem {{ category }}">
+        {{ message | safe }}
+        {% if category == 'success' and nome_gerado %}
+          <br><br>
+          <a href="{{ url_for('download', nome_arquivo='Termo_Devolucao_' + nome_gerado.replace(' ', '_') + '.docx') }}" target="_blank">
+            Download
+          </a>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<form action="{{ url_for('termo_devolucao') }}" method="post">
+    <label for="nome">Nome do Responsável:</label>
+    <select name="nome" id="nome" required>
+        <option value="">Selecione o Nome</option>
+        {% for nome in nomes %}
+            <option value="{{ nome }}" {% if nome == nome_selecionado %}selected{% endif %}>{{ nome }}</option>
+        {% endfor %}
+    </select>
+
+    <label for="numero_bem">Número do Bem:</label>
+    <input type="text" name="numero_bem" id="numero_bem" placeholder="Digite o número do bem">
+
+    <button type="submit" class="botao primario" name="acao" value="adicionar">Adicionar Bem</button>
+</form>
+
+{% if bens_selecionados %}
+<table>
+    <thead>
+    <tr>
+        <th>Número Bem</th>
+        <th>Descrição</th>
+        <th>Complemento</th>
+        <th>Valor Atual</th>
+        <th>Ação</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for bem in bens_selecionados %}
+        <tr>
+            <td>{{ bem['Número Bem'] }}</td>
+            <td>{{ bem['Descrição'] }}</td>
+            <td>{{ bem['Complemento'] }}</td>
+            <td>R$ {{ '%.2f'|format(bem['Valor Atual']) }}</td>
+            <td>
+                <form action="{{ url_for('termo_devolucao') }}" method="post" style="margin:0;">
+                    <input type="hidden" name="remover" value="{{ bem['Número Bem'] }}">
+                    <button type="submit" class="remover">Remover</button>
+                </form>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<p class="total">Total: R$ {{ '%.2f'|format(total) }}</p>
+
+<form action="{{ url_for('termo_devolucao') }}" method="post">
+    <input type="hidden" name="nome" value="{{ nome_selecionado }}">
+    <button type="submit" class="botao primario" name="gerar" value="1">Gerar Termo</button>
+</form>
+{% endif %}
+
+<button type="button" class="botao secundario" onclick="window.location.href='{{ url_for('home') }}'">Voltar</button>
+
+</body>
+</html>

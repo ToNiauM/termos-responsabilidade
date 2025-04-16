@@ -1,0 +1,20 @@
+# Ambientes virtuais
+.venv/
+venv/
+
+# Cache do Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Arquivos do PyCharm
+.idea/
+
+# Arquivos temporários e configs
+*.log
+*.env
+*.sqlite3
+*.DS_Store
+
+# Outras pastas geradas por pacotes
+*.egg-info/

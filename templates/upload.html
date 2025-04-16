@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Atualizar Base de Dados</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .logo {
+            max-width: 180px;
+            height: auto;
+            display: block;
+            margin: 0 auto 20px auto;
+            box-shadow: 0 0 8px rgba(0,0,0,0.1);
+            border-radius: 10px;
+        }
+
+        .botao {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            margin-top: 15px;
+            cursor: pointer;
+            color: white;
+        }
+
+        .botao.primario {
+            background-color: #007bff;
+        }
+
+        .botao.secundario {
+            background-color: #6c757d;
+        }
+
+        .mensagem {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+
+        input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            margin-top: 15px;
+            background-color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo da empresa" class="logo">
+
+    <h1>Atualizar Base de Dados</h1>
+
+    <form method="POST" enctype="multipart/form-data">
+        <p>Você pode baixar as planilhas atuais, fazer as alterações e reenviar:</p>
+
+        <!-- Botões de download -->
+        <a href="{{ url_for('download_planilha', nome_arquivo='geral.xlsx') }}">
+            <button type="button" class="botao secundario">📥 Baixar Planilha GERAL</button>
+        </a>
+        <a href="{{ url_for('download_planilha', nome_arquivo='acervo.xlsx') }}">
+            <button type="button" class="botao secundario">📥 Baixar Planilha ACERVO</button>
+        </a>
+
+        <!-- Upload de arquivo -->
+        <input type="file" name="arquivo" accept=".xlsx" required>
+
+        <!-- Botão enviar -->
+        <button type="submit" class="botao primario">Enviar</button>
+
+        <!-- Botão voltar -->
+        <button type="button" class="botao secundario" onclick="window.location.href='{{ url_for('home') }}'">Voltar</button>
+    </form>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="mensagem {{ category }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+</body>
+</html>

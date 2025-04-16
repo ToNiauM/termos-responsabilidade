@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Termo de Responsabilidade</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px;
+            margin-top: 15px;
+            font-size: 16px;
+        }
+
+        .botao {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            margin-top: 15px;
+            cursor: pointer;
+            color: white;
+        }
+
+        .botao.primario {
+            background-color: #007bff;
+        }
+
+        .botao.secundario {
+            background-color: #6c757d;
+        }
+
+        .mensagem {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+
+    <div style="text-align: center;">
+        <img src="{{ url_for('static', filename='logo.png') }}"
+             alt="Logo da empresa"
+             style="max-width: 180px; height: auto; box-shadow: 0 0 8px rgba(0,0,0,0.1); border-radius: 10px; margin-bottom: 20px;">
+    </div>
+
+    <h1>Termo de Responsabilidade</h1>
+
+    <form action="{{ url_for('gerar') }}" method="post">
+        <label for="ccusto">Selecione a Unidade Organizacional:</label>
+        <select name="ccusto" id="ccusto" required>
+            {% for c in ccustos %}
+                <option value="{{ c }}">{{ c }}</option>
+            {% endfor %}
+        </select>
+
+        <button type="submit" class="botao primario">Gerar</button>
+        <button type="button" class="botao secundario" onclick="window.location.href='{{ url_for('home') }}'">Voltar</button>
+    </form>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="mensagem {{ category }}">
+            {{ message }}
+            {% if category == 'success' and ccusto_gerado %}
+              <br><br>
+              <a href="{{ url_for('download', nome_arquivo='Termo_de_Responsabilidade_' + ccusto_gerado + '.docx') }}" target="_blank">
+                Download
+              </a>
+            {% endif %}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+</body>
+</html>
