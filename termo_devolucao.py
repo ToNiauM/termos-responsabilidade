@@ -5,7 +5,6 @@ from docx.oxml import OxmlElement
 from docx.shared import Pt
 from datetime import datetime
 
-
 def formatar_moeda(valor):
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
