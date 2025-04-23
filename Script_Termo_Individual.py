@@ -121,7 +121,6 @@ def criar_termo_responsabilidade(nome, bens):
 
     doc.save(f"Termo_{nome.replace(' ', '_')}.docx")
 
-
 if __name__ == "__main__":
     df_geral = pd.read_excel('geral.xlsx', sheet_name='dados')
     df_geral['Patrimônio'] = df_geral['Patrimônio'].astype(str)
