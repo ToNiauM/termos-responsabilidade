@@ -43,6 +43,10 @@ CREATE TABLE IF NOT EXISTS atribuicoes (
   numero INTEGER NOT NULL REFERENCES bens(numero) DEFERRABLE INITIALLY DEFERRED,
   PRIMARY KEY (nome, numero)
 );
+CREATE TABLE IF NOT EXISTS textos (
+  chave TEXT PRIMARY KEY,
+  valor TEXT NOT NULL
+);
 """
 
 
