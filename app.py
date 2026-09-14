@@ -186,8 +186,10 @@ def termo_devolucao():
             numero = request.form.get("numero_bem", "").strip()
             if not numero.isdigit() or not db.buscar_bem(conn, int(numero)):
                 flash(f"Bem {numero or '(vazio)'} não encontrado. Verifique o número digitado.", "error")
-            elif numero not in selecionados:
-                session["bens_selecionados"] = selecionados + [numero]
+            else:
+                numero = str(int(numero))
+                if numero not in selecionados:
+                    session["bens_selecionados"] = selecionados + [numero]
         session.modified = True
         return redirect(url_for("termo_devolucao"))
     bens = [b for b in (db.buscar_bem(conn, int(n)) for n in selecionados) if b]

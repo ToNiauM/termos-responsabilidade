@@ -114,3 +114,11 @@ def test_termo_devolucao_fluxo(cliente):
     assert cliente.get("/termo/devolucao/ANA SILVA/docx").status_code == 200
     r = cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "remover": "1001"}, follow_redirects=True)
     assert b"CADEIRA" not in r.data
+
+
+def test_termo_devolucao_normaliza_numero(cliente):
+    cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "numero_bem": "1001"})
+    r = cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "numero_bem": "01001"}, follow_redirects=True)
+    assert r.data.count(b"CADEIRA") == 1
+    r = cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "remover": "1001"}, follow_redirects=True)
+    assert b"CADEIRA" not in r.data
