@@ -1,7 +1,7 @@
 import sqlite3
 
 import pytest
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 
 import db
 from tests.conftest import semear
@@ -245,3 +245,79 @@ def test_renomear_pessoa_mantem_atribuicoes(dados):
     with pytest.raises(db.ErroDeNegocio):
         db.renomear_pessoa(dados, "NINGUEM", "X")
     assert db.renomear_pessoa(dados, "ANA SOUZA", "ANA SOUZA") == "ANA SOUZA"
+
+
+def test_exportar_cadastros_quatro_abas(dados, tmp_path):
+    semear(dados)
+    arq = db.exportar_cadastros(dados, tmp_path / "c.xlsx")
+    wb = load_workbook(arq)
+    assert wb.sheetnames == ["responsaveis", "localizacoes", "pessoas", "atribuicoes"]
+    assert [c.value for c in wb["responsaveis"][1]] == ["ccustos", "tratamento", "responsavel", "email", "matricula", "funcao"]
+    assert [c.value for c in wb["atribuicoes"][2]] == ["ANA SILVA", 1002]
+    assert wb["localizacoes"].max_row == 2 and wb["pessoas"].max_row == 2
+
+
+def test_importar_a_propria_exportacao_e_idempotente(dados, tmp_path):
+    semear(dados)
+    arq = db.exportar_cadastros(dados, tmp_path / "c.xlsx")
+    resumo = db.importar_cadastros(dados, arq)
+    assert resumo == {"responsaveis": 1, "localizacoes": 1, "pessoas": 1, "atribuicoes": 1, "sem_centro": ["99 - SEM MAPA"]}
+    assert db.ficha_do_bem(dados, 1002)["pessoa"] == "ANA SILVA"
+
+
+def cadastros_xlsx(tmp_path, **abas):
+    wb = Workbook()
+    wb.remove(wb.active)
+    cabecalhos = {"responsaveis": ["ccustos", "tratamento", "responsavel", "email", "matricula", "funcao"],
+                  "localizacoes": ["localizacao", "ccustos"], "pessoas": ["nome"], "atribuicoes": ["nome", "numero"]}
+    for aba, cab in cabecalhos.items():
+        ws = wb.create_sheet(aba)
+        ws.append(cab)
+        for linha in abas.get(aba, []):
+            ws.append(linha)
+    caminho = tmp_path / "cad.xlsx"
+    wb.save(caminho)
+    return caminho
+
+
+def test_importar_cadastros_substitui_e_normaliza(dados, tmp_path):
+    semear(dados)
+    arq = cadastros_xlsx(tmp_path,
+                         responsaveis=[["geserv ", "Prezado", " carlos", "c@cfc", 7, "gerente"], ["pres", "", "MARIA", "", "", ""]],
+                         localizacoes=[["01 - SALA CCI", "GESERV"], ["99 - SEM MAPA", "pres"]],
+                         pessoas=[[" bruno lima "]], atribuicoes=[["bruno lima", "1001"]])
+    resumo = db.importar_cadastros(dados, arq)
+    assert resumo["responsaveis"] == 2 and resumo["atribuicoes"] == 1 and resumo["sem_centro"] == []
+    assert db.responsavel(dados, "CCI") is None and db.responsavel(dados, "GESERV")["matricula"] == "7"
+    f = db.ficha_do_bem(dados, 1001)
+    assert f["ccustos"] == "GESERV" and f["pessoa"] == "BRUNO LIMA"
+    assert db.pessoas(dados) == ["BRUNO LIMA"]
+
+
+@pytest.mark.parametrize("abas, trecho", [
+    ({"localizacoes": [["01 - SALA CCI", "NAOEXISTE"]]}, "NAOEXISTE"),
+    ({"atribuicoes": [["ANA SILVA", 1001]]}, "pessoas"),                     # pessoa fora da aba pessoas
+    ({"pessoas": [["ANA"]], "atribuicoes": [["ANA", 9999]]}, "9999"),
+    ({"pessoas": [["ANA"], ["BRUNO"]], "atribuicoes": [["ANA", 1001], ["BRUNO", 1001]]}, "repetido"),
+    ({"responsaveis": [["", "", "X", "", "", ""]]}, "sigla"),
+    ({"responsaveis": [["A", "", "", "", "", ""]]}, "responsável"),
+    ({"responsaveis": [["A", "", "X", "", "", ""], ["a", "", "Y", "", "", ""]]}, "repetid"),
+])
+def test_importar_cadastros_invalidos_nao_alteram_nada(dados, tmp_path, abas, trecho):
+    semear(dados)
+    with pytest.raises(db.ImportacaoInvalida) as e:
+        db.importar_cadastros(dados, cadastros_xlsx(tmp_path, **abas))
+    assert trecho in str(e.value)
+    assert db.centros(dados)[0]["ccustos"] == "CCI" and db.pessoas(dados) == ["ANA SILVA"]
+
+
+def test_importar_cadastros_sem_aba_ou_coluna(dados, tmp_path):
+    semear(dados)
+    wb = Workbook()
+    wb.active.title = "responsaveis"
+    wb.active.append(["ccustos", "responsavel"])
+    arq = tmp_path / "x.xlsx"
+    wb.save(arq)
+    with pytest.raises(db.ImportacaoInvalida) as e:
+        db.importar_cadastros(dados, arq)
+    assert "localizacoes" in str(e.value) or "coluna" in str(e.value)

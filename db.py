@@ -7,7 +7,7 @@ import sqlite3
 from datetime import date, datetime
 from pathlib import Path
 
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 
 import config
 
@@ -372,3 +372,127 @@ def atribuir(conn, nome: str, numero: int, confirmar: bool = False) -> None:
 def desatribuir(conn, nome: str, numero: int) -> None:
     conn.execute("DELETE FROM atribuicoes WHERE nome = ? AND numero = ?", (nome, numero))
     conn.commit()
+
+
+CADASTROS = {
+    "responsaveis": ["ccustos", "tratamento", "responsavel", "email", "matricula", "funcao"],
+    "localizacoes": ["localizacao", "ccustos"],
+    "pessoas": ["nome"],
+    "atribuicoes": ["nome", "numero"],
+}
+
+
+def exportar_cadastros(conn, destino: Path) -> Path:
+    """Planilha com as 4 tabelas de cadastro, no formato do banco (para backup e edição em massa)."""
+    wb = Workbook()
+    wb.remove(wb.active)
+    for tabela, colunas in CADASTROS.items():
+        ws = wb.create_sheet(tabela)
+        ws.append(colunas)
+        for linha in conn.execute(f"SELECT {', '.join(colunas)} FROM {tabela} ORDER BY {colunas[0]}"):
+            ws.append(list(linha))
+    wb.save(str(destino))
+    return Path(destino)
+
+
+def _ler_aba_cadastro(wb, tabela: str, problemas: list) -> list[dict]:
+    colunas = CADASTROS[tabela]
+    if tabela not in wb.sheetnames:
+        problemas.append(f"aba '{tabela}' não encontrada")
+        return []
+    ws = wb[tabela]
+    it = ws.iter_rows(values_only=True)
+    cabecalho = [_texto(c) for c in next(it, ())]
+    faltando = [c for c in colunas if c not in cabecalho]
+    if faltando:
+        problemas.append(f"aba '{tabela}': coluna(s) ausente(s): {', '.join(faltando)}")
+        return []
+    idx = [cabecalho.index(c) for c in colunas]
+    linhas = []
+    for n, r in enumerate(it, start=2):
+        if r is None or all(v is None or _texto(v) == "" for v in r):
+            continue
+        linhas.append({"_linha": n, **{c: r[i] if i < len(r) else None for c, i in zip(colunas, idx)}})
+    return linhas
+
+
+def importar_cadastros(conn, arquivo) -> dict:
+    """Substitui responsaveis, localizacoes, pessoas e atribuicoes pelo conteúdo da planilha. Tudo ou nada."""
+    try:
+        wb = load_workbook(arquivo, read_only=True, data_only=True)
+    except Exception:
+        raise ImportacaoInvalida("Arquivo inválido: envie a planilha de cadastros em .xlsx.")
+    problemas: list[str] = []
+    brutos = {t: _ler_aba_cadastro(wb, t, problemas) for t in CADASTROS}
+    wb.close()
+    if problemas:
+        raise ImportacaoInvalida("Planilha de cadastros: " + "; ".join(problemas))
+
+    responsaveis, siglas = [], set()
+    for r in brutos["responsaveis"]:
+        sigla, nome = _texto(r["ccustos"]).upper(), _texto(r["responsavel"])
+        if not sigla:
+            problemas.append(f"responsaveis linha {r['_linha']}: sigla vazia")
+        elif sigla in siglas:
+            problemas.append(f"responsaveis linha {r['_linha']}: sigla {sigla} repetida")
+        elif not nome:
+            problemas.append(f"responsaveis linha {r['_linha']}: responsável vazio")
+        else:
+            siglas.add(sigla)
+            responsaveis.append((sigla, _texto(r["tratamento"]), nome, _texto(r["email"]), _texto(r["matricula"]), _texto(r["funcao"])))
+
+    localizacoes, locs = [], set()
+    for r in brutos["localizacoes"]:
+        loc, sigla = _texto(r["localizacao"]), _texto(r["ccustos"]).upper()
+        if not loc:
+            problemas.append(f"localizacoes linha {r['_linha']}: localização vazia")
+        elif loc in locs:
+            problemas.append(f"localizacoes linha {r['_linha']}: localização {loc} repetida")
+        elif sigla not in siglas:
+            problemas.append(f"localizacoes linha {r['_linha']}: centro {sigla or '(vazio)'} não está na aba responsaveis")
+        else:
+            locs.add(loc)
+            localizacoes.append((loc, sigla))
+
+    nomes = set()
+    for r in brutos["pessoas"]:
+        nome = _texto(r["nome"]).upper()
+        if not nome:
+            problemas.append(f"pessoas linha {r['_linha']}: nome vazio")
+        elif nome in nomes:
+            problemas.append(f"pessoas linha {r['_linha']}: nome {nome} repetido")
+        else:
+            nomes.add(nome)
+
+    atribuicoes, numeros = [], set()
+    for r in brutos["atribuicoes"]:
+        nome, num = _texto(r["nome"]).upper(), _numero(r["numero"])
+        if nome not in nomes:
+            problemas.append(f"atribuicoes linha {r['_linha']}: {nome or '(vazio)'} não está na aba pessoas")
+        elif num is None:
+            problemas.append(f"atribuicoes linha {r['_linha']}: número inválido")
+        elif not buscar_bem(conn, int(num)):
+            problemas.append(f"atribuicoes linha {r['_linha']}: bem {int(num)} não existe na base")
+        elif int(num) in numeros:
+            problemas.append(f"atribuicoes linha {r['_linha']}: bem {int(num)} repetido (um bem, uma pessoa)")
+        else:
+            numeros.add(int(num))
+            atribuicoes.append((nome, int(num)))
+
+    if problemas:
+        extra = f" (+{len(problemas) - 20})" if len(problemas) > 20 else ""
+        raise ImportacaoInvalida("Planilha de cadastros: " + "; ".join(problemas[:20]) + extra)
+
+    try:
+        for t in ("atribuicoes", "pessoas", "localizacoes", "responsaveis"):
+            conn.execute(f"DELETE FROM {t}")
+        conn.executemany("INSERT INTO responsaveis VALUES (?,?,?,?,?,?)", responsaveis)
+        conn.executemany("INSERT INTO localizacoes VALUES (?,?)", localizacoes)
+        conn.executemany("INSERT INTO pessoas VALUES (?)", [(n,) for n in sorted(nomes)])
+        conn.executemany("INSERT INTO atribuicoes VALUES (?,?)", atribuicoes)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return {"responsaveis": len(responsaveis), "localizacoes": len(localizacoes), "pessoas": len(nomes),
+            "atribuicoes": len(atribuicoes), "sem_centro": localizacoes_sem_centro(conn)}
