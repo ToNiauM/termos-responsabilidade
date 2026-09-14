@@ -92,6 +92,9 @@
         el.dataset.dsgovInit = "1";
         try {
           if (nome === "BRDateTimePicker") new Ctor("br-datetimepicker", el, {});
+          /* BRUpload exige um callback de upload; sem ele o "Carregando..." nunca some e o arquivo
+             nunca é listado. O envio real é o submit do formulário, então o callback só resolve. */
+          else if (nome === "BRUpload") new Ctor("br-upload", el, function () { return Promise.resolve(); });
           else new Ctor(nomeClasse, el);
         } catch (e) { console.warn("dsgov: " + seletor, e); }
       });
