@@ -243,7 +243,7 @@ def cadastros(aba):
         "cadastros.html", aba=aba, trilha=[("Cadastros", None)],
         centros=db.centros(conn), mapeadas=db.localizacoes_mapeadas(conn), pendentes=db.localizacoes_sem_centro(conn),
         pessoas=db.pessoas(conn), nome=nome, bens_pessoa=db.bens_da_pessoa(conn, nome) if nome else [],
-        confirmar=request.args.get("confirmar"))
+        confirmar=request.args.get("confirmar"), excluir=request.args.get("excluir"))
 
 
 def _volta(aba, **args):
@@ -257,17 +257,34 @@ def responsaveis_incluir():
     return _volta("responsaveis")
 
 
+@app.route("/cadastros/responsaveis/<ccustos>/editar", methods=["GET", "POST"])
+def responsaveis_editar(ccustos):
+    conn = obter_conn()
+    c = db.responsavel(conn, ccustos) or abort(404)
+    if request.method == "POST":
+        nova = " ".join(request.form.get("ccustos", "").split()).upper()
+        if nova and nova != ccustos:
+            db.renomear_centro(conn, ccustos, nova)
+            ccustos = nova
+        db.atualizar_responsavel(conn, ccustos, request.form)
+        flash(f"Centro de custo {ccustos} atualizado.", "success")
+        return _volta("responsaveis")
+    locais = [l["localizacao"] for l in db.localizacoes_mapeadas(conn) if l["ccustos"] == ccustos]
+    return render_template("editar_responsavel.html", c=c, locais=locais,
+                           trilha=[("Cadastros", url_for("cadastros", aba="responsaveis")), (f"Editar {ccustos}", None)])
+
+
 @app.route("/cadastros/responsaveis/excluir", methods=["POST"])
 def responsaveis_excluir():
-    db.excluir_responsavel(obter_conn(), request.form["ccustos"])
-    flash("Centro de custo excluído.", "success")
-    return _volta("responsaveis")
-
-
-@app.route("/cadastros/responsaveis/renomear", methods=["POST"])
-def responsaveis_renomear():
-    db.renomear_centro(obter_conn(), request.form["antigo"], request.form["novo"])
-    flash(f"{request.form['antigo']} renomeado para {request.form['novo'].upper()}; localizações atualizadas.", "success")
+    conn, sigla = obter_conn(), request.form["ccustos"]
+    db.checar_exclusao_centro(conn, sigla)   # bloqueia já aqui se houver bens sob guarda
+    if not request.form.get("confirmar"):
+        n = sum(1 for l in db.localizacoes_mapeadas(conn) if l["ccustos"] == sigla)
+        flash(f"Excluir {sigla} remove também o mapeamento de {n} localização(ões), que voltam a pendentes. "
+              "Clique em confirmar para prosseguir.", "warning")
+        return _volta("responsaveis", excluir=sigla)
+    db.excluir_responsavel(conn, sigla)
+    flash(f"Centro de custo {sigla} excluído.", "success")
     return _volta("responsaveis")
 
 
@@ -283,6 +300,27 @@ def localizacoes_excluir():
     db.excluir_localizacao(obter_conn(), request.form["localizacao"])
     flash("Mapeamento removido.", "success")
     return _volta("localizacoes")
+
+
+@app.route("/cadastros/localizacoes/mover", methods=["POST"])
+def localizacoes_mover():
+    destino = request.form.get("ccustos_destino", "")
+    n = db.mover_localizacoes(obter_conn(), request.form.getlist("localizacoes"), destino)
+    flash(f"{n} localização(ões) movida(s) para {destino}.", "success")
+    return _volta("localizacoes")
+
+
+@app.route("/cadastros/pessoas/<nome>/editar", methods=["GET", "POST"])
+def pessoas_editar(nome):
+    conn = obter_conn()
+    if nome not in db.pessoas(conn):
+        abort(404)
+    if request.method == "POST":
+        novo = db.renomear_pessoa(conn, nome, request.form.get("nome", ""))
+        flash(f"Pessoa renomeada para {novo}.", "success")
+        return _volta("pessoas", nome=novo)
+    return render_template("editar_pessoa.html", nome=nome,
+                           trilha=[("Cadastros", url_for("cadastros", aba="pessoas")), (f"Editar {nome}", None)])
 
 
 @app.route("/cadastros/pessoas/incluir", methods=["POST"])

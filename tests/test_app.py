@@ -65,14 +65,42 @@ def test_upload_invalido_mostra_erro(cliente):
     assert b".xlsx" in r.data
 
 
-def test_cadastro_responsaveis_incluir_renomear_excluir(cliente):
+def test_cadastro_responsaveis_editar_renomear_excluir(cliente):
     r = cliente.post("/cadastros/responsaveis/incluir", data={"ccustos": "decom", "tratamento": "Prezado",
                      "responsavel": "THIAGO", "email": "", "matricula": "481", "funcao": "gerente"}, follow_redirects=True)
     assert b"DECOM" in r.data
-    r = cliente.post("/cadastros/responsaveis/renomear", data={"antigo": "CCI", "novo": "GESERV"}, follow_redirects=True)
-    assert b"GESERV" in r.data and b">CCI<" not in r.data
+    r = cliente.get("/cadastros/responsaveis/CCI/editar")
+    assert b"JAQUELINE PORTELA" in r.data and b"01 - SALA CCI" in r.data
+    r = cliente.post("/cadastros/responsaveis/CCI/editar", data={"ccustos": "geserv", "tratamento": "Prezado",
+                     "responsavel": "CARLOS", "email": "", "matricula": "7", "funcao": "gerente"}, follow_redirects=True)
+    assert b"GESERV" in r.data and b"CARLOS" in r.data and b">CCI<" not in r.data
+    assert cliente.get("/cadastros/responsaveis/CCI/editar").status_code == 404
+    # excluir: pede confirmação; com bens sob guarda, bloqueia
     r = cliente.post("/cadastros/responsaveis/excluir", data={"ccustos": "GESERV"}, follow_redirects=True)
-    assert "Remapeie".encode() in r.data
+    assert b"sob guarda" in r.data
+    r = cliente.post("/cadastros/responsaveis/excluir", data={"ccustos": "DECOM"}, follow_redirects=True)
+    assert b"Confirmar exclus" in r.data
+    r = cliente.post("/cadastros/responsaveis/excluir", data={"ccustos": "DECOM", "confirmar": "1"}, follow_redirects=True)
+    assert b">DECOM<" not in r.data
+
+
+def test_cadastro_localizacoes_mover(cliente):
+    cliente.post("/cadastros/responsaveis/incluir", data={"ccustos": "PRES", "responsavel": "Y"})
+    cliente.post("/cadastros/localizacoes/incluir", data={"localizacao": "99 - SEM MAPA", "ccustos": "CCI"})
+    r = cliente.post("/cadastros/localizacoes/mover", data={"localizacoes": ["01 - SALA CCI", "99 - SEM MAPA"], "ccustos_destino": "PRES"},
+                     follow_redirects=True)
+    assert b"2 localiza" in r.data
+    assert b"PRES" in cliente.get("/bem?numero=1001").data
+    r = cliente.post("/cadastros/localizacoes/mover", data={"ccustos_destino": "PRES"}, follow_redirects=True)
+    assert b"ao menos uma" in r.data
+
+
+def test_cadastro_pessoas_editar_nome(cliente):
+    r = cliente.get("/cadastros/pessoas/ANA SILVA/editar")
+    assert b"ANA SILVA" in r.data
+    r = cliente.post("/cadastros/pessoas/ANA SILVA/editar", data={"nome": "ana souza"}, follow_redirects=True)
+    assert b"ANA SOUZA" in r.data and b"NOTEBOOK" in r.data
+    assert cliente.get("/cadastros/pessoas/NINGUEM/editar").status_code == 404
 
 
 def test_cadastro_localizacoes(cliente):

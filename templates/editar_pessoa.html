@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block titulo %}Editar {{ nome }}{% endblock %}
+{% block conteudo %}
+<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Editar pessoa</h1></div>
+<form method="post" class="col-md-8">
+  <div class="br-input mb-3"><label for="e-nome">Nome (os bens atribuídos acompanham)</label><input id="e-nome" name="nome" type="text" value="{{ nome }}" required/></div>
+  <div class="dsgov-acoes-formulario">
+    <a class="br-button" href="{{ url_for('cadastros', aba='pessoas', nome=nome) }}">Cancelar</a>
+    <button class="br-button primary" type="submit"><i class="fas fa-save mr-1" aria-hidden="true"></i>Salvar</button>
+  </div>
+</form>
+{% endblock %}

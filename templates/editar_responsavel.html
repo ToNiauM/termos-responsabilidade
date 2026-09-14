@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block titulo %}Editar {{ c.ccustos }}{% endblock %}
+{% block conteudo %}
+<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Editar centro de custo {{ c.ccustos }}</h1></div>
+<form method="post" class="col-md-8">
+  {% for campo, rotulo in [('ccustos', 'Sigla do centro de custo (mudar a sigla renomeia e mantém as localizações)'), ('responsavel', 'Responsável'), ('tratamento', 'Tratamento (Prezado/Prezada)'), ('funcao', 'Função'), ('matricula', 'Matrícula'), ('email', 'E-mail')] %}
+  <div class="br-input mb-3"><label for="e-{{ campo }}">{{ rotulo }}</label><input id="e-{{ campo }}" name="{{ campo }}" type="text" value="{{ c[campo] or '' }}"{% if campo in ('ccustos', 'responsavel') %} required{% endif %}/></div>
+  {% endfor %}
+  <div class="mb-4">
+    <p class="mb-1 text-weight-semi-bold">Localizações deste centro ({{ locais|length }})</p>
+    {% if locais %}<p class="text-gray-70">{{ locais|join(' · ') }}</p>{% else %}<p class="text-gray-70">Nenhuma.</p>{% endif %}
+    <a href="{{ url_for('cadastros', aba='localizacoes') }}">Mover localizações</a>
+  </div>
+  <div class="dsgov-acoes-formulario">
+    <a class="br-button" href="{{ url_for('cadastros', aba='responsaveis') }}">Cancelar</a>
+    <button class="br-button primary" type="submit"><i class="fas fa-save mr-1" aria-hidden="true"></i>Salvar</button>
+  </div>
+</form>
+{% endblock %}

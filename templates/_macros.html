@@ -34,9 +34,9 @@
 </div>
 {% endmacro %}
 
-{% macro cabecalho_tabela(titulo, id) %}
-{# abre um br-table com busca; quem chama fecha com </table></div> #}
-<div class="br-table" data-search="data-search">
+{% macro cabecalho_tabela(titulo, id, selecao=False) %}
+{# abre um br-table com busca (e seleção de linhas, se selecao); quem chama fecha com </table></div> #}
+<div class="br-table" data-search="data-search"{% if selecao %} data-selection="data-selection"{% endif %}>
   <div class="table-header">
     <div class="top-bar">
       <div class="table-title">{{ titulo }}</div>
@@ -52,7 +52,20 @@
       </div>
       <button class="br-button circle" type="button" data-dismiss="search" aria-label="Fechar busca"><i class="fas fa-times" aria-hidden="true"></i></button>
     </div>
+    {% if selecao %}
+    <div class="selected-bar">
+      <div class="info"><span class="count">0</span><span class="text">item selecionado</span></div>
+    </div>
+    {% endif %}
   </div>
   <table>
     <caption class="sr-only">{{ titulo }}</caption>
+{% endmacro %}
+
+{% macro th_selecao(id) %}
+<th class="column-checkbox" scope="col"><div class="br-checkbox hidden-label"><input id="check-all-{{ id }}" name="check-all-{{ id }}" type="checkbox" aria-label="Selecionar tudo" data-parent="check-{{ id }}"/><label for="check-all-{{ id }}">Selecionar todas as linhas</label></div></th>
+{% endmacro %}
+
+{% macro td_selecao(id, indice, name, value) %}
+<td class="column-checkbox"><div class="br-checkbox hidden-label"><input id="check-{{ id }}-{{ indice }}" name="{{ name }}" type="checkbox" value="{{ value }}" data-child="check-{{ id }}"/><label for="check-{{ id }}-{{ indice }}">Selecionar linha</label></div></td>
 {% endmacro %}
