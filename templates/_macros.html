@@ -1,0 +1,58 @@
+{# Componentes DSGov repetidos. HTML canônico de references/componentes/{message,select,table}.md #}
+
+{% macro mensagens() %}
+<div id="mensagens">
+{% for categoria, texto in get_flashed_messages(with_categories=true) %}
+  {% set tipo, icone, titulo = {'error': ('danger', 'fa-times-circle', 'Erro.'), 'warning': ('warning', 'fa-exclamation-triangle', 'Atenção.'), 'success': ('success', 'fa-check-circle', 'Sucesso.')}.get(categoria, ('info', 'fa-info-circle', 'Informação.')) %}
+  <div class="br-message {{ tipo }}">
+    <div class="icon"><i class="fas {{ icone }} fa-lg" aria-hidden="true"></i></div>
+    <div class="content" role="alert"><span class="message-title">{{ titulo }}</span><span class="message-body"> {{ texto }}</span></div>
+    <div class="close"><button class="br-button circle small" type="button" aria-label="Fechar a mensagem"><i class="fas fa-times" aria-hidden="true"></i></button></div>
+  </div>
+{% endfor %}
+</div>
+{% endmacro %}
+
+{% macro select(nome, rotulo, opcoes, selecionado=None, obrigatorio=True) %}
+{# br-select: input de exibição (não postado) + lista de radios que carregam name/value #}
+<div class="br-select">
+  <div class="br-input">
+    <label for="{{ nome }}_exibicao">{{ rotulo }}{% if obrigatorio %} <span class="text-danger" aria-hidden="true">*</span>{% endif %}</label>
+    <input id="{{ nome }}_exibicao" type="text" placeholder="Selecione" autocomplete="off"/>
+    <button class="br-button" type="button" aria-label="Exibir lista" tabindex="-1" data-trigger="data-trigger"><i class="fas fa-angle-down" aria-hidden="true"></i></button>
+  </div>
+  <div class="br-list" tabindex="0">
+    {% for opcao in opcoes %}
+    <div class="br-item" tabindex="-1">
+      <div class="br-radio">
+        <input id="{{ nome }}_{{ loop.index }}" name="{{ nome }}" type="radio" value="{{ opcao }}"{% if opcao == selecionado %} checked="checked"{% endif %}{% if obrigatorio %} required{% endif %}/>
+        <label for="{{ nome }}_{{ loop.index }}">{{ opcao }}</label>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endmacro %}
+
+{% macro cabecalho_tabela(titulo, id) %}
+{# abre um br-table com busca; quem chama fecha com </table></div> #}
+<div class="br-table" data-search="data-search">
+  <div class="table-header">
+    <div class="top-bar">
+      <div class="table-title">{{ titulo }}</div>
+      <div class="search-trigger">
+        <button class="br-button circle" type="button" id="busca-{{ id }}" data-toggle="search" aria-label="Abrir busca" aria-controls="campo-busca-{{ id }}"><i class="fas fa-search" aria-hidden="true"></i></button>
+      </div>
+    </div>
+    <div class="search-bar">
+      <div class="br-input">
+        <label for="campo-busca-{{ id }}">Buscar na tabela</label>
+        <input id="campo-busca-{{ id }}" type="search" placeholder="Buscar na tabela" aria-labelledby="busca-{{ id }}" aria-label="Buscar na tabela"/>
+        <button class="br-button" type="button" aria-label="Buscar"><i class="fas fa-search" aria-hidden="true"></i></button>
+      </div>
+      <button class="br-button circle" type="button" data-dismiss="search" aria-label="Fechar busca"><i class="fas fa-times" aria-hidden="true"></i></button>
+    </div>
+  </div>
+  <table>
+    <caption class="sr-only">{{ titulo }}</caption>
+{% endmacro %}

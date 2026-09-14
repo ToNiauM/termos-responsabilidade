@@ -1,0 +1,161 @@
+/* dsgov.css — ÚNICO arquivo CSS do projeto além do core.min.css do DSGov.
+ *
+ * Lista fechada. Só entram aqui coisas que o DS 3.7.0 não cobre e que todo sistema precisa:
+ * alturas de gráfico, tela de login centralizada, coluna de ações da tabela e impressão.
+ * Cores, fontes e espaçamentos são SEMPRE variáveis do DS (var(--...)); hex é proibido aqui.
+ * Um sistema que precise de mais do que isto está fugindo do padrão: reveja a tela.
+ */
+
+/* Gráficos ECharts: altura fixa, largura do card. */
+.dsgov-grafico { width: 100%; height: 280px; }
+.dsgov-grafico-alto { width: 100%; height: 400px; }
+
+/* A coluna de conteúdo é item flex: sem min-width 0, uma tabela larga estoura a página em vez de rolar
+   dentro do .responsive do br-table. Fase 28/Plano 28-08 — a regra nasceu cobrindo `container-lg`
+   e `container-fluid` porque o Plano 28-01 tinha introduzido a variante fluida do container
+   (`casca_fluida`) nas páginas operacionais amplas. [quick 260911-p8u] revogou essa variante —
+   `container-fluid` não tem largura máxima e estica o conteúdo até a borda da janela em monitores
+   grandes, o oposto do padrão gov.br de concentrar dentro de margens — então a regra volta a
+   cobrir só `container-lg`, único wrapper que ainda existe na árvore. */
+#main > .container-lg > .row { flex: 1 1 100%; min-width: 0; }
+#main > .container-lg > .row > .col { min-width: 0; }
+
+/* Cards da mesma linha com a mesma altura (KPIs e gráficos). */
+.dsgov-linha-cards > [class*="col-"] > .br-card { height: 100%; }
+
+/* KPI: número grande respira; o rótulo fica alinhado ao topo do card. */
+.dsgov-kpi .card-content { display: flex; flex-direction: column; justify-content: space-between; min-height: 112px; }
+
+/* Login: card centralizado vertical e horizontalmente, sem menu lateral. */
+.dsgov-login { min-height: 100vh; display: flex; flex-direction: column; background: var(--gray-2); }
+.dsgov-login main { flex: 1; display: flex; align-items: center; justify-content: center; padding: var(--spacing-scale-4x) var(--spacing-scale-2x); }
+.dsgov-login .br-card { width: 100%; max-width: 420px; }
+
+/* O JS do br-table envolve a tabela em .responsive (overflow:auto). Sem position:relative, os elementos
+   absolutos de dentro (checkbox, ícones) se ancoram no <html> e alargam a página no celular. */
+.br-table .responsive { position: relative; }
+
+/* Tabela: coluna de ações nunca quebra linha e fica encostada à direita. */
+.br-table td.dsgov-acoes, .br-table th.dsgov-acoes { white-space: nowrap; text-align: right; width: 1%; }
+.br-table td.dsgov-numero, .br-table th.dsgov-numero { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Cabeçalho ordenável: o link ocupa a célula toda e herda a cor do texto. */
+.br-table th a.dsgov-ordenar { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: var(--spacing-scale-half); }
+.br-table th a.dsgov-ordenar:hover { text-decoration: underline; }
+
+/* Tags de status em células estreitas não quebram linha. */
+.br-table .br-tag { white-space: nowrap; }
+
+/* Chips de filtros ativos: um abaixo do outro em celular, em linha no desktop. */
+.dsgov-filtros-ativos { display: flex; flex-wrap: wrap; gap: var(--spacing-scale-base); }
+
+/* Bloco de detalhe (rótulo em cima, valor embaixo), 2 colunas em desktop. */
+.dsgov-detalhe dt { color: var(--gray-70); font-size: var(--font-size-scale-down-01); text-transform: uppercase; letter-spacing: .02em; margin-bottom: var(--spacing-scale-half); }
+.dsgov-detalhe dd { margin: 0 0 var(--spacing-scale-3x) 0; font-weight: var(--font-weight-medium); }
+
+/* Ações fixas no fim do formulário: primário à direita, terciário à esquerda. */
+.dsgov-acoes-formulario { display: flex; gap: var(--spacing-scale-2x); justify-content: flex-end; border-top: var(--surface-width-sm) solid var(--gray-20); padding-top: var(--spacing-scale-3x); margin-top: var(--spacing-scale-4x); }
+
+/* Indicador HTMX: visível só durante a requisição. */
+.htmx-indicator { display: none; }
+.htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline-flex; }
+
+/* Impressão: só o conteúdo. */
+@media print {
+  .br-skiplink, .br-header, .br-menu, .br-breadcrumb, .br-footer, .br-cookiebar, .dsgov-nao-imprimir, .table-header, .table-footer { display: none !important; }
+  .main-content { padding: 0 !important; margin: 0 !important; }
+  .br-card { box-shadow: none !important; border: var(--surface-width-sm) solid var(--gray-20); break-inside: avoid; }
+  a { text-decoration: none; color: inherit; }
+}
+
+/* Relatório de movimentação do PCA (Fase 27, D-27-18/19/20): timbrado composto
+   (logo + texto institucional) só na impressão/PDF, A4 retrato com margens de
+   2,5cm, e blocos do relatório que não quebram no meio da página. O fragmento
+   copiável para o SEI (partial próprio, sem classes br-*) nunca usa estas
+   classes — elas só existem para a tela e para @media print. */
+.dsgov-relatorio-timbrado { display: none; }
+@media print {
+  @page { size: A4 portrait; margin: 2.5cm; }
+  .dsgov-relatorio-timbrado { display: flex !important; align-items: center; gap: var(--spacing-scale-2x); margin-bottom: var(--spacing-scale-3x); }
+  .dsgov-relatorio .br-card { break-inside: avoid; }
+}
+
+/* Utilitários que o DS 3.7.0 não traz mas o template base oficial usa. */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.h-100 { height: 100%; }
+
+/* Matriz de indicadores (references/telas/matriz.md): cabeçalho em dois níveis, grupos de colunas
+   separados, números alinhados, rótulo de linha fixo na rolagem horizontal, totais no rodapé e links
+   numéricos sem sublinhado (volta no hover/foco). Cor semântica só por utilitário text-*. */
+.br-table.dsgov-matriz table { width: 100%; }
+.dsgov-matriz thead th { vertical-align: bottom; white-space: nowrap; }
+.dsgov-matriz thead th.dsgov-grupo { text-align: center; font-size: var(--font-size-scale-down-01); text-transform: uppercase; letter-spacing: .02em; color: var(--gray-70); border-bottom: var(--surface-width-sm) solid var(--gray-20); }
+.dsgov-matriz th.dsgov-rotulo-linha, .dsgov-matriz td.dsgov-rotulo-linha { text-align: left; white-space: nowrap; position: sticky; left: 0; background: var(--background); z-index: 1; }
+.dsgov-matriz .dsgov-separador { border-left: var(--surface-width-md) solid var(--gray-20); }
+.dsgov-matriz td.dsgov-destaque, .dsgov-matriz th.dsgov-destaque { background: var(--gray-5); font-weight: var(--font-weight-semi-bold); }
+.dsgov-matriz tbody a, .dsgov-matriz tfoot a { color: inherit; text-decoration: none; }
+.dsgov-matriz tbody a:hover, .dsgov-matriz tbody a:focus, .dsgov-matriz tfoot a:hover, .dsgov-matriz tfoot a:focus { text-decoration: underline; }
+.dsgov-matriz tfoot td, .dsgov-matriz tfoot th { font-weight: var(--font-weight-bold); background: var(--gray-5); border-top: var(--surface-width-md) solid var(--gray-40); }
+
+/* Calendário (references/telas/calendario.md): grade de 7 colunas que cabe no card, sem rolagem
+   horizontal; dias fora do mês apagados; hoje contornado; pontos de situação são br-tag status. */
+.br-table.dsgov-calendario .responsive { overflow: visible; }
+.dsgov-calendario table { table-layout: fixed; width: 100%; }
+.dsgov-calendario th, .dsgov-calendario td { text-align: center; padding: var(--spacing-scale-half) 0; vertical-align: top; line-height: var(--font-line-height-low); }
+.dsgov-calendario td.dsgov-fora-do-mes { color: var(--gray-40); background: var(--gray-2); }
+.dsgov-calendario td.dsgov-hoje { box-shadow: inset 0 0 0 var(--surface-width-md) var(--interactive); }
+.dsgov-calendario a { text-decoration: none; }
+.dsgov-calendario a:hover, .dsgov-calendario a:focus { text-decoration: underline; }
+.dsgov-calendario .br-tag.status { vertical-align: middle; margin: 0 1px; }
+.dsgov-calendario-anual .dsgov-calendario th, .dsgov-calendario-anual .dsgov-calendario td { font-size: var(--font-size-scale-down-01); }
+
+/* Fase 28/Plano 28-07 (D-28-40) — alturas fixas por visão, `overflow: hidden` garante que o
+   conteúdo (limite de itens já resolvido em Python, D-28-39) nunca expande a célula. Ponteiro:
+   80px (anual) / 128px (mensal, subiu de 96px para caber "N + botão +N" com folga de toque
+   mínima); toque (`pointer: coarse`, alvos >= 40px): 112px / 192px — ver references/telas/
+   calendario.md. */
+.dsgov-calendario-anual .dsgov-calendario td { height: 80px; overflow: hidden; }
+.dsgov-calendario-mensal .dsgov-calendario td { height: 128px; overflow: hidden; text-align: left; padding: var(--spacing-scale-half); }
+.dsgov-calendario-mensal .dsgov-calendario ul { list-style: none; margin: var(--spacing-scale-half) 0 0; padding: 0; font-size: var(--font-size-scale-down-01); }
+@media (pointer: coarse) {
+  .dsgov-calendario-anual .dsgov-calendario td { height: 112px; }
+  .dsgov-calendario-mensal .dsgov-calendario td { height: 192px; }
+}
+
+/* D-28-39 — identificação numérica do item (sem o texto "Item" na apresentação compacta, só no
+   aria-label); `display: inline-block` + `max-width` dão efeito real a `.text-truncate` quando o
+   identificador crescer além do que cabe na célula (hoje nenhum item_pca precisa disso). */
+.dsgov-calendario-anual .dsgov-calendario-itens { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-top: 2px; }
+.dsgov-calendario-item { display: inline-block; max-width: 100%; vertical-align: middle; }
+
+/* Fase 28/Plano 28-07 (D-28-41) — popover próprio do calendário, NUNCA o atributo HTML5 nativo
+   `popover` (Popover API: `display: none !important` de origem UA para todo `[popover]` não
+   aberto via `.showPopover()`, regra que nenhum CSS de autor consegue sobrepor — ver dsgov.js).
+   `.br-tooltip[data-popover-calendario]` replica o efeito visual do modificador `[popover]` do
+   DS (`max-width`/`min-width`/`overflow-x`) sem usar o atributo reservado; `position: fixed`
+   (maior especificidade que o `position: absolute !important` do `.br-tooltip` base) escapa do
+   `overflow: hidden` da célula — o posicionamento (top/left) é calculado em JS a partir do
+   `getBoundingClientRect()` do ativador. */
+.br-tooltip[data-popover-calendario] { max-width: 320px; min-width: 240px; overflow-x: hidden; width: auto; position: fixed !important; }
+
+/* [quick 260911-p8u] — menu lateral expandido não bloqueia mais o conteúdo a partir de 992px.
+   O `.br-menu` deste projeto NUNCA usa a variante `push` do core.min.js — só a classe base
+   `br-menu` (ver `_menu.html`) — e essa variante é off-canvas em QUALQUER largura: abrir
+   `#main-navigation` sempre cobre a tela inteira com `.menu-container{position:fixed;inset:0}`
+   mais um `.menu-scrim` escuro, mostrando só a coluna estreita do `.menu-panel`
+   (`col-sm-4 col-lg-3`) à esquerda. Correto no celular, ruim em telas grandes, onde bloquear o
+   resto do conteúdo obriga fechar o menu para continuar navegando, mesmo sobrando espaço na tela.
+   O `.menu-panel` já é `position: relative` com `overflow: auto` dentro desse `.menu-container`
+   fixo — ou seja, já É "fixo na tela, com scroll próprio" (pedido do usuário); o único ajuste
+   necessário é destravar o clique no conteúdo por trás, sem tocar `position`/`z-index`/JS: a
+   partir de 992px o `.menu-scrim` some e o retângulo vazio do `.menu-container` (que continua
+   cobrindo a tela inteira mesmo sem o scrim visível, e por isso continuaria bloqueando clique se
+   nada mudasse) vira `pointer-events: none`, restaurado em `.menu-panel` com
+   `pointer-events: auto`. Abaixo de 992px nada muda: off-canvas com scrim bloqueante, contrato do
+   DS intacto. Especificidade por ID (`#main-navigation`) já sobrepõe as regras do vendor
+   (`.br-menu.active .menu-container` etc., 3 classes) sem precisar de `!important`. */
+@media (min-width: 992px) {
+  #main-navigation.active .menu-container { pointer-events: none; }
+  #main-navigation.active .menu-panel { pointer-events: auto; }
+  #main-navigation.active .menu-scrim { display: none; }
+}

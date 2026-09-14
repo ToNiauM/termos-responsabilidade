@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block titulo %}{{ DSGOV.SISTEMA }}{% endblock %} — {{ DSGOV.SISTEMA }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/css/fontes.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/vendor/govbr-ds/core.min.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/vendor/fontawesome/css/all.min.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/css/dsgov.css') }}"/>
+</head>
+<body>
+<div class="template-base">
+  <nav class="br-skiplink" role="menubar">
+    <a class="br-item" href="#main-content" role="menuitem" accesskey="1">Ir para o conteúdo <span aria-hidden="true">(1/3)</span></a>
+    <a class="br-item" href="#header-navigation" role="menuitem" accesskey="2">Ir para o menu <span aria-hidden="true">(2/3)</span></a>
+    <a class="br-item" href="#footer" role="menuitem" accesskey="3">Ir para o rodapé <span aria-hidden="true">(3/3)</span></a>
+  </nav>
+  <header class="br-header mb-4" data-no-search id="header" data-sticky="data-sticky">
+    <div class="container-lg">
+      <div class="header-top">
+        <div class="header-logo">
+          <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ DSGOV.ORGAO }}"/>
+          <span class="br-divider vertical"></span>
+          <div class="header-sign">{{ DSGOV.ORGAO }}</div>
+        </div>
+        <div class="header-actions"></div>
+      </div>
+      <div class="header-bottom">
+        <div class="header-menu">
+          <div class="header-menu-trigger" id="header-navigation">
+            <button class="br-button small circle" type="button" aria-label="Menu" data-toggle="menu" data-target="#main-navigation" id="navigation"><i class="fas fa-bars" aria-hidden="true"></i></button>
+          </div>
+          <div class="header-info">
+            <div class="header-title">{{ DSGOV.SISTEMA }}</div>
+            <div class="header-subtitle">{{ DSGOV.SUBTITULO }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+  <main class="d-flex flex-fill mb-5" id="main">
+    <div class="container-lg d-flex">
+      <div class="row">
+        <div class="br-menu" id="main-navigation">
+          <div class="menu-container">
+            <div class="menu-panel">
+              <div class="menu-header">
+                <div class="menu-title"><span>{{ DSGOV.SISTEMA }}</span></div>
+                <div class="menu-close">
+                  <button class="br-button circle" type="button" aria-label="Fechar o menu" data-dismiss="menu"><i class="fas fa-times" aria-hidden="true"></i></button>
+                </div>
+              </div>
+              <nav class="menu-body" role="tree">
+                {% for rotulo, icone, url in MENU %}
+                <a class="menu-item" href="{{ url }}" role="treeitem"><span class="icon"><i class="fas {{ icone }}" aria-hidden="true"></i></span><span class="content">{{ rotulo }}</span></a>
+                {% endfor %}
+              </nav>
+              <div class="menu-footer"><div class="menu-info"><div class="text-center text-down-01">{{ DSGOV.ORGAO }}</div></div></div>
+            </div>
+            <div class="menu-scrim" data-dismiss="menu" tabindex="0"></div>
+          </div>
+        </div>
+        <div class="col mb-5">
+          {% if trilha %}
+          <nav class="br-breadcrumb" aria-label="Trilha de navegação">
+            <ol class="crumb-list" role="list">
+              <li class="crumb home"><a class="br-button circle" href="{{ url_for('home') }}"><span class="sr-only">Página inicial</span><i class="fas fa-home" aria-hidden="true"></i></a></li>
+              {% for rotulo, url in trilha %}
+                {% if url %}<li class="crumb"><i class="icon fas fa-chevron-right" aria-hidden="true"></i><a href="{{ url }}">{{ rotulo }}</a></li>
+                {% else %}<li class="crumb" data-active="active"><i class="icon fas fa-chevron-right" aria-hidden="true"></i><span tabindex="0" aria-current="page">{{ rotulo }}</span></li>{% endif %}
+              {% endfor %}
+            </ol>
+          </nav>
+          {% endif %}
+          <div class="main-content pl-sm-3 mt-4" id="main-content">
+            {% from "_macros.html" import mensagens %}{{ mensagens() }}
+            {% block conteudo %}{% endblock %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <footer class="br-footer pt-3" id="footer">
+    <div class="container-lg">
+      <div class="logo"><span class="text-up-02 text-weight-bold">CFC</span></div>
+      <span class="br-divider my-3"></span>
+      <div class="info"><div class="text-down-01 text-medium pb-3">{{ DSGOV.ORGAO }} · {{ DSGOV.SISTEMA }} · {{ DSGOV.SUBTITULO }}</div></div>
+    </div>
+  </footer>
+  <div class="br-cookiebar default d-none" tabindex="-1"></div>
+</div>
+<script src="{{ url_for('static', filename='dsgov/vendor/govbr-ds/core.min.js') }}"></script>
+<script src="{{ url_for('static', filename='dsgov/js/dsgov.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
