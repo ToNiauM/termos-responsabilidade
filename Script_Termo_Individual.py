@@ -1,8 +1,11 @@
-import pandas as pd
+from pathlib import Path
+
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.shared import Pt
+
+import config
 
 # Formata o valor como moeda brasileira, sem usar locale
 def formatar_moeda(valor):
@@ -17,8 +20,9 @@ def centralizar_celula(celula):
     vAlign.set("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val", "center")
     tcPr.append(vAlign)
 
-def criar_termo_responsabilidade(nome, bens):
-    doc = Document('timbrado.docx')
+def criar_termo_responsabilidade(nome, bens, destino):
+    """bens: lista de dicts com numero, descricao, complemento, valor_atual. Grava em destino."""
+    doc = Document(str(config.caminho_timbrado()))
 
     p = doc.add_heading(level=1)
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -59,22 +63,16 @@ def criar_termo_responsabilidade(nome, bens):
                 str(int(larguras_colunas[i] * 567)))
         tcPr.append(tcW)
 
-    for _, bem in bens.iterrows():
-        patrimonio = str(bem['Patrimônio']) if not pd.isna(bem['Patrimônio']) else ""
-        descricao = str(bem['Descrição']) if not pd.isna(bem['Descrição']) else ""
-        complemento = str(bem['Complemento']) if not pd.isna(bem['Complemento']) else ""
-        valor_atual = formatar_moeda(bem['Valor Atual']) if not pd.isna(bem['Valor Atual']) else ""
-
+    for bem in bens:
         row_cells = tabela.add_row().cells
-        row_cells[0].text = patrimonio
-        row_cells[1].text = descricao
-        row_cells[2].text = complemento
-        row_cells[3].text = valor_atual
-
+        row_cells[0].text = str(bem["numero"])
+        row_cells[1].text = bem["descricao"] or ""
+        row_cells[2].text = bem["complemento"] or ""
+        row_cells[3].text = formatar_moeda(bem["valor_atual"] or 0)
         for cell in row_cells:
             centralizar_celula(cell)
 
-    valor_total = bens['Valor Atual'].sum()
+    valor_total = sum(b["valor_atual"] or 0 for b in bens)
     total_row = tabela.add_row().cells
     total_row[0].merge(total_row[2])
     total_row[0].text = "TOTAL"
@@ -119,16 +117,5 @@ def criar_termo_responsabilidade(nome, bens):
     p_assinado.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_assinado.add_run("Assinado eletronicamente via SEI")
 
-    doc.save(f"Termo_{nome.replace(' ', '_')}.docx")
-
-
-if __name__ == "__main__":
-    df_geral = pd.read_excel('geral.xlsx', sheet_name='dados')
-    df_geral['Patrimônio'] = df_geral['Patrimônio'].astype(str)
-    df_geral['Descrição'] = df_geral['Descrição'].astype(str)
-    df_geral['Complemento'] = df_geral['Complemento'].astype(str)
-
-    for nome, grupo in df_geral.groupby('Nome'):
-        criar_termo_responsabilidade(nome, grupo)
-
-    print("Termos de responsabilidade criados com sucesso!")
+    doc.save(str(destino))
+    return Path(destino)

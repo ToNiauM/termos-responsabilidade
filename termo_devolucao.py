@@ -1,9 +1,12 @@
-import pandas as pd
+from pathlib import Path
+
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.shared import Pt
 from datetime import datetime
+
+import config
 
 def formatar_moeda(valor):
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -17,12 +20,11 @@ def centralizar_celula(celula):
     vAlign.set("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val", "center")
     tcPr.append(vAlign)
 
-def gerar_termo_devolucao(nome, lista_de_bens):
-    bens = pd.DataFrame(lista_de_bens)
-    if bens.empty:
+def gerar_termo_devolucao(nome, bens, destino):
+    """bens: dicts de db.bens. Devolve None se a lista estiver vazia."""
+    if not bens:
         return None
-
-    doc = Document('timbrado.docx')
+    doc = Document(str(config.caminho_timbrado()))
 
     # Título
     p = doc.paragraphs[0]
@@ -66,18 +68,17 @@ def gerar_termo_devolucao(nome, lista_de_bens):
                 str(int(larguras_colunas[i] * 567)))
         tcPr.append(tcW)
 
-    for _, bem in bens.iterrows():
+    for bem in bens:
         row_cells = tabela.add_row().cells
-        row_cells[0].text = str(bem['Número Bem'])
-        row_cells[1].text = str(bem['Descrição'])
-        row_cells[2].text = str(bem['Complemento'])
-        row_cells[3].text = formatar_moeda(bem['Valor Atual'])
-
+        row_cells[0].text = str(bem['numero'])
+        row_cells[1].text = bem['descricao'] or ""
+        row_cells[2].text = bem['complemento'] or ""
+        row_cells[3].text = formatar_moeda(bem['valor_atual'] or 0)
         for cell in row_cells:
             centralizar_celula(cell)
 
     # Linha total
-    total = bens['Valor Atual'].sum()
+    total = sum(b["valor_atual"] or 0 for b in bens)
     total_row = tabela.add_row().cells
     total_row[0].merge(total_row[2])
     total_row[0].text = "TOTAL"
@@ -122,6 +123,5 @@ def gerar_termo_devolucao(nome, lista_de_bens):
     p6 = doc.add_paragraph("Assinado eletronicamente via SEI")
     p6.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    nome_arquivo = f"Termo_Devolucao_{nome.replace(' ', '_')}.docx"
-    doc.save(nome_arquivo)
-    return nome_arquivo
+    doc.save(str(destino))
+    return Path(destino)
