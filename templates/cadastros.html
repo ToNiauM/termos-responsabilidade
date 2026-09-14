@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% from "_macros.html" import select, cabecalho_tabela %}
+{% block titulo %}Cadastros{% endblock %}
+{% block conteudo %}
+<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Cadastros</h1></div>
+<div class="br-tab">
+  <nav class="tab-nav" aria-label="Cadastros">
+    <ul role="tablist">
+      {% for id, rotulo in [('responsaveis', 'Responsáveis'), ('localizacoes', 'Localizações'), ('pessoas', 'Pessoas')] %}
+      <li class="tab-item{% if aba == id %} active{% endif %}" title="{{ rotulo }}" role="presentation">
+        <button type="button" role="tab" id="tab-{{ id }}" data-panel="painel-{{ id }}" aria-controls="painel-{{ id }}" aria-selected="{{ 'true' if aba == id else 'false' }}"
+                onclick="history.replaceState(null, '', '{{ url_for('cadastros', aba=id) }}')"><span class="name">{{ rotulo }}</span></button>
+      </li>
+      {% endfor %}
+    </ul>
+  </nav>
+  <div class="tab-content">
+
+    <div class="tab-panel{% if aba == 'responsaveis' %} active{% endif %}" id="painel-responsaveis" role="tabpanel" aria-labelledby="tab-responsaveis">
+      <form method="post" action="{{ url_for('responsaveis_incluir') }}" class="row mb-4">
+        {% for campo, rotulo in [('ccustos', 'Sigla do centro de custo'), ('responsavel', 'Responsável'), ('tratamento', 'Tratamento (Prezado/Prezada)'), ('funcao', 'Função'), ('matricula', 'Matrícula'), ('email', 'E-mail')] %}
+        <div class="col-md-4 mb-3"><div class="br-input"><label for="r-{{ campo }}">{{ rotulo }}</label><input id="r-{{ campo }}" name="{{ campo }}" type="text"{% if campo in ('ccustos', 'responsavel') %} required{% endif %}/></div></div>
+        {% endfor %}
+        <div class="col-12"><button class="br-button primary" type="submit"><i class="fas fa-plus mr-1" aria-hidden="true"></i>Incluir</button></div>
+      </form>
+      {{ cabecalho_tabela('Responsáveis por centro de custo', 'resp') }}
+        <thead><tr><th scope="col">Centro</th><th scope="col">Responsável</th><th scope="col">Função</th><th scope="col">Matrícula</th><th scope="col">E-mail</th><th scope="col" class="dsgov-acoes">Ações</th></tr></thead>
+        <tbody>
+        {% for c in centros %}
+        <tr>
+          <td>{{ c.ccustos }}</td><td>{{ c.responsavel }}</td><td>{{ c.funcao }}</td><td>{{ c.matricula }}</td><td>{{ c.email }}</td>
+          <td class="dsgov-acoes">
+            <form method="post" action="{{ url_for('responsaveis_renomear') }}" class="d-inline-flex align-items-center">
+              <input type="hidden" name="antigo" value="{{ c.ccustos }}"/>
+              <div class="br-input small mr-1"><label class="sr-only" for="novo-{{ loop.index }}">Nova sigla</label><input id="novo-{{ loop.index }}" name="novo" type="text" placeholder="Nova sigla" required/></div>
+              <button class="br-button circle small" type="submit" aria-label="Renomear {{ c.ccustos }}"><i class="fas fa-pen" aria-hidden="true"></i></button>
+            </form>
+            <form method="post" action="{{ url_for('responsaveis_excluir') }}" class="d-inline">
+              <input type="hidden" name="ccustos" value="{{ c.ccustos }}"/>
+              <button class="br-button circle small" type="submit" aria-label="Excluir {{ c.ccustos }}"><i class="fas fa-trash" aria-hidden="true"></i></button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="tab-panel{% if aba == 'localizacoes' %} active{% endif %}" id="painel-localizacoes" role="tabpanel" aria-labelledby="tab-localizacoes">
+      {% if pendentes %}
+      <div class="br-message warning"><div class="icon"><i class="fas fa-exclamation-triangle fa-lg" aria-hidden="true"></i></div>
+        <div class="content" role="alert"><span class="message-title">Pendentes:</span><span class="message-body"> {{ pendentes|length }} localização(ões) com bens ativos sem centro de custo.</span></div></div>
+      {% endif %}
+      <form method="post" action="{{ url_for('localizacoes_incluir') }}" class="row mb-4">
+        <div class="col-md-6 mb-3">{{ select('localizacao', 'Localização (ativas sem centro)', pendentes) }}</div>
+        <div class="col-md-4 mb-3">{{ select('ccustos', 'Centro de custo', centros|map(attribute='ccustos')|list) }}</div>
+        <div class="col-md-2 mb-3 d-flex align-items-end"><button class="br-button primary" type="submit">Mapear</button></div>
+      </form>
+      {{ cabecalho_tabela('Localizações mapeadas', 'loc') }}
+        <thead><tr><th scope="col">Localização</th><th scope="col">Centro de custo</th><th scope="col" class="dsgov-acoes">Ações</th></tr></thead>
+        <tbody>
+        {% for l in mapeadas %}
+        <tr><td>{{ l.localizacao }}</td><td>{{ l.ccustos }}</td>
+          <td class="dsgov-acoes"><form method="post" action="{{ url_for('localizacoes_excluir') }}" class="d-inline">
+            <input type="hidden" name="localizacao" value="{{ l.localizacao }}"/>
+            <button class="br-button circle small" type="submit" aria-label="Remover mapeamento de {{ l.localizacao }}"><i class="fas fa-trash" aria-hidden="true"></i></button></form></td></tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="tab-panel{% if aba == 'pessoas' %} active{% endif %}" id="painel-pessoas" role="tabpanel" aria-labelledby="tab-pessoas">
+      <div class="row mb-4">
+        <form method="get" action="{{ url_for('cadastros', aba='pessoas') }}" class="col-md-6 mb-3 d-flex align-items-end">
+          <div class="flex-fill mr-2">{{ select('nome', 'Pessoa', pessoas, selecionado=nome) }}</div>
+          <button class="br-button secondary" type="submit">Ver bens</button>
+        </form>
+        <form method="post" action="{{ url_for('pessoas_incluir') }}" class="col-md-6 mb-3 d-flex align-items-end">
+          <div class="br-input flex-fill mr-2"><label for="nova-pessoa">Cadastrar nova pessoa</label><input id="nova-pessoa" name="nome" type="text" required/></div>
+          <button class="br-button secondary" type="submit">Incluir</button>
+        </form>
+      </div>
+      {% if nome %}
+      <div class="d-flex align-items-center mb-3">
+        <h2 class="mb-0 text-up-01">{{ nome }}</h2>
+        <form method="post" action="{{ url_for('pessoas_excluir') }}" class="ml-auto">
+          <input type="hidden" name="nome" value="{{ nome }}"/>
+          {% if confirmar == 'excluir' %}<input type="hidden" name="confirmar" value="1"/>
+          <button class="br-button secondary" type="submit"><i class="fas fa-check mr-1" aria-hidden="true"></i>Confirmar exclusão de {{ nome }}</button>
+          {% else %}<button class="br-button" type="submit"><i class="fas fa-trash mr-1" aria-hidden="true"></i>Excluir pessoa</button>{% endif %}
+        </form>
+      </div>
+      <form method="post" action="{{ url_for('pessoas_atribuir') }}" class="d-flex align-items-end mb-4">
+        <input type="hidden" name="nome" value="{{ nome }}"/>
+        <div class="br-input mr-2"><label for="numero-bem">Nº do patrimônio</label><input id="numero-bem" name="numero" type="text" inputmode="numeric" value="{{ confirmar if confirmar and confirmar != 'excluir' else '' }}" required/></div>
+        {% if confirmar and confirmar != 'excluir' %}<input type="hidden" name="confirmar" value="1"/>
+        <button class="br-button primary" type="submit"><i class="fas fa-check mr-1" aria-hidden="true"></i>Confirmar transferência</button>
+        {% else %}<button class="br-button primary" type="submit"><i class="fas fa-plus mr-1" aria-hidden="true"></i>Atribuir</button>{% endif %}
+      </form>
+      {{ cabecalho_tabela('Bens de ' ~ nome, 'bens') }}
+        <thead><tr><th scope="col">Patrimônio</th><th scope="col">Descrição</th><th scope="col">Complemento</th><th scope="col" class="dsgov-numero">Valor atual</th><th scope="col" class="dsgov-acoes">Ações</th></tr></thead>
+        <tbody>
+        {% for b in bens_pessoa %}
+        <tr><td>{{ b.numero }}</td><td>{{ b.descricao }}</td><td>{{ b.complemento }}</td><td class="dsgov-numero">R$ {{ '%.2f'|format(b.valor_atual or 0) }}</td>
+          <td class="dsgov-acoes"><form method="post" action="{{ url_for('pessoas_desatribuir') }}" class="d-inline">
+            <input type="hidden" name="nome" value="{{ nome }}"/><input type="hidden" name="numero" value="{{ b.numero }}"/>
+            <button class="br-button circle small" type="submit" aria-label="Remover {{ b.numero }} de {{ nome }}"><i class="fas fa-trash" aria-hidden="true"></i></button></form></td></tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+      <p class="mt-3"><a class="br-button" href="{{ url_for('termo', tipo='individual', chave=nome) }}"><i class="fas fa-file-alt mr-1" aria-hidden="true"></i>Ver termo individual</a></p>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}

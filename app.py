@@ -164,15 +164,104 @@ def upload():
                            trilha=[("Atualizar base", None)])
 
 
-# ---------------------------------------------------------------- rotas provisórias (Tasks 11 e 12)
+# ---------------------------------------------------------------- rotas provisórias (Task 12)
 @app.route("/termo_devolucao")
 def termo_devolucao():
     return redirect(url_for("home"))
 
 
+# ---------------------------------------------------------------- cadastros
+ABAS = ("responsaveis", "localizacoes", "pessoas")
+
+
 @app.route("/cadastros/<aba>")
 def cadastros(aba):
-    return redirect(url_for("home"))
+    if aba not in ABAS:
+        abort(404)
+    conn = obter_conn()
+    nome = request.args.get("nome") or None
+    return render_template(
+        "cadastros.html", aba=aba, trilha=[("Cadastros", None)],
+        centros=db.centros(conn), mapeadas=db.localizacoes_mapeadas(conn), pendentes=db.localizacoes_sem_centro(conn),
+        pessoas=db.pessoas(conn), nome=nome, bens_pessoa=db.bens_da_pessoa(conn, nome) if nome else [],
+        confirmar=request.args.get("confirmar"))
+
+
+def _volta(aba, **args):
+    return redirect(url_for("cadastros", aba=aba, **args))
+
+
+@app.route("/cadastros/responsaveis/incluir", methods=["POST"])
+def responsaveis_incluir():
+    db.incluir_responsavel(obter_conn(), request.form)
+    flash("Responsável incluído.", "success")
+    return _volta("responsaveis")
+
+
+@app.route("/cadastros/responsaveis/excluir", methods=["POST"])
+def responsaveis_excluir():
+    db.excluir_responsavel(obter_conn(), request.form["ccustos"])
+    flash("Centro de custo excluído.", "success")
+    return _volta("responsaveis")
+
+
+@app.route("/cadastros/responsaveis/renomear", methods=["POST"])
+def responsaveis_renomear():
+    db.renomear_centro(obter_conn(), request.form["antigo"], request.form["novo"])
+    flash(f"{request.form['antigo']} renomeado para {request.form['novo'].upper()}; localizações atualizadas.", "success")
+    return _volta("responsaveis")
+
+
+@app.route("/cadastros/localizacoes/incluir", methods=["POST"])
+def localizacoes_incluir():
+    db.incluir_localizacao(obter_conn(), request.form["localizacao"], request.form["ccustos"])
+    flash("Localização mapeada.", "success")
+    return _volta("localizacoes")
+
+
+@app.route("/cadastros/localizacoes/excluir", methods=["POST"])
+def localizacoes_excluir():
+    db.excluir_localizacao(obter_conn(), request.form["localizacao"])
+    flash("Mapeamento removido.", "success")
+    return _volta("localizacoes")
+
+
+@app.route("/cadastros/pessoas/incluir", methods=["POST"])
+def pessoas_incluir():
+    nome = db.incluir_pessoa(obter_conn(), request.form["nome"])
+    return _volta("pessoas", nome=nome)
+
+
+@app.route("/cadastros/pessoas/excluir", methods=["POST"])
+def pessoas_excluir():
+    nome = request.form["nome"]
+    if not request.form.get("confirmar"):
+        flash(f"Excluir {nome} remove também os bens atribuídos a ela. Clique em confirmar para prosseguir.", "warning")
+        return _volta("pessoas", nome=nome, confirmar="excluir")
+    db.excluir_pessoa(obter_conn(), nome)
+    flash("Pessoa excluída.", "success")
+    return _volta("pessoas")
+
+
+@app.route("/cadastros/pessoas/atribuir", methods=["POST"])
+def pessoas_atribuir():
+    nome, numero = request.form["nome"], request.form.get("numero", "").strip()
+    if not numero.isdigit():
+        raise db.ErroDeNegocio("Digite o número do bem.")
+    try:
+        db.atribuir(obter_conn(), nome, int(numero), confirmar=bool(request.form.get("confirmar")))
+    except db.JaAtribuido as e:
+        flash(f"O bem {numero} está com {e.pessoa}. Clique em confirmar para transferir a {nome}.", "warning")
+        return _volta("pessoas", nome=nome, confirmar=numero)
+    flash(f"Bem {numero} atribuído a {nome}.", "success")
+    return _volta("pessoas", nome=nome)
+
+
+@app.route("/cadastros/pessoas/desatribuir", methods=["POST"])
+def pessoas_desatribuir():
+    db.desatribuir(obter_conn(), request.form["nome"], int(request.form["numero"]))
+    flash("Atribuição removida; o bem volta a responder pelo setor.", "success")
+    return _volta("pessoas", nome=request.form["nome"])
 
 
 if __name__ == "__main__":

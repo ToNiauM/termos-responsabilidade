@@ -61,3 +61,41 @@ def test_upload_invalido_mostra_erro(cliente):
     r = cliente.post("/upload", data={"arquivo": (io.BytesIO(b"nada"), "x.txt")}, content_type="multipart/form-data",
                      follow_redirects=True)
     assert b".xlsx" in r.data
+
+
+def test_cadastro_responsaveis_incluir_renomear_excluir(cliente):
+    r = cliente.post("/cadastros/responsaveis/incluir", data={"ccustos": "decom", "tratamento": "Prezado",
+                     "responsavel": "THIAGO", "email": "", "matricula": "481", "funcao": "gerente"}, follow_redirects=True)
+    assert b"DECOM" in r.data
+    r = cliente.post("/cadastros/responsaveis/renomear", data={"antigo": "CCI", "novo": "GESERV"}, follow_redirects=True)
+    assert b"GESERV" in r.data and b">CCI<" not in r.data
+    r = cliente.post("/cadastros/responsaveis/excluir", data={"ccustos": "GESERV"}, follow_redirects=True)
+    assert "Remapeie".encode() in r.data
+
+
+def test_cadastro_localizacoes(cliente):
+    r = cliente.get("/cadastros/localizacoes")
+    assert b"99 - SEM MAPA" in r.data
+    r = cliente.post("/cadastros/localizacoes/incluir", data={"localizacao": "99 - SEM MAPA", "ccustos": "CCI"}, follow_redirects=True)
+    assert r.data.count(b"99 - SEM MAPA") >= 1 and b"pendente" not in r.data.lower()
+    cliente.post("/cadastros/localizacoes/excluir", data={"localizacao": "99 - SEM MAPA"})
+    assert b"99 - SEM MAPA" in cliente.get("/cadastros/localizacoes").data
+
+
+def test_cadastro_pessoas_atribuir_com_confirmacao(cliente):
+    cliente.post("/cadastros/pessoas/incluir", data={"nome": "bruno lima"})
+    r = cliente.get("/cadastros/pessoas?nome=BRUNO LIMA")
+    assert b"BRUNO LIMA" in r.data
+    r = cliente.post("/cadastros/pessoas/atribuir", data={"nome": "BRUNO LIMA", "numero": "1002"}, follow_redirects=True)
+    assert b"ANA SILVA" in r.data and b"confirmar" in r.data  # pede confirmação
+    r = cliente.post("/cadastros/pessoas/atribuir", data={"nome": "BRUNO LIMA", "numero": "1002", "confirmar": "1"},
+                     follow_redirects=True)
+    assert b"NOTEBOOK" in r.data
+    r = cliente.post("/cadastros/pessoas/desatribuir", data={"nome": "BRUNO LIMA", "numero": "1002"}, follow_redirects=True)
+    assert b"NOTEBOOK" not in r.data
+    r = cliente.post("/cadastros/pessoas/atribuir", data={"nome": "BRUNO LIMA", "numero": "9999"}, follow_redirects=True)
+    assert "não encontrado".encode() in r.data
+    r = cliente.post("/cadastros/pessoas/excluir", data={"nome": "BRUNO LIMA"}, follow_redirects=True)
+    assert b"confirmar" in r.data
+    cliente.post("/cadastros/pessoas/excluir", data={"nome": "BRUNO LIMA", "confirmar": "1"})
+    assert b"BRUNO LIMA" not in cliente.get("/cadastros/pessoas").data
