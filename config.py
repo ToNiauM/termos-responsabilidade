@@ -30,12 +30,8 @@ def caminho_timbrado() -> Path:
     return pasta_dados() / "timbrado.docx"
 
 
-def pasta_saida() -> Path:
-    return pasta_dados() / "saida"
-
-
 def preparar_pastas() -> None:
-    """Cria dados/saida e copia o timbrado na primeira execução."""
-    pasta_saida().mkdir(parents=True, exist_ok=True)
+    """Cria a pasta de dados e copia o timbrado na primeira execução."""
+    pasta_dados().mkdir(parents=True, exist_ok=True)
     if not caminho_timbrado().exists():
         shutil.copy(pasta_recursos() / "timbrado.docx", caminho_timbrado())

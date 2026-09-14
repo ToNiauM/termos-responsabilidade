@@ -1,4 +1,6 @@
 """Termos de Responsabilidade — CFC. Rotas Flask; dados em db.py; documentos em termos_html.py e nos geradores."""
+import io
+
 from flask import Flask, abort, flash, g, redirect, render_template, request, send_file, session, url_for
 
 import config
@@ -51,6 +53,12 @@ def erro_de_negocio(e):
 
 def _nome_arquivo(s: str) -> str:
     return "".join(c if c.isalnum() or c in "-_" else "_" for c in s)
+
+
+def _baixar(arquivo: io.BytesIO, nome: str):
+    """Envia um arquivo gerado em memória; nada é gravado em disco."""
+    arquivo.seek(0)
+    return send_file(arquivo, as_attachment=True, download_name=nome)
 
 
 # ---------------------------------------------------------------- início e ficha do bem
@@ -121,9 +129,7 @@ def termo(tipo, chave):
 @app.route("/termo/<tipo>/<chave>/documento")
 def termo_documento(tipo, chave):
     titulo, corpo, _, _ = _bens_do_termo(obter_conn(), tipo, chave)
-    html = termos_html.documento(titulo, corpo)
-    (config.pasta_saida() / f"{_nome_arquivo(titulo)}.html").write_text(html, encoding="utf8")
-    return html
+    return termos_html.documento(titulo, corpo)
 
 
 @app.route("/termo/<tipo>/<chave>/docx")
@@ -131,24 +137,25 @@ def termo_docx(tipo, chave):
     conn = obter_conn()
     _, _, bens, extra = _bens_do_termo(conn, tipo, chave)
     t = textos.obter(conn)
-    saida = config.pasta_saida()
+    arquivo = io.BytesIO()   # gerado em memória: nada fica gravado no servidor
     if tipo == "ccusto":
-        destino = gerar_termo_centro(chave, extra, bens, saida / f"Termo_de_Responsabilidade_{_nome_arquivo(chave)}.docx", textos=t)
+        gerar_termo_centro(chave, extra, bens, arquivo, textos=t)
+        nome = f"Termo_de_Responsabilidade_{_nome_arquivo(chave)}.docx"
     elif tipo == "individual":
-        destino = criar_termo_responsabilidade(chave, bens, saida / f"Termo_{_nome_arquivo(chave)}.docx", textos=t)
+        criar_termo_responsabilidade(chave, bens, arquivo, textos=t)
+        nome = f"Termo_{_nome_arquivo(chave)}.docx"
     else:
-        destino = gerar_termo_devolucao(chave, bens, saida / f"Termo_Devolucao_{_nome_arquivo(chave)}.docx", textos=t)
-        if destino is None:
+        if gerar_termo_devolucao(chave, bens, arquivo, textos=t) is None:
             flash("Nenhum bem selecionado.", "error")
             return redirect(url_for("termo_devolucao"))
-    return send_file(destino, as_attachment=True, download_name=destino.name)
+        nome = f"Termo_Devolucao_{_nome_arquivo(chave)}.docx"
+    return _baixar(arquivo, nome)
 
 
 @app.route("/termo/ccusto/<chave>/planilha")
 def termo_planilha(chave):
     _, _, bens, _ = _bens_do_termo(obter_conn(), "ccusto", chave)
-    destino = gerar_planilha_centro(bens, config.pasta_saida() / f"planilha_{_nome_arquivo(chave)}.xlsx")
-    return send_file(destino, as_attachment=True, download_name=destino.name)
+    return _baixar(gerar_planilha_centro(bens, io.BytesIO()), f"planilha_{_nome_arquivo(chave)}.xlsx")
 
 
 # ---------------------------------------------------------------- atualizar base
@@ -168,8 +175,7 @@ def upload():
 
 @app.route("/bens/exportar")
 def bens_exportar():
-    destino = db.exportar_bens(obter_conn(), config.pasta_saida() / "bens.xlsx")
-    return send_file(destino, as_attachment=True, download_name="bens.xlsx")
+    return _baixar(db.exportar_bens(obter_conn(), io.BytesIO()), "bens.xlsx")
 
 
 # ---------------------------------------------------------------- termo de devolução
@@ -371,8 +377,7 @@ def pessoas_desatribuir():
 
 @app.route("/cadastros/exportar")
 def cadastros_exportar():
-    destino = db.exportar_cadastros(obter_conn(), config.pasta_saida() / "cadastros.xlsx")
-    return send_file(destino, as_attachment=True, download_name="cadastros.xlsx")
+    return _baixar(db.exportar_cadastros(obter_conn(), io.BytesIO()), "cadastros.xlsx")
 
 
 @app.route("/importar-cadastros", methods=["POST"])

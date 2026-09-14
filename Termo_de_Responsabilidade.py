@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Inches, Pt
@@ -88,8 +86,8 @@ def gerar_termo_centro(ccustos, responsavel, bens, destino, textos=None):
     for run in paragrafo_assinatura.runs:
         run.font.size = Pt(12)
 
-    documento.save(str(destino))
-    return Path(destino)
+    documento.save(destino)
+    return destino
 
 
 def gerar_planilha_centro(bens, destino):
@@ -100,5 +98,5 @@ def gerar_planilha_centro(bens, destino):
     ws.append(["numero", "descricao", "complemento", "localizacao", "valor_atual"])
     for b in sorted(bens, key=lambda b: b["numero"]):
         ws.append([b["numero"], b["descricao"], b["complemento"], b["localizacao"], b["valor_atual"]])
-    wb.save(str(destino))
-    return Path(destino)
+    wb.save(destino)
+    return destino

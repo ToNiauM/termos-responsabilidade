@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
@@ -111,5 +109,5 @@ def criar_termo_responsabilidade(nome, bens, destino, textos=None):
     p_assinado.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_assinado.add_run(t["assinatura_eletronica"])
 
-    doc.save(str(destino))
-    return Path(destino)
+    doc.save(destino)
+    return destino

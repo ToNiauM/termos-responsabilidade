@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
@@ -125,5 +123,5 @@ def gerar_termo_devolucao(nome, bens, destino, textos=None):
     p6 = doc.add_paragraph(t["assinatura_eletronica"])
     p6.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    doc.save(str(destino))
-    return Path(destino)
+    doc.save(destino)
+    return destino

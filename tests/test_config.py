@@ -7,14 +7,13 @@ def test_env_sobrepoe_pasta_dados(tmp_path, monkeypatch):
     assert config.pasta_dados() == tmp_path
     assert config.caminho_db() == tmp_path / "termos.db"
     assert config.caminho_timbrado() == tmp_path / "timbrado.docx"
-    assert config.pasta_saida() == tmp_path / "saida"
 
 
-def test_preparar_pastas_cria_saida_e_copia_timbrado(tmp_path, monkeypatch):
-    monkeypatch.setenv("TERMOS_DADOS", str(tmp_path))
+def test_preparar_pastas_copia_timbrado(tmp_path, monkeypatch):
+    monkeypatch.setenv("TERMOS_DADOS", str(tmp_path / "dados"))
     import config
     config.preparar_pastas()
-    assert (tmp_path / "saida").is_dir()
+    tmp_path = tmp_path / "dados"
     assert (tmp_path / "timbrado.docx").stat().st_size > 1000
 
 

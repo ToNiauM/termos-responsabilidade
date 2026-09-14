@@ -397,8 +397,8 @@ def exportar_cadastros(conn, destino: Path) -> Path:
         ws.append(colunas)
         for linha in conn.execute(f"SELECT {', '.join(colunas)} FROM {tabela} ORDER BY {colunas[0]}"):
             ws.append(list(linha))
-    wb.save(str(destino))
-    return Path(destino)
+    wb.save(destino)
+    return destino
 
 
 def _ler_aba_cadastro(wb, tabela: str, problemas: list) -> list[dict]:
@@ -519,5 +519,5 @@ def exportar_bens(conn, destino: Path) -> Path:
     campos = ", ".join(COLUNAS_EXPORT.values())
     for linha in conn.execute(f"SELECT {campos} FROM bens ORDER BY numero"):
         ws.append(list(linha))
-    wb.save(str(destino))
-    return Path(destino)
+    wb.save(destino)
+    return destino
