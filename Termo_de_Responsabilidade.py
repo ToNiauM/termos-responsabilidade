@@ -6,27 +6,21 @@ from docx.shared import Inches, Pt
 from openpyxl import Workbook
 
 import config
+import textos as textos_mod
 
 # Função para formatar moeda no estilo brasileiro sem usar locale
 def formatar_moeda(valor):
     return f"R$ {valor:,.2f}".replace(",", "v").replace(".", ",").replace("v", ".")
 
-texto_padrao = """
-Pelo presente termo, eu, {responsavel}, matrícula n.º {matricula}, {funcao} do(a) {ccustos} do CFC, declaro que os bens patrimoniais abaixo discriminados se encontram na localização sob a minha guarda e responsabilidade.
-Assumo TOTAL responsabilidade pelos referidos bens, comprometendo-me a informar o Setor de Patrimônio quanto a qualquer alteração e/ou irregularidade, bem como zelar pela guarda e bom uso do patrimônio público.
-Em caso de extravio ou dano a bem sob a minha responsabilidade, comprometo-me a ressarcir o CFC dos prejuízos causados.
-Observações:
-Em caso de perda ou roubo do bem, o responsável deverá registrar boletim de ocorrência policial e apresentar ao Setor de Patrimônio;
-Ao final do mandato, função ou designação, o responsável deverá devolver o bem, se for o caso.
-No caso de movimentação e transferência de bens entre as unidades administrativas, o Setor de Patrimônio utilizará o Termo de Transferência disponível no SEI, que será apensado a processo específico até a emissão de um novo termo atualizado.
-"""
 
-
-def gerar_termo_centro(ccustos, responsavel, bens, destino):
+def gerar_termo_centro(ccustos, responsavel, bens, destino, textos=None):
     """Um termo para um centro de custo. responsavel: dict de db.responsaveis; bens: dicts de db.bens."""
     documento = Document(str(config.caminho_timbrado()))
+    t = textos or textos_mod.PADRAO
+    campos = {k: responsavel.get(k) or "" for k in ("responsavel", "matricula", "funcao")}
+    campos.update(ccustos=ccustos, orgao_sigla=t["orgao_sigla"])
     cabecalho = documento.add_paragraph()
-    cabecalho_run = cabecalho.add_run(f'Termo de Responsabilidade - {ccustos}')
+    cabecalho_run = cabecalho.add_run(t["ccusto_titulo"].format_map(campos))
     cabecalho_run.font.bold = True
     cabecalho.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
     cabecalho_run.font.size = Pt(16)
@@ -34,16 +28,11 @@ def gerar_termo_centro(ccustos, responsavel, bens, destino):
     soma_valores = sum(b["valor_atual"] or 0 for b in bens)
     grupo_ordenado = sorted(bens, key=lambda b: b["numero"])
 
-    for paragraph in texto_padrao.strip().split('\n'):
+    for paragraph in textos_mod.paragrafos(t["ccusto_paragrafos"]):
         paragrafo = documento.add_paragraph()
         paragrafo.paragraph_format.first_line_indent = Inches(0.59)
         paragrafo.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        paragrafo.add_run(paragraph.format(
-            responsavel=responsavel['responsavel'],
-            matricula=responsavel['matricula'],
-            funcao=responsavel['funcao'],
-            ccustos=ccustos
-        ))
+        paragrafo.add_run(paragraph.format_map(campos))
 
     tabela = documento.add_table(rows=1, cols=5)
     tabela.style = 'Table Grid'
@@ -94,7 +83,7 @@ def gerar_termo_centro(ccustos, responsavel, bens, destino):
 
     documento.add_paragraph()
     paragrafo_assinatura = documento.add_paragraph()
-    paragrafo_assinatura.add_run(f"{responsavel['responsavel']}\n{responsavel['funcao']} do(a) {ccustos} do CFC")
+    paragrafo_assinatura.add_run("\n".join(l.format_map(campos) for l in textos_mod.linhas(t["ccusto_assinatura"])))
     paragrafo_assinatura.alignment = WD_ALIGN_PARAGRAPH.CENTER
     for run in paragrafo_assinatura.runs:
         run.font.size = Pt(12)

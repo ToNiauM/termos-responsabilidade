@@ -6,6 +6,7 @@ from docx.oxml import OxmlElement
 from docx.shared import Pt
 
 import config
+import textos as textos_mod
 
 # Formata o valor como moeda brasileira, sem usar locale
 def formatar_moeda(valor):
@@ -20,13 +21,15 @@ def centralizar_celula(celula):
     vAlign.set("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val", "center")
     tcPr.append(vAlign)
 
-def criar_termo_responsabilidade(nome, bens, destino):
+def criar_termo_responsabilidade(nome, bens, destino, textos=None):
     """bens: lista de dicts com numero, descricao, complemento, valor_atual. Grava em destino."""
+    t = textos or textos_mod.PADRAO
     doc = Document(str(config.caminho_timbrado()))
+    campos = {"nome": nome, "orgao_sigla": t["orgao_sigla"]}
 
     p = doc.add_heading(level=1)
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run('TERMO DE RESPONSABILIDADE')
+    run = p.add_run(t["individual_titulo"].format_map(campos))
     run.bold = True
     run.italic = False
     run.font.size = Pt(14)
@@ -35,9 +38,11 @@ def criar_termo_responsabilidade(nome, bens, destino):
 
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-    p.add_run("Pelo presente termo, eu, ")
-    p.add_run(f"{nome}").bold = True
-    p.add_run(", declaro que o(s) equipamento(s) abaixo discriminado(s) se encontra(m) sob a minha guarda e responsabilidade.")
+    antes, nome_negrito, depois = textos_mod.com_nome(t["individual_abertura"], campos)
+    p.add_run(antes)
+    if nome_negrito is not None:
+        p.add_run(nome_negrito).bold = True
+        p.add_run(depois)
 
     doc.add_paragraph("")
 
@@ -86,27 +91,16 @@ def criar_termo_responsabilidade(nome, bens, destino):
 
     doc.add_paragraph("")
 
-    novo_paragrafo = """
-    Comprometo-me a:
-
-    1) zelar pela guarda, uso adequado e conservação do(s) bem(ns), utilizando-o(s) exclusivamente para fins profissionais do CFC;
-
-    2) informar imediatamente ao Setor de Patrimônio qualquer dano, inutilização, perda ou roubo, apresentando boletim de ocorrência quando necessário;
-
-    3) ressarcir o CFC por danos ou perdas decorrentes de negligência do responsável, após decisão da Câmara de Assuntos Administrativos (CAD) e homologação pelo Plenário do CFC, em conformidade com o Manual de Gestão Patrimonial do CFC;
-
-    4) devolver o(s) equipamento(s) e acessórios ao término do vínculo, mediante solicitação ou em caso de substituição, em condições compatíveis com o uso; e
-
-    5) fornecer informações sobre o(s) bem(ns) sempre que solicitado, especialmente durante o inventário patrimonial.
-    """
-
     doc.add_paragraph("")
-    for paragraph in novo_paragrafo.strip().split('\n'):
-        p = doc.add_paragraph(paragraph.strip())
+    p = doc.add_paragraph(t["individual_compromissos_intro"].format_map(campos))
+    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    for item in textos_mod.linhas(t["individual_compromissos"]):
+        doc.add_paragraph("")
+        p = doc.add_paragraph(item.format_map(campos))
         p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
     doc.add_paragraph("")
-    doc.add_paragraph("Declaro estar ciente das responsabilidades mencionadas acima e assumo total responsabilidade pelos bens listados.")
+    doc.add_paragraph(t["individual_ciencia"].format_map(campos))
     doc.add_paragraph("")
 
     p_assinado = doc.add_paragraph()
@@ -115,7 +109,7 @@ def criar_termo_responsabilidade(nome, bens, destino):
 
     p_assinado = doc.add_paragraph()
     p_assinado.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_assinado.add_run("Assinado eletronicamente via SEI")
+    p_assinado.add_run(t["assinatura_eletronica"])
 
     doc.save(str(destino))
     return Path(destino)

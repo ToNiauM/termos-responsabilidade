@@ -4,9 +4,11 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.shared import Pt
-from datetime import datetime
+from datetime import date
 
 import config
+import textos as textos_mod
+from termos_html import data_por_extenso
 
 def formatar_moeda(valor):
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -20,17 +22,19 @@ def centralizar_celula(celula):
     vAlign.set("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val", "center")
     tcPr.append(vAlign)
 
-def gerar_termo_devolucao(nome, bens, destino):
+def gerar_termo_devolucao(nome, bens, destino, textos=None):
     """bens: dicts de db.bens. Devolve None se a lista estiver vazia."""
     if not bens:
         return None
     doc = Document(str(config.caminho_timbrado()))
+    t = textos or textos_mod.PADRAO
+    campos = {"nome": nome, "orgao_sigla": t["orgao_sigla"], "cidade": t["cidade"], "data": data_por_extenso(date.today())}
 
     # Título
     p = doc.paragraphs[0]
     p.clear()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run("TERMO DE DEVOLUÇÃO")
+    run = p.add_run(t["devolucao_titulo"].format_map(campos))
     run.bold = True
     run.italic = False
     run.font.size = Pt(14)
@@ -40,9 +44,11 @@ def gerar_termo_devolucao(nome, bens, destino):
     # Texto de introdução
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-    p.add_run("Pelo presente termo, eu, ").bold = False
-    p.add_run(nome).bold = True
-    p.add_run(", declaro que devolvi ao Setor de Patrimônio o(s) bem(ns) abaixo discriminado(s), que se encontrava(m) sob minha guarda e responsabilidade:")
+    antes, nome_negrito, depois = textos_mod.com_nome(t["devolucao_abertura"], campos)
+    p.add_run(antes).bold = False
+    if nome_negrito is not None:
+        p.add_run(nome_negrito).bold = True
+        p.add_run(depois)
 
     doc.add_paragraph()
 
@@ -92,11 +98,7 @@ def gerar_termo_devolucao(nome, bens, destino):
     doc.add_paragraph()
 
     # Data
-    hoje = datetime.now()
-    meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-             'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
-    data_formatada = f"Brasília (DF), {hoje.day} de {meses[hoje.month - 1]} de {hoje.year}"
-    p_data = doc.add_paragraph(data_formatada)
+    p_data = doc.add_paragraph(t["devolucao_data"].format_map(campos))
     p_data.alignment = WD_ALIGN_PARAGRAPH.RIGHT
 
     doc.add_paragraph()
@@ -106,21 +108,21 @@ def gerar_termo_devolucao(nome, bens, destino):
     p1 = doc.add_paragraph()
     p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p1.add_run(nome).bold = True
-    p2 = doc.add_paragraph("Assinado eletronicamente via SEI")
+    p2 = doc.add_paragraph(t["assinatura_eletronica"])
     p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     doc.add_paragraph()
 
-    p3 = doc.add_paragraph("Declaro que recebi o(s) bem(ns) acima especificado(s):")
+    p3 = doc.add_paragraph(t["devolucao_recebimento"].format_map(campos))
     p3.alignment = WD_ALIGN_PARAGRAPH.LEFT
 
     doc.add_paragraph()
     p4 = doc.add_paragraph()
     p4.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p4.add_run("ANTÔNIO RODRIGUES DE SOUSA JÚNIOR").bold = True
-    p5 = doc.add_paragraph("Supervisor de Patrimônio")
+    p4.add_run(t["recebedor_nome"]).bold = True
+    p5 = doc.add_paragraph(t["recebedor_cargo"])
     p5.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p6 = doc.add_paragraph("Assinado eletronicamente via SEI")
+    p6 = doc.add_paragraph(t["assinatura_eletronica"])
     p6.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     doc.save(str(destino))
