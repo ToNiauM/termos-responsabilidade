@@ -64,7 +64,7 @@ def migrar(conn, acervo: Path, geral: Path) -> dict:
     contar = lambda t: conn.execute(f"SELECT count(*) FROM {t}").fetchone()[0]
     return {"bens": resumo_bens["total"], "responsaveis": contar("responsaveis"),
             "localizacoes": contar("localizacoes"), "pessoas": contar("pessoas"),
-            "atribuicoes": contar("atribuicoes"), "sem_centro": resumo_bens["sem_centro"], "avisos": avisos}
+            "atribuicoes": contar("atribuicoes"), "sem_centro": db.localizacoes_sem_centro(conn), "avisos": avisos}
 
 
 if __name__ == "__main__":

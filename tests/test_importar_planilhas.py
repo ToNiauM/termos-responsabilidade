@@ -49,3 +49,4 @@ def test_migrar_popula_cinco_tabelas(dados, tmp_path):
     assert db.responsavel(dados, "SEPAT")["responsavel"] == "(preencher)"
     assert [l["localizacao"] for l in db.localizacoes_mapeadas(dados)] == ["01 - SALA CCI", "03 - DEPOSITO"]
     assert "SEPAT" in resumo["avisos"][0]
+    assert resumo["sem_centro"] == ["02 - GAB"]
