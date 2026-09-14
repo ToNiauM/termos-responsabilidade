@@ -116,6 +116,9 @@ receber essas listas em vez de `DataFrame`; a troca é `bem['campo']` por `bem['
 - **Termo por centro de custo** (`bens_do_centro(ccustos)`): bens `ATIVO` cuja `localizacao` mapeia
   para `ccustos` **e que não estão em `atribuicoes`** (regra §5.2), ordenados por número. Cabeçalho
   vem de `responsaveis`.
+  Continua gravando `planilha_<ccustos>.xlsx` em `dados/saida/` (número, descrição, complemento,
+  localização, valor atual) — com openpyxl, para quem quiser analisar os dados; disponível na página
+  do termo como botão terciário "Baixar planilha".
 - **Termo individual** (`bens_da_pessoa(nome)`): `atribuicoes JOIN bens`, ordenados por número.
   Descrição e valor vêm sempre de `bens` (hoje dependem de VLOOKUP na planilha).
 - **Termo de devolução**: mantém o fluxo atual (pessoa + números digitados um a um, guardados na
