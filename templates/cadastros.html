@@ -57,16 +57,16 @@
         <div class="col-md-4 mb-3">{{ select('ccustos', 'Centro de custo', centros|map(attribute='ccustos')|list) }}</div>
         <div class="col-md-2 mb-3 d-flex align-items-end"><button class="br-button primary" type="submit">Mapear</button></div>
       </form>
-      <form method="post" action="{{ url_for('localizacoes_mover') }}">
       {{ cabecalho_tabela('Localizações mapeadas', 'loc', selecao=True) }}
         <thead><tr>{{ th_selecao('loc') }}<th scope="col">Localização</th><th scope="col">Centro de custo</th><th scope="col" class="dsgov-acoes">Ações</th></tr></thead>
         <tbody>
         {% for l in mapeadas %}
-        <tr>{{ td_selecao('loc', loop.index, 'localizacoes', l.localizacao) }}<td>{{ l.localizacao }}</td><td>{{ l.ccustos }}</td>
+        <tr>{{ td_selecao('loc', loop.index, 'localizacoes', l.localizacao, form='mover-loc') }}<td>{{ l.localizacao }}</td><td>{{ l.ccustos }}</td>
           <td class="dsgov-acoes"><button class="br-button circle small" type="submit" form="excluir-loc-{{ loop.index }}" aria-label="Remover mapeamento de {{ l.localizacao }}"><i class="fas fa-trash" aria-hidden="true"></i></button></td></tr>
         {% endfor %}
         </tbody>
       </table></div>
+      <form id="mover-loc" method="post" action="{{ url_for('localizacoes_mover') }}">
       <div class="row mt-3">
         <div class="col-md-5">{{ select('ccustos_destino', 'Mover selecionadas para', centros|map(attribute='ccustos')|list) }}</div>
         <div class="col-md-3 d-flex align-items-end"><button class="br-button secondary" type="submit"><i class="fas fa-exchange-alt mr-1" aria-hidden="true"></i>Mover</button></div>

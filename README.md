@@ -8,8 +8,10 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
 
 1. Abra `TermosCFC.exe`. A janela abre em `http://127.0.0.1:5000`.
 2. **Atualizar base**: envie o export do sistema de patrimônio (`.xlsx`). Só a tabela de bens muda.
-3. **Cadastros**: responsáveis por centro de custo (com *renomear*), localização → centro de custo,
-   pessoas e bens atribuídos. Bem atribuído a pessoa não entra no termo do setor.
+3. **Cadastros**: responsáveis por centro de custo (editar, inclusive a sigla — as localizações
+   acompanham), localização → centro de custo, pessoas e bens atribuídos. Bem atribuído a pessoa não
+   entra no termo do setor. Excluir um centro só é possível sem bens ativos sob sua guarda; sem bens,
+   seus locais voltam a "pendentes".
 4. **Termos**: escolha o centro/pessoa → página do termo → *Copiar para o SEI* ou *Baixar .docx*.
 5. **Textos**: os dizeres dos termos (abertura, compromissos, parágrafos, quem recebe a devolução,
    cidade, sigla do órgão) são editáveis no menu Textos, com marcadores como `{nome}` e `{ccustos}`;

@@ -24,6 +24,13 @@ def test_validar_recusa_marcador_desconhecido_e_chave_mal_formada():
     textos.validar("orgao_sigla", "")  # vazio permitido
 
 
+@pytest.mark.parametrize("valor", ["{nome:d}", "{nome!r}", "{nome:{orgao_sigla}}", "{{nome}}"])
+def test_validar_recusa_format_spec_e_chaves_duplas(valor):
+    with pytest.raises(db.ErroDeNegocio):
+        textos.validar("individual_abertura", valor)
+    textos.validar("individual_abertura", "Eu, {nome}, do {orgao_sigla}")  # continua passando
+
+
 def test_salvar_igual_ao_padrao_nao_deixa_linha(dados):
     textos.salvar(dados, "cidade", "Brasília (DF)")
     assert dados.execute("SELECT count(*) FROM textos").fetchone()[0] == 0
@@ -51,6 +58,6 @@ def test_obter_ignora_valor_invalido_no_banco(dados):
 
 def test_padrao_cobre_todos_os_grupos_e_marcadores():
     chaves = {c for _, lista in textos.GRUPOS for c in lista}
-    assert chaves == set(textos.PADRAO) == set(textos.MARCADORES)
+    assert chaves == set(textos.PADRAO) == set(textos.MARCADORES) == set(textos.ROTULOS)
     for chave, valor in textos.PADRAO.items():
         textos.validar(chave, valor)  # o padrão tem de passar na própria validação

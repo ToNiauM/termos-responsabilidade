@@ -84,6 +84,14 @@ def test_cadastro_responsaveis_editar_renomear_excluir(cliente):
     assert b">DECOM<" not in r.data
 
 
+def test_editar_responsavel_invalido_nao_renomeia(cliente, dados):
+    r = cliente.post("/cadastros/responsaveis/CCI/editar", data={"ccustos": "GESERV", "responsavel": ""},
+                     follow_redirects=True)
+    assert b"obrigat" in r.data
+    assert db.responsavel(dados, "CCI") is not None
+    assert db.responsavel(dados, "GESERV") is None
+
+
 def test_cadastro_localizacoes_mover(cliente):
     cliente.post("/cadastros/responsaveis/incluir", data={"ccustos": "PRES", "responsavel": "Y"})
     cliente.post("/cadastros/localizacoes/incluir", data={"localizacao": "99 - SEM MAPA", "ccustos": "CCI"})

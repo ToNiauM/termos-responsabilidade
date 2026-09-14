@@ -7,9 +7,9 @@ import db
 from tests.conftest import semear
 
 
-def test_esquema_cria_cinco_tabelas(dados):
+def test_esquema_cria_seis_tabelas(dados):
     nomes = {r["name"] for r in dados.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    assert {"bens", "responsaveis", "localizacoes", "pessoas", "atribuicoes"} <= nomes
+    assert {"bens", "responsaveis", "localizacoes", "pessoas", "atribuicoes", "textos"} <= nomes
 
 
 def test_esquema_e_idempotente(dados):
@@ -302,6 +302,7 @@ def test_importar_cadastros_substitui_e_normaliza(dados, tmp_path):
     ({"responsaveis": [["", "", "X", "", "", ""]]}, "sigla"),
     ({"responsaveis": [["A", "", "", "", "", ""]]}, "responsável"),
     ({"responsaveis": [["A", "", "X", "", "", ""], ["a", "", "Y", "", "", ""]]}, "repetid"),
+    ({"pessoas": [["ANA"]], "atribuicoes": [["ANA", "1001.5"]]}, "inválido"),
 ])
 def test_importar_cadastros_invalidos_nao_alteram_nada(dados, tmp_path, abas, trecho):
     semear(dados)
@@ -321,3 +322,15 @@ def test_importar_cadastros_sem_aba_ou_coluna(dados, tmp_path):
     with pytest.raises(db.ImportacaoInvalida) as e:
         db.importar_cadastros(dados, arq)
     assert "localizacoes" in str(e.value) or "coluna" in str(e.value)
+
+
+def test_importar_planilha_truncada_levanta_importacao_invalida(dados, tmp_path):
+    semear(dados)
+    arq = xlsx(tmp_path, [[1002, "ATIVO", "NOTEBOOK", "DELL", "EQUIP", "01 - SALA CCI", "06/12/2012", 3000, 1400]])
+    bruto = arq.read_bytes()
+    truncado = tmp_path / "trunc.xlsx"
+    truncado.write_bytes(bruto[: int(len(bruto) * 0.6)])
+    with pytest.raises(db.ImportacaoInvalida):
+        db.importar_bens(dados, truncado)
+    with pytest.raises(db.ImportacaoInvalida):
+        db.importar_cadastros(dados, truncado)

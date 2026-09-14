@@ -88,12 +88,20 @@ def validar(chave: str, valor: str) -> None:
     if chave not in PADRAO:
         raise db.ErroDeNegocio(f"Texto '{chave}' não existe.")
     try:
-        campos = {c for _, c, _, _ in string.Formatter().parse(valor) if c is not None}
+        partes = list(string.Formatter().parse(valor))
     except ValueError:
         raise db.ErroDeNegocio(f"{ROTULOS[chave]}: chave {{ sem fechar ou mal formada.")
+    campos = {c for _, c, _, _ in partes if c is not None}
+    for _, campo, format_spec, conversion in partes:
+        if campo is not None and (format_spec or conversion is not None):
+            raise db.ErroDeNegocio(f"{ROTULOS[chave]}: use só {{marcador}}, sem ':' ou '!'.")
     estranhos = sorted(campos - MARCADORES[chave])
     if estranhos:
         raise db.ErroDeNegocio(f"{ROTULOS[chave]}: marcador {{{estranhos[0]}}} não existe neste bloco.")
+    try:
+        com_nome(valor, {m: "x" for m in MARCADORES[chave]})
+    except (ValueError, KeyError, IndexError):
+        raise db.ErroDeNegocio(f"{ROTULOS[chave]}: chaves {{ }} mal formadas.")
 
 
 def obter(conn) -> dict:

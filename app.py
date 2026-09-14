@@ -262,6 +262,7 @@ def responsaveis_editar(ccustos):
     conn = obter_conn()
     c = db.responsavel(conn, ccustos) or abort(404)
     if request.method == "POST":
+        db._obrigatorio(request.form.get("responsavel"), "Responsável")  # valida antes de renomear: nada fica pela metade
         nova = " ".join(request.form.get("ccustos", "").split()).upper()
         if nova and nova != ccustos:
             db.renomear_centro(conn, ccustos, nova)

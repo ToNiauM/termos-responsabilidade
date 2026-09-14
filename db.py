@@ -126,24 +126,30 @@ def importar_bens(conn: sqlite3.Connection, arquivo) -> dict:
     except Exception:
         raise ImportacaoInvalida("Arquivo inválido: envie o export do sistema em .xlsx.")
 
-    ws, cabecalho = _aba_do_export(wb)
-    faltando = [c for c in COLUNAS_EXPORT if c not in cabecalho]
-    if faltando:
-        raise ImportacaoInvalida("Colunas ausentes no export: " + ", ".join(faltando))
-    indice = {campo: cabecalho.index(col) for col, campo in COLUNAS_EXPORT.items()}
+    try:
+        ws, cabecalho = _aba_do_export(wb)
+        faltando = [c for c in COLUNAS_EXPORT if c not in cabecalho]
+        if faltando:
+            raise ImportacaoInvalida("Colunas ausentes no export: " + ", ".join(faltando))
+        indice = {campo: cabecalho.index(col) for col, campo in COLUNAS_EXPORT.items()}
 
-    linhas = []
-    for r in ws.iter_rows(min_row=2, values_only=True):
-        num = _numero(r[indice["numero"]])
-        if num is None:
-            continue
-        linhas.append((
-            int(num), _texto(r[indice["situacao"]]), _texto(r[indice["descricao"]]),
-            _texto(r[indice["complemento"]]), _texto(r[indice["classificacao"]]),
-            _texto(r[indice["localizacao"]]), _texto(r[indice["data_entrada"]]),
-            _numero(r[indice["valor_compra"]]), _numero(r[indice["valor_atual"]]),
-        ))
-    wb.close()
+        linhas = []
+        for r in ws.iter_rows(min_row=2, values_only=True):
+            num = _numero(r[indice["numero"]])
+            if num is None:
+                continue
+            linhas.append((
+                int(num), _texto(r[indice["situacao"]]), _texto(r[indice["descricao"]]),
+                _texto(r[indice["complemento"]]), _texto(r[indice["classificacao"]]),
+                _texto(r[indice["localizacao"]]), _texto(r[indice["data_entrada"]]),
+                _numero(r[indice["valor_compra"]]), _numero(r[indice["valor_atual"]]),
+            ))
+    except ImportacaoInvalida:
+        raise
+    except Exception:
+        raise ImportacaoInvalida("Não consegui ler a planilha; o arquivo pode estar corrompido.")
+    finally:
+        wb.close()
 
     try:
         conn.execute("DELETE FROM bens")
@@ -423,8 +429,14 @@ def importar_cadastros(conn, arquivo) -> dict:
     except Exception:
         raise ImportacaoInvalida("Arquivo inválido: envie a planilha de cadastros em .xlsx.")
     problemas: list[str] = []
-    brutos = {t: _ler_aba_cadastro(wb, t, problemas) for t in CADASTROS}
-    wb.close()
+    try:
+        brutos = {t: _ler_aba_cadastro(wb, t, problemas) for t in CADASTROS}
+    except ImportacaoInvalida:
+        raise
+    except Exception:
+        raise ImportacaoInvalida("Não consegui ler a planilha; o arquivo pode estar corrompido.")
+    finally:
+        wb.close()
     if problemas:
         raise ImportacaoInvalida("Planilha de cadastros: " + "; ".join(problemas))
 
@@ -469,7 +481,7 @@ def importar_cadastros(conn, arquivo) -> dict:
         nome, num = _texto(r["nome"]).upper(), _numero(r["numero"])
         if nome not in nomes:
             problemas.append(f"atribuicoes linha {r['_linha']}: {nome or '(vazio)'} não está na aba pessoas")
-        elif num is None:
+        elif num is None or num != int(num):
             problemas.append(f"atribuicoes linha {r['_linha']}: número inválido")
         elif not buscar_bem(conn, int(num)):
             problemas.append(f"atribuicoes linha {r['_linha']}: bem {int(num)} não existe na base")

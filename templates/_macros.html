@@ -66,6 +66,6 @@
 <th class="column-checkbox" scope="col"><div class="br-checkbox hidden-label"><input id="check-all-{{ id }}" name="check-all-{{ id }}" type="checkbox" aria-label="Selecionar tudo" data-parent="check-{{ id }}"/><label for="check-all-{{ id }}">Selecionar todas as linhas</label></div></th>
 {% endmacro %}
 
-{% macro td_selecao(id, indice, name, value) %}
-<td class="column-checkbox"><div class="br-checkbox hidden-label"><input id="check-{{ id }}-{{ indice }}" name="{{ name }}" type="checkbox" value="{{ value }}" data-child="check-{{ id }}"/><label for="check-{{ id }}-{{ indice }}">Selecionar linha</label></div></td>
+{% macro td_selecao(id, indice, name, value, form=None) %}
+<td class="column-checkbox"><div class="br-checkbox hidden-label"><input id="check-{{ id }}-{{ indice }}" name="{{ name }}" type="checkbox" value="{{ value }}" data-child="check-{{ id }}"{% if form %} form="{{ form }}"{% endif %}/><label for="check-{{ id }}-{{ indice }}">Selecionar linha</label></div></td>
 {% endmacro %}
