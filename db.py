@@ -508,3 +508,16 @@ def importar_cadastros(conn, arquivo) -> dict:
         raise
     return {"responsaveis": len(responsaveis), "localizacoes": len(localizacoes), "pessoas": len(nomes),
             "atribuicoes": len(atribuicoes), "sem_centro": localizacoes_sem_centro(conn)}
+
+
+def exportar_bens(conn, destino: Path) -> Path:
+    """Planilha dos bens no formato do export do SPW (mesmas 9 colunas) — backup reimportável."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "base"
+    ws.append(list(COLUNAS_EXPORT))
+    campos = ", ".join(COLUNAS_EXPORT.values())
+    for linha in conn.execute(f"SELECT {campos} FROM bens ORDER BY numero"):
+        ws.append(list(linha))
+    wb.save(str(destino))
+    return Path(destino)

@@ -201,3 +201,9 @@ def test_exportar_e_importar_cadastros(cliente):
     r = cliente.post("/importar-cadastros", data={"arquivo": (io.BytesIO(b"nada"), "x.xlsx")},
                      content_type="multipart/form-data", follow_redirects=True)
     assert "inválido".encode() in r.data
+
+
+def test_exportar_bens(cliente):
+    r = cliente.get("/bens/exportar")
+    assert r.status_code == 200 and r.headers["Content-Disposition"].endswith("bens.xlsx")
+    assert b"Exportar bens" in cliente.get("/upload").data

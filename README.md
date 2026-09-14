@@ -8,6 +8,7 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
 
 1. Abra `TermosCFC.exe`. A janela abre em `http://127.0.0.1:5000`.
 2. **Atualizar base**: envie o export do sistema de patrimônio (`.xlsx`). Só a tabela de bens muda.
+   *Exportar bens (formato SPW)* devolve a mesma tabela em `.xlsx`, nas 9 colunas do export — backup reimportável.
 3. **Cadastros**: responsáveis por centro de custo (editar, inclusive a sigla — as localizações
    acompanham), localização → centro de custo, pessoas e bens atribuídos. Bem atribuído a pessoa não
    entra no termo do setor. Excluir um centro só é possível sem bens ativos sob sua guarda; sem bens,

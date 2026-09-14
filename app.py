@@ -166,6 +166,12 @@ def upload():
                            trilha=[("Atualizar base", None)])
 
 
+@app.route("/bens/exportar")
+def bens_exportar():
+    destino = db.exportar_bens(obter_conn(), config.pasta_saida() / "bens.xlsx")
+    return send_file(destino, as_attachment=True, download_name="bens.xlsx")
+
+
 # ---------------------------------------------------------------- termo de devolução
 @app.route("/termo_devolucao", methods=["GET", "POST"])
 def termo_devolucao():

@@ -334,3 +334,13 @@ def test_importar_planilha_truncada_levanta_importacao_invalida(dados, tmp_path)
         db.importar_bens(dados, truncado)
     with pytest.raises(db.ImportacaoInvalida):
         db.importar_cadastros(dados, truncado)
+
+
+def test_exportar_bens_formato_spw_reimportavel(dados, tmp_path):
+    semear(dados)
+    arq = db.exportar_bens(dados, tmp_path / "bens.xlsx")
+    ws = load_workbook(arq)["base"]
+    assert [c.value for c in ws[1]] == CABECALHO
+    assert ws.max_row == 5 and ws["A2"].value == 1001 and ws["F2"].value == "01 - SALA CCI"
+    resumo = db.importar_bens(dados, arq)
+    assert resumo["total"] == 4 and resumo["ativos"] == 3
