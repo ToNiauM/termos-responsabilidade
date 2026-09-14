@@ -12,7 +12,7 @@ import webbrowser
 import db
 from app import app
 
-PORTA = int(os.environ.get("TERMOS_PORTA", "5000"))
+PORTA = int(os.environ.get("TERMOS_PORTA", "12345"))
 URL = f"http://127.0.0.1:{PORTA}"
 
 

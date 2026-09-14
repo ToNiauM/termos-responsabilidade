@@ -6,7 +6,7 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
 
 ## Uso
 
-1. Abra `TermosCFC.exe`. A janela abre em `http://127.0.0.1:5000`.
+1. Abra `TermosCFC.exe`. A janela abre em `http://127.0.0.1:12345`.
 2. **Atualizar base**: envie o export do sistema de patrimônio (`.xlsx`). Só a tabela de bens muda.
    *Exportar bens (formato SPW)* devolve a mesma tabela em `.xlsx`, nas 9 colunas do export — backup reimportável.
 3. **Cadastros**: responsáveis por centro de custo (editar, inclusive a sigla — as localizações
@@ -26,7 +26,7 @@ Backup = copiar a pasta `dados/`.
 
     python -m venv .venv && .venv/bin/pip install -r requirements.txt
     .venv/bin/pytest
-    .venv/bin/python app.py        # http://127.0.0.1:5000 (debug)
+    .venv/bin/python app.py        # http://127.0.0.1:12345 (debug)
     .venv/bin/python main.py       # como o programa: janela (ou navegador, se não houver WebView)
 
 A porta pode ser trocada com a variável `TERMOS_PORTA` (padrão 5000), útil para testar sem conflitar
