@@ -139,3 +139,55 @@ def test_ficha_do_bem_com_setor_e_pessoa(dados):
     assert db.ficha_do_bem(dados, 9999) is None
     assert db.buscar_bem(dados, 1001)["descricao"] == "CADEIRA"
     assert db.localizacoes_mapeadas(dados) == [{"localizacao": "01 - SALA CCI", "ccustos": "CCI"}]
+
+
+def test_renomear_centro_cascateia(dados):
+    semear(dados)
+    db.renomear_centro(dados, "CCI", "GESERV")
+    assert db.localizacoes_mapeadas(dados)[0]["ccustos"] == "GESERV"
+    assert db.responsavel(dados, "CCI") is None and db.responsavel(dados, "GESERV")
+
+
+def test_excluir_centro_em_uso_falha(dados):
+    semear(dados)
+    with pytest.raises(db.CentroEmUso):
+        db.excluir_responsavel(dados, "CCI")
+    db.excluir_localizacao(dados, "01 - SALA CCI")
+    db.excluir_responsavel(dados, "CCI")
+    assert db.centros(dados) == []
+
+
+def test_incluir_responsavel_e_localizacao(dados):
+    semear(dados)
+    db.incluir_responsavel(dados, {"ccustos": " decom ", "tratamento": "Prezado", "responsavel": "THIAGO",
+                                   "email": "t@cfc", "matricula": "481", "funcao": "gerente"})
+    assert db.responsavel(dados, "DECOM")["responsavel"] == "THIAGO"
+    db.incluir_localizacao(dados, "99 - SEM MAPA", "DECOM")
+    assert db.localizacoes_sem_centro(dados) == []
+    with pytest.raises(db.ErroDeNegocio):
+        db.incluir_responsavel(dados, {"ccustos": "", "responsavel": "X"})
+
+
+def test_atribuir_bem_livre_e_transferencia(dados):
+    semear(dados)
+    db.incluir_pessoa(dados, "  BRUNO LIMA ")
+    db.atribuir(dados, "BRUNO LIMA", 1001)
+    assert [b["numero"] for b in db.bens_da_pessoa(dados, "BRUNO LIMA")] == [1001]
+    with pytest.raises(db.BemNaoEncontrado):
+        db.atribuir(dados, "BRUNO LIMA", 9999)
+    with pytest.raises(db.JaAtribuido) as e:
+        db.atribuir(dados, "BRUNO LIMA", 1002)
+    assert e.value.pessoa == "ANA SILVA"
+    db.atribuir(dados, "BRUNO LIMA", 1002, confirmar=True)
+    assert db.bens_da_pessoa(dados, "ANA SILVA") == []
+    assert db.pessoa_do_bem(dados, 1002) == "BRUNO LIMA"
+    db.atribuir(dados, "BRUNO LIMA", 1002)  # já é dele: não é erro
+
+
+def test_desatribuir_e_excluir_pessoa(dados):
+    semear(dados)
+    db.desatribuir(dados, "ANA SILVA", 1002)
+    assert [b["numero"] for b in db.bens_do_centro(dados, "CCI")] == [1001, 1002]
+    db.atribuir(dados, "ANA SILVA", 1002)
+    db.excluir_pessoa(dados, "ANA SILVA")
+    assert db.pessoas(dados) == [] and db.pessoa_do_bem(dados, 1002) is None
