@@ -7,6 +7,7 @@ import html
 from datetime import date
 
 import config
+import textos as textos_mod
 
 TABELA = "border-collapse:collapse;width:{largura};margin:8pt auto;font-size:10.5pt"
 TH = "border:1px solid #000;padding:3pt 5pt;text-align:center;background:#e6e6e6;font-weight:bold"
@@ -44,67 +45,64 @@ def _total(bens) -> float:
     return sum(b["valor_atual"] or 0 for b in bens)
 
 
-COMPROMISSOS_INDIVIDUAL = [
-    "1) zelar pela guarda, uso adequado e conservação do(s) bem(ns), utilizando-o(s) exclusivamente para fins profissionais do CFC;",
-    "2) informar imediatamente ao Setor de Patrimônio qualquer dano, inutilização, perda ou roubo, apresentando boletim de ocorrência quando necessário;",
-    "3) ressarcir o CFC por danos ou perdas decorrentes de negligência do responsável, após decisão da Câmara de Assuntos Administrativos (CAD) e homologação pelo Plenário do CFC, em conformidade com o Manual de Gestão Patrimonial do CFC;",
-    "4) devolver o(s) equipamento(s) e acessórios ao término do vínculo, mediante solicitação ou em caso de substituição, em condições compatíveis com o uso; e",
-    "5) fornecer informações sobre o(s) bem(ns) sempre que solicitado, especialmente durante o inventário patrimonial.",
-]
+def data_por_extenso(hoje: date) -> str:
+    return f"{hoje.day} de {MESES[hoje.month - 1]} de {hoje.year}"
 
 
-def corpo_individual(nome: str, bens: list[dict]) -> str:
+def _p(texto: str, classe: str = "semrecuo") -> str:
+    return f'<p class="{classe}">{esc(texto)}</p>'
+
+
+def _abertura(texto: str, campos: dict) -> str:
+    antes, nome, depois = textos_mod.com_nome(texto, campos)
+    meio = f"<b>{esc(nome)}</b>" if nome is not None else ""
+    return f'<p class="semrecuo">{esc(antes)}{meio}{esc(depois)}</p>'
+
+
+def corpo_individual(nome: str, bens: list[dict], textos: dict | None = None) -> str:
+    t = textos or textos_mod.PADRAO
+    campos = {"nome": nome, "orgao_sigla": t["orgao_sigla"]}
     linhas = [[b["numero"], b["descricao"], b["complemento"], formatar_moeda(b["valor_atual"])] for b in bens]
     return (
-        "<h1>TERMO DE RESPONSABILIDADE</h1>"
-        f"<p class=\"semrecuo\">Pelo presente termo, eu, <b>{esc(nome)}</b>, declaro que o(s) equipamento(s) abaixo "
-        "discriminado(s) se encontra(m) sob a minha guarda e responsabilidade.</p>"
+        f"<h1>{esc(t['individual_titulo'].format_map(campos))}</h1>"
+        + _abertura(t["individual_abertura"], campos)
         + tabela(["Patrimônio", "Descrição", "Complemento", "Valor Atual"], linhas, "80%", _total(bens), 3)
-        + "<p class=\"semrecuo\">Comprometo-me a:</p>"
-        + "".join(f"<p class=\"semrecuo\">{esc(c)}</p>" for c in COMPROMISSOS_INDIVIDUAL)
-        + "<p class=\"semrecuo\">Declaro estar ciente das responsabilidades mencionadas acima e assumo total "
-        "responsabilidade pelos bens listados.</p>"
-        f"<p class=\"assinatura\"><b>{esc(nome)}</b><br>Assinado eletronicamente via SEI</p>"
+        + _p(t["individual_compromissos_intro"].format_map(campos))
+        + "".join(_p(c.format_map(campos)) for c in textos_mod.linhas(t["individual_compromissos"]))
+        + _p(t["individual_ciencia"].format_map(campos))
+        + f'<p class="assinatura"><b>{esc(nome)}</b><br>{esc(t["assinatura_eletronica"])}</p>'
     )
 
 
-PARAGRAFOS_CCUSTO = [
-    "Pelo presente termo, eu, {responsavel}, matrícula n.º {matricula}, {funcao} do(a) {ccustos} do CFC, declaro que os bens patrimoniais abaixo discriminados se encontram na localização sob a minha guarda e responsabilidade.",
-    "Assumo TOTAL responsabilidade pelos referidos bens, comprometendo-me a informar o Setor de Patrimônio quanto a qualquer alteração e/ou irregularidade, bem como zelar pela guarda e bom uso do patrimônio público.",
-    "Em caso de extravio ou dano a bem sob a minha responsabilidade, comprometo-me a ressarcir o CFC dos prejuízos causados.",
-    "Observações:",
-    "Em caso de perda ou roubo do bem, o responsável deverá registrar boletim de ocorrência policial e apresentar ao Setor de Patrimônio;",
-    "Ao final do mandato, função ou designação, o responsável deverá devolver o bem, se for o caso.",
-    "No caso de movimentação e transferência de bens entre as unidades administrativas, o Setor de Patrimônio utilizará o Termo de Transferência disponível no SEI, que será apensado a processo específico até a emissão de um novo termo atualizado.",
-]
-
-
-def corpo_ccusto(ccustos: str, responsavel: dict, bens: list[dict]) -> str:
-    campos = {k: esc(responsavel.get(k)) for k in ("responsavel", "matricula", "funcao")}
-    campos["ccustos"] = esc(ccustos)
+def corpo_ccusto(ccustos: str, responsavel: dict, bens: list[dict], textos: dict | None = None) -> str:
+    t = textos or textos_mod.PADRAO
+    campos = {k: responsavel.get(k) or "" for k in ("responsavel", "matricula", "funcao")}
+    campos.update(ccustos=ccustos, orgao_sigla=t["orgao_sigla"])
     linhas = [[b["numero"], b["descricao"], b["complemento"], b["localizacao"], formatar_moeda(b["valor_atual"])]
               for b in sorted(bens, key=lambda b: b["numero"])]
+    assinatura = "<br>".join(esc(l.format_map(campos)) for l in textos_mod.linhas(t["ccusto_assinatura"]))
     return (
-        f"<h1>Termo de Responsabilidade - {esc(ccustos)}</h1>"
-        + "".join(f"<p>{p.format(**campos)}</p>" for p in PARAGRAFOS_CCUSTO)
+        f"<h1>{esc(t['ccusto_titulo'].format_map(campos))}</h1>"
+        + "".join(f"<p>{esc(p.format_map(campos))}</p>" for p in textos_mod.paragrafos(t["ccusto_paragrafos"]))
         + tabela(["Número Bem", "Descrição", "Complemento", "Localização", "Valor Atual"], linhas, "100%", _total(bens), 4)
-        + f"<p class=\"assinatura\">{campos['responsavel']}<br>{campos['funcao']} do(a) {campos['ccustos']} do CFC</p>"
+        + f'<p class="assinatura">{assinatura}</p>'
     )
 
 
-def corpo_devolucao(nome: str, bens: list[dict], hoje: date | None = None) -> str:
+def corpo_devolucao(nome: str, bens: list[dict], hoje: date | None = None, textos: dict | None = None) -> str:
+    t = textos or textos_mod.PADRAO
     hoje = hoje or date.today()
+    campos = {"nome": nome, "orgao_sigla": t["orgao_sigla"], "cidade": t["cidade"], "data": data_por_extenso(hoje)}
     linhas = [[b["numero"], b["descricao"], b["complemento"], formatar_moeda(b["valor_atual"])] for b in bens]
     return (
-        "<h1>TERMO DE DEVOLUÇÃO</h1>"
-        f"<p class=\"semrecuo\">Pelo presente termo, eu, <b>{esc(nome)}</b>, declaro que devolvi ao Setor de Patrimônio "
-        "o(s) bem(ns) abaixo discriminado(s), que se encontrava(m) sob minha guarda e responsabilidade:</p>"
+        f"<h1>{esc(t['devolucao_titulo'].format_map(campos))}</h1>"
+        + _abertura(t["devolucao_abertura"], campos)
         + tabela(["Patrimônio", "Descrição", "Complemento", "Valor Atual"], linhas, "80%", _total(bens), 3)
-        + f"<p class=\"direita\">Brasília (DF), {hoje.day} de {MESES[hoje.month - 1]} de {hoje.year}</p>"
-        f"<p class=\"assinatura\"><b>{esc(nome)}</b><br>Assinado eletronicamente via SEI</p>"
-        "<p class=\"semrecuo\">Declaro que recebi o(s) bem(ns) acima especificado(s):</p>"
-        "<p class=\"assinatura\"><b>ANTÔNIO RODRIGUES DE SOUSA JÚNIOR</b><br>Supervisor de Patrimônio<br>"
-        "Assinado eletronicamente via SEI</p>"
+        + _p(t["devolucao_data"].format_map(campos), "direita")
+        + f'<p class="assinatura"><b>{esc(nome)}</b><br>{esc(t["assinatura_eletronica"])}</p>'
+        + _p(t["devolucao_recebimento"].format_map(campos))
+        + f'<p class="assinatura"><b>{esc(t["recebedor_nome"])}</b><br>{esc(t["recebedor_cargo"])}<br>'
+        f'{esc(t["assinatura_eletronica"])}</p>'
     )
 
 
