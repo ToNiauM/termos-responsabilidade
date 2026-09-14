@@ -1,6 +1,7 @@
 import sqlite3
 
 import pytest
+from openpyxl import Workbook
 
 import db
 from tests.conftest import semear
@@ -19,3 +20,71 @@ def test_foreign_keys_ligadas(dados):
     semear(dados)
     with pytest.raises(sqlite3.IntegrityError):
         dados.execute("INSERT INTO localizacoes VALUES ('02 - X', 'NAO_EXISTE')")
+
+
+CABECALHO = ["Número Bem", "Situação", "Descrição", "Complemento", "Classificação Contábil",
+             "Localização", "Data Entrada", "Valor Compra", "Valor Atual"]
+
+
+def xlsx(tmp_path, linhas, cabecalho=CABECALHO, aba="base"):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = aba
+    ws.append(cabecalho)
+    for l in linhas:
+        ws.append(l)
+    caminho = tmp_path / "export.xlsx"
+    wb.save(caminho)
+    return caminho
+
+
+def test_importar_substitui_bens_e_conta(dados, tmp_path):
+    semear(dados)
+    arq = xlsx(tmp_path, [
+        [1002, "ATIVO", "NOTEBOOK", "DELL NOVO", "EQUIP", "01 - SALA CCI", "06/12/2012", 3000, 1400],
+        [2001, "ATIVO", "MONITOR", "LG", "EQUIP", "01 - SALA CCI", "01/01/2020", 900, 800],
+        [2002, "DOADO", "CADEIRA", "", "MÓVEIS", "CFC", "01/01/2000", 10, 1],
+    ])
+    resumo = db.importar_bens(dados, arq)
+    assert resumo["total"] == 3 and resumo["ativos"] == 2
+    assert [r["numero"] for r in dados.execute("SELECT numero FROM bens ORDER BY numero")] == [1002, 2001, 2002]
+    assert dados.execute("SELECT complemento FROM bens WHERE numero=1002").fetchone()[0] == "DELL NOVO"
+    # outras tabelas intactas
+    assert dados.execute("SELECT count(*) FROM atribuicoes").fetchone()[0] == 1
+
+
+def test_importar_cabecalho_errado_nao_altera_nada(dados, tmp_path):
+    semear(dados)
+    arq = xlsx(tmp_path, [[1, "ATIVO"]], cabecalho=["Patrimônio", "Situação"])
+    with pytest.raises(db.ImportacaoInvalida):
+        db.importar_bens(dados, arq)
+    assert dados.execute("SELECT count(*) FROM bens").fetchone()[0] == 4
+
+
+def test_importar_que_some_com_bem_atribuido_e_revertida(dados, tmp_path):
+    semear(dados)  # ANA tem o 1002
+    arq = xlsx(tmp_path, [[1001, "ATIVO", "CADEIRA", "", "MÓVEIS", "01 - SALA CCI", "x", 1, 1]])
+    with pytest.raises(db.ImportacaoInvalida) as e:
+        db.importar_bens(dados, arq)
+    assert "1002" in str(e.value)
+    assert dados.execute("SELECT count(*) FROM bens").fetchone()[0] == 4
+
+
+def test_importar_usa_aba_pelo_cabecalho_e_converte_data(dados, tmp_path):
+    from datetime import datetime
+    wb = Workbook()
+    wb.active.title = "outra"
+    wb.active.append(["Nada", "aqui"])
+    ws = wb.create_sheet("base")
+    ws.append(CABECALHO)
+    ws.append([3001, "ATIVO", "MESA", None, "MÓVEIS", "02 - X", datetime(2020, 3, 9), 100, 90])
+    arq = tmp_path / "e.xlsx"
+    wb.save(arq)
+    db.importar_bens(dados, arq)
+    r = dados.execute("SELECT data_entrada, complemento FROM bens WHERE numero=3001").fetchone()
+    assert r["data_entrada"] == "09/03/2020" and r["complemento"] == ""
+
+
+def test_localizacoes_sem_centro(dados):
+    semear(dados)
+    assert db.localizacoes_sem_centro(dados) == ["99 - SEM MAPA"]
