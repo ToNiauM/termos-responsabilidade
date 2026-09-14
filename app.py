@@ -164,10 +164,35 @@ def upload():
                            trilha=[("Atualizar base", None)])
 
 
-# ---------------------------------------------------------------- rotas provisórias (Task 12)
-@app.route("/termo_devolucao")
+# ---------------------------------------------------------------- termo de devolução
+@app.route("/termo_devolucao", methods=["GET", "POST"])
 def termo_devolucao():
-    return redirect(url_for("home"))
+    conn = obter_conn()
+    nome = request.form.get("nome") or session.get("nome_devolucao")
+    selecionados = session.setdefault("bens_selecionados", [])
+    if request.method == "POST":
+        if nome:
+            session["nome_devolucao"] = nome
+        if request.form.get("limpar"):
+            session["bens_selecionados"] = []
+        elif request.form.get("gerar"):
+            if not nome or not selecionados:
+                flash("Escolha a pessoa e adicione ao menos um bem.", "error")
+            else:
+                return redirect(url_for("termo", tipo="devolucao", chave=nome))
+        elif request.form.get("remover"):
+            session["bens_selecionados"] = [n for n in selecionados if n != request.form["remover"]]
+        else:
+            numero = request.form.get("numero_bem", "").strip()
+            if not numero.isdigit() or not db.buscar_bem(conn, int(numero)):
+                flash(f"Bem {numero or '(vazio)'} não encontrado. Verifique o número digitado.", "error")
+            elif numero not in selecionados:
+                session["bens_selecionados"] = selecionados + [numero]
+        session.modified = True
+        return redirect(url_for("termo_devolucao"))
+    bens = [b for b in (db.buscar_bem(conn, int(n)) for n in selecionados) if b]
+    return render_template("termo_devolucao.html", nomes=db.pessoas(conn), nome=nome, bens=bens,
+                           total=sum(b["valor_atual"] or 0 for b in bens), trilha=[("Termo de devolução", None)])
 
 
 # ---------------------------------------------------------------- cadastros

@@ -1,4 +1,5 @@
 import io
+from urllib.parse import unquote
 
 import pytest
 from openpyxl import Workbook
@@ -99,3 +100,17 @@ def test_cadastro_pessoas_atribuir_com_confirmacao(cliente):
     assert b"confirmar" in r.data
     cliente.post("/cadastros/pessoas/excluir", data={"nome": "BRUNO LIMA", "confirmar": "1"})
     assert b"BRUNO LIMA" not in cliente.get("/cadastros/pessoas").data
+
+
+def test_termo_devolucao_fluxo(cliente):
+    r = cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "numero_bem": "1001"}, follow_redirects=True)
+    assert b"CADEIRA" in r.data
+    r = cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "numero_bem": "9999"}, follow_redirects=True)
+    assert "não encontrado".encode() in r.data
+    r = cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "gerar": "1"})
+    assert unquote(r.headers["Location"]).endswith("/termo/devolucao/ANA SILVA")
+    doc = cliente.get("/termo/devolucao/ANA SILVA/documento").data.decode()
+    assert "TERMO DE DEVOLUÇÃO" in doc and "CADEIRA" in doc and "width:80%" in doc
+    assert cliente.get("/termo/devolucao/ANA SILVA/docx").status_code == 200
+    r = cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "remover": "1001"}, follow_redirects=True)
+    assert b"CADEIRA" not in r.data
