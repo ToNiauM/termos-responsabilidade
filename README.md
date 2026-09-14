@@ -11,6 +11,11 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
 3. **Cadastros**: responsáveis por centro de custo (com *renomear*), localização → centro de custo,
    pessoas e bens atribuídos. Bem atribuído a pessoa não entra no termo do setor.
 4. **Termos**: escolha o centro/pessoa → página do termo → *Copiar para o SEI* ou *Baixar .docx*.
+5. **Textos**: os dizeres dos termos (abertura, compromissos, parágrafos, quem recebe a devolução,
+   cidade, sigla do órgão) são editáveis no menu Textos, com marcadores como `{nome}` e `{ccustos}`;
+   "Restaurar padrão" volta ao texto original.
+6. **Planilha de cadastros**: Cadastros → *Exportar cadastros* gera `cadastros.xlsx` (4 abas). Edite no
+   Excel e importe em *Atualizar base → Importar cadastros* — substitui as 4 tabelas inteiras.
 
 Backup = copiar a pasta `dados/`.
 
@@ -49,6 +54,7 @@ resíduo de indentação do código antigo) — confira o `.docx` gerado.
 | `app.py` | rotas Flask |
 | `db.py` | esquema, importação, consultas, cadastros |
 | `termos_html.py` | corpo HTML dos termos (padrão gelic; tabelas 80 % / 100 %) |
+| `textos.py` | textos padrão dos termos e marcadores |
 | `Script_Termo_Individual.py`, `Termo_de_Responsabilidade.py`, `termo_devolucao.py` | geradores `.docx` |
 | `config.py` | pasta de dados (`TERMOS_DADOS` sobrepõe) |
 | `main.py`, `build.bat` | programa de desktop e build |

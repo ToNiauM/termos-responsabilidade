@@ -362,6 +362,24 @@ def pessoas_desatribuir():
     return _volta("pessoas", nome=request.form["nome"])
 
 
+@app.route("/cadastros/exportar")
+def cadastros_exportar():
+    destino = db.exportar_cadastros(obter_conn(), config.pasta_saida() / "cadastros.xlsx")
+    return send_file(destino, as_attachment=True, download_name="cadastros.xlsx")
+
+
+@app.route("/importar-cadastros", methods=["POST"])
+def importar_cadastros():
+    arquivo = request.files.get("arquivo")
+    if not arquivo or not arquivo.filename.lower().endswith(".xlsx"):
+        flash("Envie a planilha de cadastros em .xlsx.", "error")
+        return redirect(url_for("upload"))
+    r = db.importar_cadastros(obter_conn(), arquivo.stream)
+    flash(f"Cadastros importados: {r['responsaveis']} centro(s) de custo, {r['localizacoes']} localização(ões), "
+          f"{r['pessoas']} pessoa(s), {r['atribuicoes']} atribuição(ões).", "success")
+    return redirect(url_for("upload"))
+
+
 if __name__ == "__main__":
     db.inicializar()
     app.run(host="127.0.0.1", port=5000, debug=True)

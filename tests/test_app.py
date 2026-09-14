@@ -182,3 +182,14 @@ def test_textos_marcador_invalido_nao_grava_nada(cliente):
     assert b"nomee" in r.data
     doc = cliente.get("/termo/devolucao/ANA SILVA/documento").data.decode()
     assert "Goiânia" not in doc and "Brasília (DF)" in doc
+
+
+def test_exportar_e_importar_cadastros(cliente):
+    r = cliente.get("/cadastros/exportar")
+    assert r.status_code == 200 and r.headers["Content-Disposition"].endswith("cadastros.xlsx")
+    r = cliente.post("/importar-cadastros", data={"arquivo": (io.BytesIO(r.data), "cadastros.xlsx")},
+                     content_type="multipart/form-data", follow_redirects=True)
+    assert b"1 centro" in r.data and b"1 pessoa" in r.data
+    r = cliente.post("/importar-cadastros", data={"arquivo": (io.BytesIO(b"nada"), "x.xlsx")},
+                     content_type="multipart/form-data", follow_redirects=True)
+    assert "inválido".encode() in r.data

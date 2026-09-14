@@ -11,6 +11,15 @@
   </div>
   <button class="br-button primary" type="submit"><i class="fas fa-upload mr-1" aria-hidden="true"></i>Importar</button>
 </form>
+<form method="post" action="{{ url_for('importar_cadastros') }}" enctype="multipart/form-data" class="col-md-8 mb-4">
+  <p class="text-gray-70">Importar cadastros: a planilha exportada em <a href="{{ url_for('cadastros_exportar') }}">Cadastros → Exportar</a>, editada. Substitui responsáveis, localizações, pessoas e atribuições inteiros; o que não estiver na planilha some. Bens não mudam.</p>
+  <div class="br-upload mb-3">
+    <label class="upload-label" for="arquivo-cadastros"><span>Planilha de cadastros .xlsx</span></label>
+    <input class="upload-input" id="arquivo-cadastros" name="arquivo" type="file" accept=".xlsx" required/>
+    <div class="upload-list"></div>
+  </div>
+  <button class="br-button secondary" type="submit"><i class="fas fa-upload mr-1" aria-hidden="true"></i>Importar cadastros</button>
+</form>
 {% if sem_centro %}
 <div class="br-message warning">
   <div class="icon"><i class="fas fa-exclamation-triangle fa-lg" aria-hidden="true"></i></div>

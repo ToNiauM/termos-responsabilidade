@@ -2,7 +2,10 @@
 {% from "_macros.html" import select, cabecalho_tabela, th_selecao, td_selecao %}
 {% block titulo %}Cadastros{% endblock %}
 {% block conteudo %}
-<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Cadastros</h1></div>
+<div class="d-flex align-items-center mb-4">
+  <h1 class="mb-0">Cadastros</h1>
+  <div class="ml-auto"><a class="br-button" href="{{ url_for('cadastros_exportar') }}"><i class="fas fa-file-excel mr-1" aria-hidden="true"></i>Exportar cadastros</a></div>
+</div>
 <div class="br-tab">
   <nav class="tab-nav" aria-label="Cadastros">
     <ul role="tablist">
