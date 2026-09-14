@@ -130,3 +130,27 @@ def test_termo_devolucao_troca_de_pessoa_limpa_lista(cliente, dados):
     cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "numero_bem": "1001"})
     r = cliente.post("/termo_devolucao", data={"nome": "BRUNO LIMA", "numero_bem": "1002"}, follow_redirects=True)
     assert b"CADEIRA" not in r.data and b"NOTEBOOK" in r.data
+
+
+def test_textos_salvar_reflete_no_documento_e_restaurar(cliente):
+    r = cliente.get("/textos")
+    assert r.status_code == 200 and b"Compromissos" in r.data
+    import textos
+    dados_form = dict(textos.PADRAO, individual_abertura="TESTE {nome}.", orgao_nome="Órgão X")
+    r = cliente.post("/textos", data=dados_form, follow_redirects=True)
+    assert "Textos salvos".encode() in r.data and "Órgão X".encode() in r.data  # header usa orgao_nome
+    doc = cliente.get("/termo/individual/ANA SILVA/documento").data.decode()
+    assert "TESTE <b>ANA SILVA</b>." in doc
+    r = cliente.post("/textos", data={"restaurar": "individual_abertura"}, follow_redirects=True)
+    assert "Padrão restaurado".encode() in r.data
+    doc = cliente.get("/termo/individual/ANA SILVA/documento").data.decode()
+    assert "Pelo presente termo" in doc and "Órgão X".encode() in cliente.get("/").data
+
+
+def test_textos_marcador_invalido_nao_grava_nada(cliente):
+    import textos
+    dados_form = dict(textos.PADRAO, individual_abertura="Eu {nomee}", cidade="Goiânia (GO)")
+    r = cliente.post("/textos", data=dados_form, follow_redirects=True)
+    assert b"nomee" in r.data
+    doc = cliente.get("/termo/devolucao/ANA SILVA/documento").data.decode()
+    assert "Goiânia" not in doc and "Brasília (DF)" in doc

@@ -44,6 +44,11 @@ def test_com_nome():
     assert textos.com_nome("Sem marcador.", {"nome": "ANA"}) == ("Sem marcador.", None, "")
 
 
+def test_obter_ignora_valor_invalido_no_banco(dados):
+    dados.execute("INSERT INTO textos VALUES ('individual_abertura', 'Eu {nomee}')")
+    assert textos.obter(dados)["individual_abertura"] == textos.PADRAO["individual_abertura"]
+
+
 def test_padrao_cobre_todos_os_grupos_e_marcadores():
     chaves = {c for _, lista in textos.GRUPOS for c in lista}
     assert chaves == set(textos.PADRAO) == set(textos.MARCADORES)

@@ -99,8 +99,13 @@ def validar(chave: str, valor: str) -> None:
 def obter(conn) -> dict:
     t = dict(PADRAO)
     for chave, valor in conn.execute("SELECT chave, valor FROM textos"):
-        if chave in t:
-            t[chave] = valor
+        if chave not in t:
+            continue
+        try:
+            validar(chave, valor)
+        except db.ErroDeNegocio:
+            continue  # texto inválido gravado por fora da tela: mantém o padrão
+        t[chave] = valor
     return t
 
 

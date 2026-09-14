@@ -4,6 +4,7 @@ from flask import Flask, abort, flash, g, redirect, render_template, request, se
 import config
 import db
 import termos_html
+import textos
 from Script_Termo_Individual import criar_termo_responsabilidade
 from Termo_de_Responsabilidade import gerar_planilha_centro, gerar_termo_centro
 from termo_devolucao import gerar_termo_devolucao
@@ -12,18 +13,19 @@ app = Flask(__name__, template_folder=str(config.pasta_recursos() / "templates")
             static_folder=str(config.pasta_recursos() / "static"))
 app.secret_key = "termos-cfc-local"  # sessão só guarda seleção de bens; programa roda em 127.0.0.1
 
-DSGOV = {"ORGAO": "Conselho Federal de Contabilidade", "SISTEMA": "Termos de Responsabilidade",
-         "SUBTITULO": "Setor de Patrimônio"}
+DSGOV_FIXO = {"SISTEMA": "Termos de Responsabilidade", "SUBTITULO": "Setor de Patrimônio"}
 
 
 @app.context_processor
 def contexto_dsgov():
-    return {"DSGOV": DSGOV, "MENU": [
+    dsgov = dict(DSGOV_FIXO, ORGAO=textos.obter(obter_conn())["orgao_nome"])
+    return {"DSGOV": dsgov, "MENU": [
         ("Início", "fa-home", url_for("home")),
         ("Termo por centro de custo", "fa-building", url_for("centro_custos")),
         ("Termo individual", "fa-user-check", url_for("termos_individuais")),
         ("Termo de devolução", "fa-box-open", url_for("termo_devolucao")),
         ("Cadastros", "fa-address-book", url_for("cadastros", aba="responsaveis")),
+        ("Textos", "fa-file-signature", url_for("textos_tela")),
         ("Atualizar base", "fa-upload", url_for("upload")),
     ]}
 
@@ -70,19 +72,20 @@ def bem():
 # ---------------------------------------------------------------- termos
 def _bens_do_termo(conn, tipo, chave):
     """Devolve (titulo, corpo_html, bens, extra) do termo pedido; 404 se não existir."""
+    t = textos.obter(conn)
     if tipo == "ccusto":
         resp = db.responsavel(conn, chave) or abort(404)
         bens = db.bens_do_centro(conn, chave)
-        return f"Termo de Responsabilidade - {chave}", termos_html.corpo_ccusto(chave, resp, bens), bens, resp
+        return f"Termo de Responsabilidade - {chave}", termos_html.corpo_ccusto(chave, resp, bens, textos=t), bens, resp
     if tipo == "individual":
         if chave not in db.pessoas(conn):
             abort(404)
         bens = db.bens_da_pessoa(conn, chave)
-        return f"Termo de Responsabilidade - {chave}", termos_html.corpo_individual(chave, bens), bens, None
+        return f"Termo de Responsabilidade - {chave}", termos_html.corpo_individual(chave, bens, textos=t), bens, None
     if tipo == "devolucao":
         numeros = session.get("bens_selecionados", [])
         bens = [b for b in (db.buscar_bem(conn, int(n)) for n in numeros) if b]
-        return f"Termo de Devolução - {chave}", termos_html.corpo_devolucao(chave, bens), bens, None
+        return f"Termo de Devolução - {chave}", termos_html.corpo_devolucao(chave, bens, textos=t), bens, None
     abort(404)
 
 
@@ -127,13 +130,14 @@ def termo_documento(tipo, chave):
 def termo_docx(tipo, chave):
     conn = obter_conn()
     _, _, bens, extra = _bens_do_termo(conn, tipo, chave)
+    t = textos.obter(conn)
     saida = config.pasta_saida()
     if tipo == "ccusto":
-        destino = gerar_termo_centro(chave, extra, bens, saida / f"Termo_de_Responsabilidade_{_nome_arquivo(chave)}.docx")
+        destino = gerar_termo_centro(chave, extra, bens, saida / f"Termo_de_Responsabilidade_{_nome_arquivo(chave)}.docx", textos=t)
     elif tipo == "individual":
-        destino = criar_termo_responsabilidade(chave, bens, saida / f"Termo_{_nome_arquivo(chave)}.docx")
+        destino = criar_termo_responsabilidade(chave, bens, saida / f"Termo_{_nome_arquivo(chave)}.docx", textos=t)
     else:
-        destino = gerar_termo_devolucao(chave, bens, saida / f"Termo_Devolucao_{_nome_arquivo(chave)}.docx")
+        destino = gerar_termo_devolucao(chave, bens, saida / f"Termo_Devolucao_{_nome_arquivo(chave)}.docx", textos=t)
         if destino is None:
             flash("Nenhum bem selecionado.", "error")
             return redirect(url_for("termo_devolucao"))
@@ -195,6 +199,31 @@ def termo_devolucao():
     bens = [b for b in (db.buscar_bem(conn, int(n)) for n in selecionados) if b]
     return render_template("termo_devolucao.html", nomes=db.pessoas(conn), nome=nome, bens=bens,
                            total=sum(b["valor_atual"] or 0 for b in bens), trilha=[("Termo de devolução", None)])
+
+
+# ---------------------------------------------------------------- textos do termo
+@app.route("/textos")
+def textos_tela():
+    return render_template("textos.html", valores=textos.obter(obter_conn()), grupos=textos.GRUPOS,
+                           textarea=textos.TEXTAREA, rotulos=textos.ROTULOS, marcadores=textos.MARCADORES,
+                           padrao=textos.PADRAO, trilha=[("Textos", None)])
+
+
+@app.route("/textos", methods=["POST"])
+def textos_salvar():
+    conn = obter_conn()
+    chave = request.form.get("restaurar")
+    if chave:
+        textos.restaurar(conn, chave)
+        flash(f"Padrão restaurado: {textos.ROTULOS.get(chave, chave)}.", "success")
+        return redirect(url_for("textos_tela"))
+    novos = {c: request.form.get(c, "").replace("\r\n", "\n") for c in textos.PADRAO}
+    for c, v in novos.items():
+        textos.validar(c, v)          # tudo validado antes de gravar qualquer coisa
+    for c, v in novos.items():
+        textos.salvar(conn, c, v)
+    flash("Textos salvos.", "success")
+    return redirect(url_for("textos_tela"))
 
 
 # ---------------------------------------------------------------- cadastros
