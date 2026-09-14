@@ -5,7 +5,6 @@ As tabelas levam style= inline de propósito: é o que a área de transferência
 """
 import html
 from datetime import date
-from pathlib import Path
 
 import config
 
@@ -111,4 +110,4 @@ def corpo_devolucao(nome: str, bens: list[dict], hoje: date | None = None) -> st
 
 def documento(titulo: str, corpo: str) -> str:
     base = (config.pasta_recursos() / "templates" / "termo_base.html").read_text(encoding="utf8")
-    return base.replace("{{titulo}}", esc(titulo)).replace("{{corpo}}", corpo)
+    return base.replace("{{corpo}}", corpo).replace("{{titulo}}", esc(titulo))

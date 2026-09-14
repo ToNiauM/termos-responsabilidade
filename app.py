@@ -1,6 +1,4 @@
 """Termos de Responsabilidade — CFC. Rotas Flask; dados em db.py; documentos em termos_html.py e nos geradores."""
-from pathlib import Path
-
 from flask import Flask, abort, flash, g, redirect, render_template, request, send_file, session, url_for
 
 import config
@@ -171,6 +169,8 @@ def termo_devolucao():
     nome = request.form.get("nome") or session.get("nome_devolucao")
     selecionados = session.setdefault("bens_selecionados", [])
     if request.method == "POST":
+        if nome and nome != session.get("nome_devolucao"):
+            session["bens_selecionados"] = selecionados = []
         if nome:
             session["nome_devolucao"] = nome
         if request.form.get("limpar"):
@@ -207,6 +207,9 @@ def cadastros(aba):
         abort(404)
     conn = obter_conn()
     nome = request.args.get("nome") or None
+    if nome and nome not in db.pessoas(conn):
+        flash("Pessoa não encontrada.", "error")
+        nome = None
     return render_template(
         "cadastros.html", aba=aba, trilha=[("Cadastros", None)],
         centros=db.centros(conn), mapeadas=db.localizacoes_mapeadas(conn), pendentes=db.localizacoes_sem_centro(conn),
@@ -256,6 +259,7 @@ def localizacoes_excluir():
 @app.route("/cadastros/pessoas/incluir", methods=["POST"])
 def pessoas_incluir():
     nome = db.incluir_pessoa(obter_conn(), request.form["nome"])
+    flash(f"{nome} incluída.", "success")
     return _volta("pessoas", nome=nome)
 
 
@@ -276,7 +280,7 @@ def pessoas_atribuir():
     if not numero.isdigit():
         raise db.ErroDeNegocio("Digite o número do bem.")
     try:
-        db.atribuir(obter_conn(), nome, int(numero), confirmar=bool(request.form.get("confirmar")))
+        db.atribuir(obter_conn(), nome, int(numero), confirmar=(request.form.get("confirmar") == numero))
     except db.JaAtribuido as e:
         flash(f"O bem {numero} está com {e.pessoa}. Clique em confirmar para transferir a {nome}.", "warning")
         return _volta("pessoas", nome=nome, confirmar=numero)

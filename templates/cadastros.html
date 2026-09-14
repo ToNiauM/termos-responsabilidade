@@ -93,7 +93,7 @@
       <form method="post" action="{{ url_for('pessoas_atribuir') }}" class="d-flex align-items-end mb-4">
         <input type="hidden" name="nome" value="{{ nome }}"/>
         <div class="br-input mr-2"><label for="numero-bem">Nº do patrimônio</label><input id="numero-bem" name="numero" type="text" inputmode="numeric" value="{{ confirmar if confirmar and confirmar != 'excluir' else '' }}" required/></div>
-        {% if confirmar and confirmar != 'excluir' %}<input type="hidden" name="confirmar" value="1"/>
+        {% if confirmar and confirmar != 'excluir' %}<input type="hidden" name="confirmar" value="{{ confirmar }}"/>
         <button class="br-button primary" type="submit"><i class="fas fa-check mr-1" aria-hidden="true"></i>Confirmar transferência</button>
         {% else %}<button class="br-button primary" type="submit"><i class="fas fa-plus mr-1" aria-hidden="true"></i>Atribuir</button>{% endif %}
       </form>

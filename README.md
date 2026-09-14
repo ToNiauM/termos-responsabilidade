@@ -34,6 +34,14 @@ Migração inicial a partir das planilhas antigas: `python importar_planilhas.py
 Sai em `dist\TermosCFC\`. Distribua a pasta inteira (zip). Requer o WebView2 Runtime (já vem no
 Windows 10/11 atualizados); sem ele o programa abre no navegador padrão.
 
+Copie o `dados\termos.db` já migrado (por exemplo, da máquina onde rodou o `importar_planilhas.py`)
+para `dist\TermosCFC\dados\` antes de distribuir; sem isso o programa abre com a base vazia.
+
+### Observações
+
+Os parágrafos do termo por centro de custo não carregam mais 4 espaços em branco no início (era um
+resíduo de indentação do código antigo) — confira o `.docx` gerado.
+
 ## Arquivos
 
 | Arquivo | Função |

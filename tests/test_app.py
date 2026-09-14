@@ -4,6 +4,7 @@ from urllib.parse import unquote
 import pytest
 from openpyxl import Workbook
 
+import db
 from tests.conftest import semear
 from tests.test_db import CABECALHO
 
@@ -89,7 +90,7 @@ def test_cadastro_pessoas_atribuir_com_confirmacao(cliente):
     assert b"BRUNO LIMA" in r.data
     r = cliente.post("/cadastros/pessoas/atribuir", data={"nome": "BRUNO LIMA", "numero": "1002"}, follow_redirects=True)
     assert b"ANA SILVA" in r.data and b"confirmar" in r.data  # pede confirmação
-    r = cliente.post("/cadastros/pessoas/atribuir", data={"nome": "BRUNO LIMA", "numero": "1002", "confirmar": "1"},
+    r = cliente.post("/cadastros/pessoas/atribuir", data={"nome": "BRUNO LIMA", "numero": "1002", "confirmar": "1002"},
                      follow_redirects=True)
     assert b"NOTEBOOK" in r.data
     r = cliente.post("/cadastros/pessoas/desatribuir", data={"nome": "BRUNO LIMA", "numero": "1002"}, follow_redirects=True)
@@ -122,3 +123,10 @@ def test_termo_devolucao_normaliza_numero(cliente):
     assert r.data.count(b"CADEIRA") == 1
     r = cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "remover": "1001"}, follow_redirects=True)
     assert b"CADEIRA" not in r.data
+
+
+def test_termo_devolucao_troca_de_pessoa_limpa_lista(cliente, dados):
+    db.incluir_pessoa(dados, "BRUNO LIMA")
+    cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "numero_bem": "1001"})
+    r = cliente.post("/termo_devolucao", data={"nome": "BRUNO LIMA", "numero_bem": "1002"}, follow_redirects=True)
+    assert b"CADEIRA" not in r.data and b"NOTEBOOK" in r.data
