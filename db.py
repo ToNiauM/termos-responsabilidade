@@ -168,3 +168,63 @@ def localizacoes_sem_centro(conn: sqlite3.Connection) -> list[str]:
     return [r[0] for r in conn.execute(
         "SELECT DISTINCT localizacao FROM bens WHERE situacao='ATIVO' AND localizacao <> '' "
         "AND localizacao NOT IN (SELECT localizacao FROM localizacoes) ORDER BY localizacao")]
+
+
+def _todos(conn, sql, *args) -> list[dict]:
+    return [dict(r) for r in conn.execute(sql, args)]
+
+
+def _um(conn, sql, *args) -> dict | None:
+    r = conn.execute(sql, args).fetchone()
+    return dict(r) if r else None
+
+
+def centros(conn) -> list[dict]:
+    return _todos(conn, "SELECT * FROM responsaveis ORDER BY ccustos")
+
+
+def responsavel(conn, ccustos: str) -> dict | None:
+    return _um(conn, "SELECT * FROM responsaveis WHERE ccustos = ?", ccustos)
+
+
+def bens_do_centro(conn, ccustos: str) -> list[dict]:
+    """Bens ATIVOS nas localizações do centro, excluindo os atribuídos a pessoas (setor OU pessoa)."""
+    return _todos(conn, """
+        SELECT b.* FROM bens b JOIN localizacoes l ON l.localizacao = b.localizacao
+        WHERE l.ccustos = ? AND b.situacao = 'ATIVO'
+          AND b.numero NOT IN (SELECT numero FROM atribuicoes)
+        ORDER BY b.numero""", ccustos)
+
+
+def pessoas(conn) -> list[str]:
+    return [r[0] for r in conn.execute("SELECT nome FROM pessoas ORDER BY nome")]
+
+
+def bens_da_pessoa(conn, nome: str) -> list[dict]:
+    return _todos(conn, """
+        SELECT b.* FROM atribuicoes a JOIN bens b ON b.numero = a.numero
+        WHERE a.nome = ? ORDER BY b.numero""", nome)
+
+
+def buscar_bem(conn, numero: int) -> dict | None:
+    return _um(conn, "SELECT * FROM bens WHERE numero = ?", numero)
+
+
+def pessoa_do_bem(conn, numero: int) -> str | None:
+    r = conn.execute("SELECT nome FROM atribuicoes WHERE numero = ?", (numero,)).fetchone()
+    return r[0] if r else None
+
+
+def ficha_do_bem(conn, numero: int) -> dict | None:
+    """Bem + centro de custo/responsável do setor (pela localização) + pessoa (pela atribuição)."""
+    bem = buscar_bem(conn, numero)
+    if not bem:
+        return None
+    setor = _um(conn, """
+        SELECT r.ccustos, r.responsavel FROM localizacoes l JOIN responsaveis r ON r.ccustos = l.ccustos
+        WHERE l.localizacao = ?""", bem["localizacao"]) or {"ccustos": None, "responsavel": None}
+    return {**bem, **setor, "pessoa": pessoa_do_bem(conn, numero)}
+
+
+def localizacoes_mapeadas(conn) -> list[dict]:
+    return _todos(conn, "SELECT localizacao, ccustos FROM localizacoes ORDER BY localizacao")

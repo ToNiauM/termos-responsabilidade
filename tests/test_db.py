@@ -109,3 +109,33 @@ def test_importar_numero_repetido_e_revertida(dados, tmp_path):
         db.importar_bens(dados, arq)
     assert "repetido" in str(e.value)
     assert dados.execute("SELECT count(*) FROM bens").fetchone()[0] == 4
+
+
+def test_bens_do_centro_exclui_baixados_atribuidos_e_sem_mapa(dados):
+    semear(dados)
+    assert [b["numero"] for b in db.bens_do_centro(dados, "CCI")] == [1001]
+
+
+def test_bens_da_pessoa(dados):
+    semear(dados)
+    bens = db.bens_da_pessoa(dados, "ANA SILVA")
+    assert [b["numero"] for b in bens] == [1002] and bens[0]["descricao"] == "NOTEBOOK"
+
+
+def test_centros_responsavel_pessoas(dados):
+    semear(dados)
+    assert [c["ccustos"] for c in db.centros(dados)] == ["CCI"]
+    assert db.responsavel(dados, "CCI")["responsavel"] == "JAQUELINE PORTELA"
+    assert db.responsavel(dados, "XX") is None
+    assert db.pessoas(dados) == ["ANA SILVA"]
+
+
+def test_ficha_do_bem_com_setor_e_pessoa(dados):
+    semear(dados)
+    f = db.ficha_do_bem(dados, 1002)
+    assert f["ccustos"] == "CCI" and f["responsavel"] == "JAQUELINE PORTELA" and f["pessoa"] == "ANA SILVA"
+    f = db.ficha_do_bem(dados, 1004)
+    assert f["ccustos"] is None and f["pessoa"] is None
+    assert db.ficha_do_bem(dados, 9999) is None
+    assert db.buscar_bem(dados, 1001)["descricao"] == "CADEIRA"
+    assert db.localizacoes_mapeadas(dados) == [{"localizacao": "01 - SALA CCI", "ccustos": "CCI"}]
