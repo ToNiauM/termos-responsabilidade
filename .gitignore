@@ -18,3 +18,9 @@ __pycache__/
 
 # Outras pastas geradas por pacotes
 *.egg-info/
+
+# Dados do programa (banco, termos gerados) e build
+dados/
+build/
+dist/
+*.spec
