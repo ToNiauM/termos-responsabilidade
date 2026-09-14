@@ -1,150 +1,180 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, send_file, session
-from Termo_de_Responsabilidade import gerar_termos
+"""Termos de Responsabilidade — CFC. Rotas Flask; dados em db.py; documentos em termos_html.py e nos geradores."""
+from pathlib import Path
+
+from flask import Flask, abort, flash, g, redirect, render_template, request, send_file, session, url_for
+
+import config
+import db
+import termos_html
 from Script_Termo_Individual import criar_termo_responsabilidade
+from Termo_de_Responsabilidade import gerar_planilha_centro, gerar_termo_centro
 from termo_devolucao import gerar_termo_devolucao
-import pandas as pd
-import os
 
-app = Flask(__name__)
-app.secret_key = 'chave-super-secreta'
+app = Flask(__name__, template_folder=str(config.pasta_recursos() / "templates"),
+            static_folder=str(config.pasta_recursos() / "static"))
+app.secret_key = "termos-cfc-local"  # sessão só guarda seleção de bens; programa roda em 127.0.0.1
 
-def caminho_excel(nome):
-    return os.path.join(os.path.dirname(__file__), nome)
+DSGOV = {"ORGAO": "Conselho Federal de Contabilidade", "SISTEMA": "Termos de Responsabilidade",
+         "SUBTITULO": "Setor de Patrimônio"}
 
-def carregar_centros_de_custos():
-    df = pd.read_excel(caminho_excel('acervo.xlsx'), sheet_name='responsavel')
-    return df['ccustos'].unique()
 
-def carregar_nomes_individuais():
-    df = pd.read_excel('geral.xlsx', sheet_name='dados')
-    return df['Nome'].unique()
+@app.context_processor
+def contexto_dsgov():
+    return {"DSGOV": DSGOV, "MENU": [
+        ("Início", "fa-home", url_for("home")),
+        ("Termo por centro de custo", "fa-building", url_for("centro_custos")),
+        ("Termo individual", "fa-user-check", url_for("termos_individuais")),
+        ("Termo de devolução", "fa-box-open", url_for("termo_devolucao")),
+        ("Cadastros", "fa-address-book", url_for("cadastros", aba="responsaveis")),
+        ("Atualizar base", "fa-upload", url_for("upload")),
+    ]}
 
-@app.route('/')
+
+def obter_conn():
+    if "conn" not in g:
+        g.conn = db.conectar()
+    return g.conn
+
+
+@app.teardown_appcontext
+def fechar_conn(_exc):
+    conn = g.pop("conn", None)
+    if conn is not None:
+        conn.close()
+
+
+@app.errorhandler(db.ErroDeNegocio)
+def erro_de_negocio(e):
+    flash(str(e), "error")
+    return redirect(request.referrer or url_for("home"))
+
+
+def _nome_arquivo(s: str) -> str:
+    return "".join(c if c.isalnum() or c in "-_" else "_" for c in s)
+
+
+# ---------------------------------------------------------------- início e ficha do bem
+@app.route("/")
 def home():
-    return render_template('index.html')
+    return render_template("index.html", trilha=[])
 
-@app.route('/gerar', methods=['POST'])
-def gerar():
-    ccusto_escolhido = request.form.get('ccusto')
-    try:
-        gerar_termos(filtrar_ccusto=ccusto_escolhido)
-        flash(f"Termo para {ccusto_escolhido} gerado com sucesso!", 'success')
-        return redirect(url_for('centro_custos', ccusto_gerado=ccusto_escolhido))
-    except Exception as e:
-        flash(f"Ocorreu um erro: {str(e)}", 'error')
-        return redirect(url_for('centro_custos'))
 
-@app.route('/download/<path:nome_arquivo>')
-def download(nome_arquivo):
-    return send_from_directory(os.path.dirname(os.path.abspath(__file__)), nome_arquivo, as_attachment=True)
+@app.route("/bem")
+def bem():
+    numero = request.args.get("numero", "").strip()
+    ficha = db.ficha_do_bem(obter_conn(), int(numero)) if numero.isdigit() else None
+    if not ficha:
+        flash(f"Bem {numero or '(vazio)'} não encontrado.", "error")
+        return redirect(url_for("home"))
+    return render_template("bem.html", bem=ficha, trilha=[(f"Bem {numero}", None)])
 
-@app.route('/centro-custos')
+
+# ---------------------------------------------------------------- termos
+def _bens_do_termo(conn, tipo, chave):
+    """Devolve (titulo, corpo_html, bens, extra) do termo pedido; 404 se não existir."""
+    if tipo == "ccusto":
+        resp = db.responsavel(conn, chave) or abort(404)
+        bens = db.bens_do_centro(conn, chave)
+        return f"Termo de Responsabilidade - {chave}", termos_html.corpo_ccusto(chave, resp, bens), bens, resp
+    if tipo == "individual":
+        if chave not in db.pessoas(conn):
+            abort(404)
+        bens = db.bens_da_pessoa(conn, chave)
+        return f"Termo de Responsabilidade - {chave}", termos_html.corpo_individual(chave, bens), bens, None
+    if tipo == "devolucao":
+        numeros = session.get("bens_selecionados", [])
+        bens = [b for b in (db.buscar_bem(conn, int(n)) for n in numeros) if b]
+        return f"Termo de Devolução - {chave}", termos_html.corpo_devolucao(chave, bens), bens, None
+    abort(404)
+
+
+@app.route("/centro-custos")
 def centro_custos():
-    ccustos = carregar_centros_de_custos()
-    ccusto_gerado = request.args.get('ccusto_gerado')
-    return render_template('centro_custos.html', ccustos=ccustos, ccusto_gerado=ccusto_gerado)
+    return render_template("centro_custos.html", centros=db.centros(obter_conn()),
+                           trilha=[("Termo por centro de custo", None)])
 
-@app.route('/termos-individuais')
+
+@app.route("/gerar", methods=["POST"])
+def gerar():
+    return redirect(url_for("termo", tipo="ccusto", chave=request.form["ccusto"]))
+
+
+@app.route("/termos-individuais")
 def termos_individuais():
-    nomes = carregar_nomes_individuais()
-    nome_gerado = request.args.get('nome_gerado')
-    return render_template('termos_individuais.html', nomes=nomes, nome_gerado=nome_gerado)
+    return render_template("termos_individuais.html", nomes=db.pessoas(obter_conn()),
+                           trilha=[("Termo individual", None)])
 
-@app.route('/gerar-individual', methods=['POST'])
+
+@app.route("/gerar-individual", methods=["POST"])
 def gerar_individual():
-    nome = request.form.get('nome')
-    df = pd.read_excel('geral.xlsx', sheet_name='dados')
-    grupo = df[df['Nome'] == nome]
-    try:
-        criar_termo_responsabilidade(nome, grupo)
-        flash(f"Termo de {nome} gerado com sucesso!", 'success')
-        return redirect(url_for('termos_individuais', nome_gerado=nome))
-    except Exception as e:
-        flash(str(e), 'error')
-        return redirect(url_for('termos_individuais'))
+    return redirect(url_for("termo", tipo="individual", chave=request.form["nome"]))
 
-@app.route('/upload', methods=['GET', 'POST'])
+
+@app.route("/termo/<tipo>/<chave>")
+def termo(tipo, chave):
+    titulo, _, bens, _ = _bens_do_termo(obter_conn(), tipo, chave)
+    return render_template("termo.html", tipo=tipo, chave=chave, titulo=titulo, quantidade=len(bens),
+                           trilha=[(titulo, None)])
+
+
+@app.route("/termo/<tipo>/<chave>/documento")
+def termo_documento(tipo, chave):
+    titulo, corpo, _, _ = _bens_do_termo(obter_conn(), tipo, chave)
+    html = termos_html.documento(titulo, corpo)
+    (config.pasta_saida() / f"{_nome_arquivo(titulo)}.html").write_text(html, encoding="utf8")
+    return html
+
+
+@app.route("/termo/<tipo>/<chave>/docx")
+def termo_docx(tipo, chave):
+    conn = obter_conn()
+    _, _, bens, extra = _bens_do_termo(conn, tipo, chave)
+    saida = config.pasta_saida()
+    if tipo == "ccusto":
+        destino = gerar_termo_centro(chave, extra, bens, saida / f"Termo_de_Responsabilidade_{_nome_arquivo(chave)}.docx")
+    elif tipo == "individual":
+        destino = criar_termo_responsabilidade(chave, bens, saida / f"Termo_{_nome_arquivo(chave)}.docx")
+    else:
+        destino = gerar_termo_devolucao(chave, bens, saida / f"Termo_Devolucao_{_nome_arquivo(chave)}.docx")
+        if destino is None:
+            flash("Nenhum bem selecionado.", "error")
+            return redirect(url_for("termo_devolucao"))
+    return send_file(destino, as_attachment=True, download_name=destino.name)
+
+
+@app.route("/termo/ccusto/<chave>/planilha")
+def termo_planilha(chave):
+    _, _, bens, _ = _bens_do_termo(obter_conn(), "ccusto", chave)
+    destino = gerar_planilha_centro(bens, config.pasta_saida() / f"planilha_{_nome_arquivo(chave)}.xlsx")
+    return send_file(destino, as_attachment=True, download_name=destino.name)
+
+
+# ---------------------------------------------------------------- atualizar base
+@app.route("/upload", methods=["GET", "POST"])
 def upload():
-    if request.method == 'POST':
-        arquivo = request.files.get('arquivo')
-        if not arquivo:
-            flash('Nenhum arquivo selecionado.', 'error')
-            return redirect(url_for('upload'))
-
-        nome_arquivo = arquivo.filename.lower()
-        if nome_arquivo.endswith('.xlsx'):
-            if 'geral' in nome_arquivo:
-                nome_seguro = 'geral.xlsx'
-            elif 'acervo' in nome_arquivo:
-                nome_seguro = 'acervo.xlsx'
-            else:
-                flash('Nome de arquivo inválido. Use "geral" ou "acervo" no nome.', 'error')
-                return redirect(url_for('upload'))
-
-            arquivo.save(caminho_excel(nome_seguro))
-            flash(f'Arquivo {nome_seguro} atualizado com sucesso!', 'success')
-        else:
-            flash('Por favor, envie um arquivo .xlsx válido.', 'error')
-        return redirect(url_for('upload'))
-
-    return render_template('upload.html')
-
-@app.route('/download-planilha/<nome_arquivo>')
-def download_planilha(nome_arquivo):
-    return send_from_directory(os.path.dirname(os.path.abspath(__file__)), nome_arquivo, as_attachment=True)
-
-@app.route("/termo_devolucao", methods=["GET", "POST"])
-def termo_devolucao():
-    df_nomes = pd.read_excel("geral.xlsx", sheet_name="nomes")
-    df_bens = pd.read_excel("geral.xlsx", sheet_name="base")
-
-    nomes = df_nomes['responsavel'].dropna().tolist()
-    nome_selecionado = request.form.get("nome") or session.get("nome_selecionado")
-
     if request.method == "POST":
-        if nome_selecionado:
-            session['nome_selecionado'] = nome_selecionado
-
-        if "gerar" in request.form:
-            bens_ids = session.get("bens_selecionados", [])
-            bens_final = df_bens[df_bens['Número Bem'].astype(str).isin(bens_ids)]
-            nome_arquivo = gerar_termo_devolucao(nome_selecionado, bens_final.to_dict(orient='records'))
-            session.pop("bens_selecionados", None)
-            flash("Termo gerado com sucesso!", "success")
-            return redirect(url_for("termo_devolucao", nome_gerado=nome_selecionado))
-
-        elif "remover" in request.form:
-            numero_remover = request.form.get("remover")
-            if numero_remover and numero_remover in session.get("bens_selecionados", []):
-                session["bens_selecionados"].remove(numero_remover)
-                session.modified = True
-
-        else:
-            numero_bem = request.form.get("numero_bem")
-            if not numero_bem:
-                flash("Digite o número do bem.")
-            else:
-                bem = df_bens[df_bens['Número Bem'].astype(str) == numero_bem]
-                if bem.empty:
-                    flash("Bem não encontrado. Verifique o número digitado.")
-                else:
-                    session.setdefault("bens_selecionados", [])
-                    if numero_bem not in session["bens_selecionados"]:
-                        session["bens_selecionados"].append(numero_bem)
-                        session.modified = True
-
-    bens_ids = session.get("bens_selecionados", [])
-    bens_selecionados = df_bens[df_bens['Número Bem'].astype(str).isin(bens_ids)]
-    total = bens_selecionados['Valor Atual'].sum()
-    nome_gerado = request.args.get("nome_gerado")
-
-    return render_template("termo_devolucao.html",
-                           nomes=nomes,
-                           nome_selecionado=nome_selecionado,
-                           bens_selecionados=bens_selecionados.to_dict(orient='records'),
-                           total=total,
-                           nome_gerado=nome_gerado)
+        arquivo = request.files.get("arquivo")
+        if not arquivo or not arquivo.filename.lower().endswith(".xlsx"):
+            flash("Envie o export do sistema em .xlsx.", "error")
+            return redirect(url_for("upload"))
+        resumo = db.importar_bens(obter_conn(), arquivo.stream)
+        flash(f"{resumo['total']} bens importados ({resumo['ativos']} ativos).", "success")
+        return redirect(url_for("upload"))
+    return render_template("upload.html", sem_centro=db.localizacoes_sem_centro(obter_conn()),
+                           trilha=[("Atualizar base", None)])
 
 
-if __name__ == '__main__':
-    app.run(debug=True)
+# ---------------------------------------------------------------- rotas provisórias (Tasks 11 e 12)
+@app.route("/termo_devolucao")
+def termo_devolucao():
+    return redirect(url_for("home"))
+
+
+@app.route("/cadastros/<aba>")
+def cadastros(aba):
+    return redirect(url_for("home"))
+
+
+if __name__ == "__main__":
+    db.inicializar()
+    app.run(host="127.0.0.1", port=5000, debug=True)

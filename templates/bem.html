@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block titulo %}Bem {{ bem.numero }}{% endblock %}
+{% block conteudo %}
+<div class="d-flex align-items-center mb-4">
+  <h1 class="mb-0">Bem {{ bem.numero }}</h1>
+  <div class="ml-auto"><a class="br-button" href="{{ url_for('home') }}">Voltar</a></div>
+</div>
+<div class="br-card"><div class="card-content">
+  <dl class="dsgov-detalhe row">
+    <div class="col-md-6"><dt>Descrição</dt><dd>{{ bem.descricao }}</dd></div>
+    <div class="col-md-6"><dt>Complemento</dt><dd>{{ bem.complemento or '—' }}</dd></div>
+    <div class="col-md-6"><dt>Situação</dt><dd>{{ bem.situacao }}</dd></div>
+    <div class="col-md-6"><dt>Localização</dt><dd>{{ bem.localizacao or '—' }}</dd></div>
+    <div class="col-md-6"><dt>Valor atual</dt><dd>R$ {{ '%.2f'|format(bem.valor_atual or 0) }}</dd></div>
+    <div class="col-md-6"><dt>Centro de custo</dt>
+      <dd>{% if bem.ccustos %}<a href="{{ url_for('termo', tipo='ccusto', chave=bem.ccustos) }}">{{ bem.ccustos }}</a> — {{ bem.responsavel }}{% else %}sem mapeamento{% endif %}</dd></div>
+    <div class="col-md-6"><dt>Responsável individual</dt>
+      <dd>{% if bem.pessoa %}<a href="{{ url_for('termo', tipo='individual', chave=bem.pessoa) }}">{{ bem.pessoa }}</a>{% else %}— (responde o setor){% endif %}</dd></div>
+  </dl>
+</div></div>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+<div class="d-flex align-items-center mb-4">
+  <h1 class="mb-0">{{ titulo }}</h1>
+  <div class="ml-auto">
+    <button class="br-button primary" type="button" id="copiar"><i class="fas fa-copy mr-1" aria-hidden="true"></i>Copiar para o SEI</button>
+    <a class="br-button secondary ml-2" href="{{ url_for('termo_docx', tipo=tipo, chave=chave) }}"><i class="fas fa-download mr-1" aria-hidden="true"></i>Baixar .docx</a>
+    {% if tipo == 'ccusto' %}<a class="br-button ml-2" href="{{ url_for('termo_planilha', chave=chave) }}">Baixar planilha</a>{% endif %}
+  </div>
+</div>
+<div id="aviso-copiado" class="br-message success" hidden>
+  <div class="icon"><i class="fas fa-check-circle fa-lg" aria-hidden="true"></i></div>
+  <div class="content" role="alert"><span class="message-title">Copiado.</span><span class="message-body"> Cole no editor do SEI (Ctrl+V).</span></div>
+</div>
+{% if quantidade == 0 %}
+<div class="br-message warning"><div class="icon"><i class="fas fa-exclamation-triangle fa-lg" aria-hidden="true"></i></div>
+  <div class="content" role="alert"><span class="message-title">Atenção.</span><span class="message-body"> Nenhum bem neste termo.</span></div></div>
+{% endif %}
+<div class="br-card"><div class="card-content">
+  <iframe id="documento" title="{{ titulo }}" src="{{ url_for('termo_documento', tipo=tipo, chave=chave) }}" width="100%" height="900"></iframe>
+</div></div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById("copiar").addEventListener("click", async function () {
+  var corpo = document.getElementById("documento").contentDocument.body;
+  var html = corpo.innerHTML, texto = corpo.innerText;
+  try {
+    await navigator.clipboard.write([new ClipboardItem({
+      "text/html": new Blob([html], {type: "text/html"}),
+      "text/plain": new Blob([texto], {type: "text/plain"})})]);
+  } catch (e) {
+    var docIframe = corpo.ownerDocument, sel = docIframe.defaultView.getSelection(), range = docIframe.createRange();
+    range.selectNodeContents(corpo); sel.removeAllRanges(); sel.addRange(range);
+    docIframe.execCommand("copy"); sel.removeAllRanges();
+  }
+  var aviso = document.getElementById("aviso-copiado");
+  aviso.hidden = false;
+  setTimeout(function () { aviso.hidden = true; }, 3000);
+});
+</script>
+{% endblock %}
