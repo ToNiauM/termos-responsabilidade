@@ -149,12 +149,14 @@ def test_renomear_centro_cascateia(dados):
 
 
 def test_excluir_centro_em_uso_falha(dados):
-    semear(dados)
-    with pytest.raises(db.CentroEmUso):
+    semear(dados)  # CCI tem o bem 1001 ativo em "01 - SALA CCI"
+    with pytest.raises(db.CentroEmUso) as e:
         db.excluir_responsavel(dados, "CCI")
-    db.excluir_localizacao(dados, "01 - SALA CCI")
-    db.excluir_responsavel(dados, "CCI")
-    assert db.centros(dados) == []
+    assert "1 bem" in str(e.value)
+    db.desatribuir(dados, "ANA SILVA", 1002)  # agora 1001 e 1002 respondem pelo setor
+    with pytest.raises(db.CentroEmUso) as e:
+        db.excluir_responsavel(dados, "CCI")
+    assert "2 bens" in str(e.value)
 
 
 def test_incluir_responsavel_e_localizacao(dados):
@@ -191,3 +193,55 @@ def test_desatribuir_e_excluir_pessoa(dados):
     db.atribuir(dados, "ANA SILVA", 1002)
     db.excluir_pessoa(dados, "ANA SILVA")
     assert db.pessoas(dados) == [] and db.pessoa_do_bem(dados, 1002) is None
+
+
+def test_excluir_centro_sem_bens_apaga_mapeamentos(dados):
+    semear(dados)
+    db.incluir_responsavel(dados, {"ccustos": "VAZIO", "responsavel": "X"})
+    db.incluir_localizacao(dados, "99 - SEM MAPA", "VAZIO")   # 1004 é ATIVO aqui...
+    with pytest.raises(db.CentroEmUso):
+        db.excluir_responsavel(dados, "VAZIO")
+    dados.execute("UPDATE bens SET situacao='BAIXADO' WHERE numero=1004")
+    dados.commit()
+    db.excluir_responsavel(dados, "VAZIO")                       # ...sem bens ativos: some, e a sala volta a pendente
+    assert db.responsavel(dados, "VAZIO") is None
+    assert db.localizacoes_mapeadas(dados) == [{"localizacao": "01 - SALA CCI", "ccustos": "CCI"}]
+    with pytest.raises(db.ErroDeNegocio):
+        db.excluir_responsavel(dados, "NAO_EXISTE")
+
+
+def test_atualizar_responsavel(dados):
+    semear(dados)
+    db.atualizar_responsavel(dados, "CCI", {"tratamento": "Prezado", "responsavel": " carlos ", "email": "c@cfc",
+                                           "matricula": "99", "funcao": "gerente"})
+    r = db.responsavel(dados, "CCI")
+    assert (r["responsavel"], r["funcao"], r["matricula"]) == ("carlos", "gerente", "99")
+    with pytest.raises(db.ErroDeNegocio):
+        db.atualizar_responsavel(dados, "CCI", {"responsavel": ""})
+    with pytest.raises(db.ErroDeNegocio):
+        db.atualizar_responsavel(dados, "NAO_EXISTE", {"responsavel": "X"})
+
+
+def test_mover_localizacoes(dados):
+    semear(dados)
+    db.incluir_responsavel(dados, {"ccustos": "PRES", "responsavel": "Y"})
+    db.incluir_localizacao(dados, "99 - SEM MAPA", "CCI")
+    n = db.mover_localizacoes(dados, ["01 - SALA CCI", "99 - SEM MAPA"], "PRES")
+    assert n == 2 and {l["ccustos"] for l in db.localizacoes_mapeadas(dados)} == {"PRES"}
+    assert [b["numero"] for b in db.bens_do_centro(dados, "PRES")] == [1001, 1004]
+    with pytest.raises(db.ErroDeNegocio):
+        db.mover_localizacoes(dados, [], "PRES")
+    with pytest.raises(db.ErroDeNegocio):
+        db.mover_localizacoes(dados, ["01 - SALA CCI"], "NAO_EXISTE")
+
+
+def test_renomear_pessoa_mantem_atribuicoes(dados):
+    semear(dados)
+    assert db.renomear_pessoa(dados, "ANA SILVA", " ana  souza ") == "ANA SOUZA"
+    assert db.pessoas(dados) == ["ANA SOUZA"] and db.pessoa_do_bem(dados, 1002) == "ANA SOUZA"
+    db.incluir_pessoa(dados, "BRUNO")
+    with pytest.raises(db.ErroDeNegocio):
+        db.renomear_pessoa(dados, "ANA SOUZA", "bruno")
+    with pytest.raises(db.ErroDeNegocio):
+        db.renomear_pessoa(dados, "NINGUEM", "X")
+    assert db.renomear_pessoa(dados, "ANA SOUZA", "ANA SOUZA") == "ANA SOUZA"

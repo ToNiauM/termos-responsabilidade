@@ -266,11 +266,32 @@ def incluir_responsavel(conn, dados: dict) -> None:
     conn.commit()
 
 
-def excluir_responsavel(conn, ccustos: str) -> None:
-    n = conn.execute("SELECT count(*) FROM localizacoes WHERE ccustos = ?", (ccustos,)).fetchone()[0]
+def checar_exclusao_centro(conn, ccustos: str) -> None:
+    """Centro só pode ser excluído sem bens ativos sob guarda (bens em localizações dele, não atribuídos)."""
+    if not responsavel(conn, ccustos):
+        raise ErroDeNegocio(f"Centro de custo {ccustos} não encontrado.")
+    n = len(bens_do_centro(conn, ccustos))
     if n:
-        raise CentroEmUso(f"{ccustos} tem {n} localização(ões) mapeada(s). Remapeie-as antes de excluir.")
+        bem_str = "bem" if n == 1 else "bens"
+        ativo_str = "ativo" if n == 1 else "ativos"
+        raise CentroEmUso(f"{ccustos} tem {n} {bem_str} {ativo_str} sob guarda. "
+                          "Mova as localizações para outro centro antes de excluir.")
+
+
+def excluir_responsavel(conn, ccustos: str) -> None:
+    checar_exclusao_centro(conn, ccustos)
+    conn.execute("DELETE FROM localizacoes WHERE ccustos = ?", (ccustos,))  # voltam a "pendentes"
     conn.execute("DELETE FROM responsaveis WHERE ccustos = ?", (ccustos,))
+    conn.commit()
+
+
+def atualizar_responsavel(conn, ccustos: str, dados: dict) -> None:
+    if not responsavel(conn, ccustos):
+        raise ErroDeNegocio(f"Centro de custo {ccustos} não encontrado.")
+    nome = _obrigatorio(dados.get("responsavel"), "Responsável")
+    conn.execute("UPDATE responsaveis SET tratamento=?, responsavel=?, email=?, matricula=?, funcao=? WHERE ccustos=?", (
+        _texto(dados.get("tratamento")), nome, _texto(dados.get("email")),
+        _texto(dados.get("matricula")), _texto(dados.get("funcao")), ccustos))
     conn.commit()
 
 
@@ -297,6 +318,18 @@ def excluir_localizacao(conn, localizacao: str) -> None:
     conn.commit()
 
 
+def mover_localizacoes(conn, localizacoes: list[str], ccustos: str) -> int:
+    """De-Para: muda o centro de custo de uma ou várias localizações de uma vez."""
+    if not localizacoes:
+        raise ErroDeNegocio("Selecione ao menos uma localização.")
+    if not responsavel(conn, ccustos):
+        raise ErroDeNegocio(f"Centro de custo {ccustos} não cadastrado.")
+    marcadores = ",".join("?" * len(localizacoes))
+    cur = conn.execute(f"UPDATE localizacoes SET ccustos = ? WHERE localizacao IN ({marcadores})", (ccustos, *localizacoes))
+    conn.commit()
+    return cur.rowcount
+
+
 def incluir_pessoa(conn, nome: str) -> str:
     nome = _obrigatorio(nome, "Nome").upper()
     conn.execute("INSERT OR IGNORE INTO pessoas VALUES (?)", (nome,))
@@ -307,6 +340,19 @@ def incluir_pessoa(conn, nome: str) -> str:
 def excluir_pessoa(conn, nome: str) -> None:
     conn.execute("DELETE FROM pessoas WHERE nome = ?", (nome,))  # atribuições vão junto (cascade)
     conn.commit()
+
+
+def renomear_pessoa(conn, antigo: str, novo: str) -> str:
+    novo = _obrigatorio(novo, "Nome").upper()
+    if antigo not in pessoas(conn):
+        raise ErroDeNegocio(f"Pessoa {antigo} não encontrada.")
+    if novo == antigo:
+        return novo
+    if novo in pessoas(conn):
+        raise ErroDeNegocio(f"Já existe uma pessoa chamada {novo}.")
+    conn.execute("UPDATE pessoas SET nome = ? WHERE nome = ?", (novo, antigo))  # cascateia em atribuicoes
+    conn.commit()
+    return novo
 
 
 def atribuir(conn, nome: str, numero: int, confirmar: bool = False) -> None:
