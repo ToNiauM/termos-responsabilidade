@@ -117,7 +117,11 @@ def importar_bens(conn: sqlite3.Connection, arquivo) -> dict:
     Devolve {"total", "ativos", "sem_centro"}. Levanta ImportacaoInvalida (e não altera nada)
     se faltar coluna ou se algum bem atribuído a pessoa deixar de existir.
     """
-    wb = load_workbook(arquivo, read_only=True, data_only=True)
+    try:
+        wb = load_workbook(arquivo, read_only=True, data_only=True)
+    except Exception:
+        raise ImportacaoInvalida("Arquivo inválido: envie o export do sistema em .xlsx.")
+
     ws, cabecalho = _aba_do_export(wb)
     faltando = [c for c in COLUNAS_EXPORT if c not in cabecalho]
     if faltando:
@@ -147,6 +151,9 @@ def importar_bens(conn: sqlite3.Connection, arquivo) -> dict:
                 "O export não traz bens que estão atribuídos a pessoas: " + ", ".join(orfaos)
                 + ". Remova a atribuição na aba Pessoas ou use um export completo.")
         conn.commit()
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        raise ImportacaoInvalida("O export tem número de bem repetido; corrija a planilha e envie de novo.")
     except Exception:
         conn.rollback()
         raise

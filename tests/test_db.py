@@ -88,3 +88,24 @@ def test_importar_usa_aba_pelo_cabecalho_e_converte_data(dados, tmp_path):
 def test_localizacoes_sem_centro(dados):
     semear(dados)
     assert db.localizacoes_sem_centro(dados) == ["99 - SEM MAPA"]
+
+
+def test_importar_arquivo_invalido_levanta_importacao_invalida(dados, tmp_path):
+    semear(dados)
+    arq = tmp_path / "x.xlsx"
+    arq.write_bytes(b"nada")
+    with pytest.raises(db.ImportacaoInvalida):
+        db.importar_bens(dados, arq)
+    assert dados.execute("SELECT count(*) FROM bens").fetchone()[0] == 4
+
+
+def test_importar_numero_repetido_e_revertida(dados, tmp_path):
+    semear(dados)
+    arq = xlsx(tmp_path, [
+        [1001, "ATIVO", "CADEIRA", "", "MÓVEIS", "01 - SALA CCI", "01/01/2000", 10, 5],
+        [1001, "ATIVO", "CADEIRA CÓPIA", "", "MÓVEIS", "01 - SALA CCI", "01/01/2000", 10, 5],
+    ])
+    with pytest.raises(db.ImportacaoInvalida) as e:
+        db.importar_bens(dados, arq)
+    assert "repetido" in str(e.value)
+    assert dados.execute("SELECT count(*) FROM bens").fetchone()[0] == 4
