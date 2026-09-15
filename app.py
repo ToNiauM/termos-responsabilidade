@@ -68,6 +68,11 @@ def home():
     return render_template("index.html", trilha=[])
 
 
+@app.route("/recorte")
+def recorte():
+    return redirect(url_for("home"))   # completada na Task 13
+
+
 @app.route("/bem")
 def bem():
     numero = request.args.get("numero", "").strip()
