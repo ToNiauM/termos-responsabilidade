@@ -157,10 +157,17 @@ def test_relatorio_e_xlsx(dados, tmp_path):
     inventario.ler(dados, eid, "01 - SALA CCI", 2001, "Fulano")                     # divergente (é da SALA B)
     inventario.atualizar_leitura(dados, eid, 1001, conservacao="Bom", quem_usa="Ciclana")
     inventario.registrar_sobra(dados, eid, "02 - SALA B", "VENTILADOR", "ARNO", "sem plaqueta", "http://x/s.webp", "Beltrana")
+    inventario.ler(dados, eid, "01 - SALA CCI", 1003, "Fulano")                     # BAIXADO lido na própria sala
     r = inventario.relatorio(dados, eid)
-    assert [(x["numero"], x["situacao_inv"]) for x in r] == [(1001, "localizado"), (1002, "pendente"), (2001, "divergente"), (2002, "pendente"), (1004, "pendente")]
-    assert r[2]["local_sistema"] == "02 - SALA B" and r[2]["local_inventario"] == "01 - SALA CCI"
-    assert [x["numero"] for x in inventario.relatorio(dados, eid, localizacao="01 - SALA CCI")] == [1001, 1002, 2001]   # inclui o trazido
+    b1003 = next(x for x in r if x["numero"] == 1003)
+    assert b1003["situacao_bem"] == "BAIXADO" and b1003["situacao_inv"] == "localizado"
+    assert [x["numero"] for x in inventario.relatorio(dados, eid, localizacao="01 - SALA CCI")] == [1001, 1002, 1003, 2001]
+    with pytest.raises(db.ErroDeNegocio):
+        inventario.relatorio(dados, 999)
+    with pytest.raises(db.ErroDeNegocio):
+        inventario.exportar_xlsx(dados, 999, tmp_path / "x.xlsx")
+    assert [(x["numero"], x["situacao_inv"]) for x in r] == [(1001, "localizado"), (1002, "pendente"), (1003, "localizado"), (2001, "divergente"), (2002, "pendente"), (1004, "pendente")]
+    assert r[3]["local_sistema"] == "02 - SALA B" and r[3]["local_inventario"] == "01 - SALA CCI"
     assert [x["numero"] for x in inventario.relatorio(dados, eid, situacao="pendente")] == [1002, 2002, 1004]
     from openpyxl import load_workbook
     wb = load_workbook(inventario.exportar_xlsx(dados, eid, tmp_path / "inv.xlsx"))
@@ -171,4 +178,55 @@ def test_relatorio_e_xlsx(dados, tmp_path):
     sobras = list(wb["Sobras"].iter_rows(values_only=True))
     assert sobras[1][0] == "Sala" and sobras[2][:2] == ("02 - SALA B", "VENTILADOR") and sobras[2][6] == "http://x/s.webp"
     so_cci = load_workbook(inventario.exportar_xlsx(dados, eid, tmp_path / "cci.xlsx", localizacao="01 - SALA CCI"))["Bens"]
-    assert so_cci.max_row == 2 + 3
+    assert so_cci.max_row == 2 + 4
+
+
+def test_planilha_de_cadastros_exporta_e_importa_abas_de_inventario(dados, tmp_path):
+    eid = semear_inventario(dados)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    inventario.registrar_sobra(dados, eid, "02 - SALA B", "VENTILADOR", None, "achado", "http://x/s.webp", "Fulano")
+    from openpyxl import load_workbook
+    caminho = db.exportar_cadastros(dados, tmp_path / "c.xlsx")
+    wb = load_workbook(caminho)
+    assert wb.sheetnames == ["responsaveis", "localizacoes", "pessoas", "atribuicoes", "inv_eventos", "inv_integrantes", "inv_salas", "inv_leituras", "inv_sobras"]
+    assert list(wb["inv_leituras"].iter_rows(values_only=True))[1][:3] == (eid, 1001, "01 - SALA CCI")
+    # editar: encerra o evento, acrescenta uma leitura migrada de outro sistema, e reimporta
+    ws = wb["inv_eventos"]
+    ws.cell(row=2, column=5, value="2026-01-31")                                       # encerrado_em só com data
+    wb["inv_leituras"].append([eid, 2001, "02 - SALA B", "2026-01-20 10:00:00", "Antigo", "Regular", "", "migrado", ""])
+    wb.save(tmp_path / "c2.xlsx")
+    with open(tmp_path / "c2.xlsx", "rb") as f:
+        r = db.importar_cadastros(dados, f)
+    assert r["inv_leituras"] == 2 and r["inv_eventos"] == 1
+    assert inventario.evento(dados, eid)["encerrado_em"] == "2026-01-31 00:00:00"
+    assert {x["numero"]: x["situacao_inv"] for x in inventario.relatorio(dados, eid)}[2001] == "localizado"
+    assert inventario.resumo(dados, eid)["sobras"] == 1
+
+
+def test_planilha_sem_abas_de_inventario_nao_toca_nas_tabelas(dados, tmp_path):
+    eid = semear_inventario(dados)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    from openpyxl import load_workbook
+    wb = load_workbook(db.exportar_cadastros(dados, tmp_path / "c.xlsx"))
+    for aba in list(inventario.ABAS):
+        wb.remove(wb[aba])
+    wb.save(tmp_path / "so4.xlsx")
+    with open(tmp_path / "so4.xlsx", "rb") as f:
+        r = db.importar_cadastros(dados, f)
+    assert "inv_leituras" not in r and inventario.resumo(dados, eid)["lidos"] == 1
+
+
+def test_planilha_de_inventario_validacoes(dados, tmp_path):
+    eid = semear_inventario(dados)
+    from openpyxl import load_workbook
+    wb = load_workbook(db.exportar_cadastros(dados, tmp_path / "c.xlsx"))
+    wb["inv_leituras"].append([eid, 99999, "01 - SALA CCI", "2026-01-20 10:00:00", "Fulano", "", "", "", ""])   # bem inexistente
+    wb["inv_leituras"].append([eid, 1001, "01 - SALA CCI", "x", "Fulano", "Ótimo", "", "", ""])                  # data e conservação
+    wb["inv_salas"].append([77, "01 - SALA CCI"])                                                                # evento inexistente
+    wb["inv_eventos"].append([2, "Outro aberto", None, "2026-02-01 00:00:00", None])                             # 2 abertos
+    wb.save(tmp_path / "ruim.xlsx")
+    with open(tmp_path / "ruim.xlsx", "rb") as f, pytest.raises(db.ImportacaoInvalida) as e:
+        db.importar_cadastros(dados, f)
+    msg = str(e.value)
+    assert "99999" in msg and "conservação" in msg and "77" in msg and "aberto" in msg and "data" in msg
+    assert inventario.resumo(dados, eid)["salas"] == 3                                                            # nada mudou

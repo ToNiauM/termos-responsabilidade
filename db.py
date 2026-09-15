@@ -728,7 +728,8 @@ CADASTROS = {
 
 
 def exportar_cadastros(conn, destino: Path) -> Path:
-    """Planilha com as 4 tabelas de cadastro, no formato do banco (para backup e edição em massa)."""
+    """Planilha com as 4 tabelas de cadastro, no formato do banco (para backup e edição em massa),
+    mais as abas inv_* (migração/backup dos eventos de inventário)."""
     wb = Workbook()
     wb.remove(wb.active)
     for tabela, colunas in CADASTROS.items():
@@ -736,13 +737,17 @@ def exportar_cadastros(conn, destino: Path) -> Path:
         ws.append(colunas)
         for linha in conn.execute(f"SELECT {', '.join(colunas)} FROM {tabela} ORDER BY {colunas[0]}"):
             ws.append(list(linha))
+    import inventario
+    inventario.exportar_abas(conn, wb)
     wb.save(destino)
     return destino
 
 
-def _ler_aba_cadastro(wb, tabela: str, problemas: list) -> list[dict]:
-    colunas = CADASTROS[tabela]
+def _ler_aba_cadastro(wb, tabela: str, problemas: list, colunas=None, opcional=False) -> list[dict] | None:
+    colunas = colunas or CADASTROS[tabela]
     if tabela not in wb.sheetnames:
+        if opcional:
+            return None
         problemas.append(f"aba '{tabela}' não encontrada")
         return []
     ws = wb[tabela]
@@ -767,9 +772,12 @@ def importar_cadastros(conn, arquivo) -> dict:
         wb = load_workbook(arquivo, read_only=True, data_only=True)
     except Exception:
         raise ImportacaoInvalida("Arquivo inválido: envie a planilha de cadastros em .xlsx.")
+    import inventario
     problemas: list[str] = []
     try:
         brutos = {t: _ler_aba_cadastro(wb, t, problemas) for t in CADASTROS}
+        inv_brutos = {aba: _ler_aba_cadastro(wb, aba, problemas, colunas=cols, opcional=True) for aba, cols in inventario.ABAS.items()}
+        tem_inventario = any(v is not None for v in inv_brutos.values())
     except ImportacaoInvalida:
         raise
     except Exception:
@@ -830,6 +838,11 @@ def importar_cadastros(conn, arquivo) -> dict:
             numeros.add(int(num))
             atribuicoes.append((nome, int(num)))
 
+    inv_linhas = {}
+    if tem_inventario:
+        inv_linhas, inv_problemas = inventario.validar_abas(conn, {a: (v or []) for a, v in inv_brutos.items()})
+        problemas += inv_problemas
+
     if problemas:
         extra = f" (+{len(problemas) - 20})" if len(problemas) > 20 else ""
         raise ImportacaoInvalida("Planilha de cadastros: " + "; ".join(problemas[:20]) + extra)
@@ -841,12 +854,17 @@ def importar_cadastros(conn, arquivo) -> dict:
         conn.executemany("INSERT INTO localizacoes VALUES (?,?)", localizacoes)
         conn.executemany("INSERT INTO pessoas VALUES (?)", [(n,) for n in sorted(nomes)])
         conn.executemany("INSERT INTO atribuicoes VALUES (?,?)", atribuicoes)
+        if tem_inventario:
+            inventario.substituir_tabelas(conn, inv_linhas)
         conn.commit()
     except Exception:
         conn.rollback()
         raise
-    return {"responsaveis": len(responsaveis), "localizacoes": len(localizacoes), "pessoas": len(nomes),
-            "atribuicoes": len(atribuicoes), "sem_centro": localizacoes_sem_centro(conn)}
+    resultado = {"responsaveis": len(responsaveis), "localizacoes": len(localizacoes), "pessoas": len(nomes),
+                "atribuicoes": len(atribuicoes), "sem_centro": localizacoes_sem_centro(conn)}
+    if tem_inventario:
+        resultado.update({aba: len(l) for aba, l in inv_linhas.items()})
+    return resultado
 
 
 # ---------------------------------------------------------------- painel e recorte

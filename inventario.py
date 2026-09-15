@@ -217,15 +217,18 @@ def excluir_sobra(conn, evento_id: int, sobra_id: int) -> dict:
 
 # ---------------------------------------------------------------- relatório e planilha do evento
 COLUNAS_XLSX = ["Patrimônio", "Descrição", "Complemento", "Classificação", "Local sistema", "Local inventário",
-                "Situação", "Conservação", "Quem usa", "Observação", "Integrante", "Data/hora", "Foto"]
+                "Situação", "Conservação", "Quem usa", "Observação", "Integrante", "Data/hora", "Foto", "Situação do bem"]
 COLUNAS_SOBRAS = ["Sala", "Descrição", "Complemento", "Observação", "Integrante", "Data/hora", "Foto"]
 _CAMPOS_REL = """b.numero AS numero, b.descricao, b.complemento, b.classificacao, b.localizacao AS local_sistema,
-        r.localizacao AS local_inventario, r.lido_em, r.integrante, r.conservacao, r.quem_usa, r.observacao, r.foto_url"""
+        r.localizacao AS local_inventario, r.lido_em, r.integrante, r.conservacao, r.quem_usa, r.observacao, r.foto_url,
+        b.situacao AS situacao_bem"""
 
 
 def relatorio(conn, evento_id: int, localizacao: str | None = None, situacao: str | None = None) -> list[dict]:
     """Uma linha por bem ativo das salas do escopo (ou da sala pedida), mais os lidos nela vindos de fora
-    do escopo. situacao filtra por localizado | divergente | pendente."""
+    do escopo (ou de bens que deixaram de estar ATIVO). situacao filtra por localizado | divergente | pendente."""
+    if not evento(conn, evento_id):
+        raise ErroDeNegocio("Evento de inventário não encontrado.")
     filtro_sala = ""
     params = [evento_id]
     if localizacao:
@@ -241,9 +244,10 @@ def relatorio(conn, evento_id: int, localizacao: str | None = None, situacao: st
         LEFT JOIN inventario_leituras r ON r.evento_id = s.evento_id AND r.numero = b.numero
         WHERE s.evento_id = ?{filtro_sala}
         UNION ALL
-        SELECT {_CAMPOS_REL}, 'divergente' AS situacao_inv
+        SELECT {_CAMPOS_REL},
+          CASE WHEN r.localizacao = b.localizacao THEN 'localizado' ELSE 'divergente' END AS situacao_inv
         FROM inventario_leituras r JOIN bens b ON b.numero = r.numero
-        WHERE r.evento_id = ? AND b.localizacao NOT IN (SELECT localizacao FROM inventario_salas WHERE evento_id = r.evento_id)
+        WHERE r.evento_id = ? AND (b.localizacao NOT IN (SELECT localizacao FROM inventario_salas WHERE evento_id = r.evento_id) OR b.situacao <> 'ATIVO')
           {"AND r.localizacao = ?" if localizacao else ""}
         ORDER BY local_sistema, numero""", *params)
     if situacao:
@@ -258,6 +262,8 @@ def _data_br(iso):
 def exportar_xlsx(conn, evento_id: int, destino, localizacao: str | None = None):
     from openpyxl import Workbook
     e = evento(conn, evento_id)
+    if not e:
+        raise ErroDeNegocio("Evento de inventário não encontrado.")
     wb = Workbook()
     ws = wb.active
     ws.title = "Bens"
@@ -266,7 +272,7 @@ def exportar_xlsx(conn, evento_id: int, destino, localizacao: str | None = None)
     for x in relatorio(conn, evento_id, localizacao):
         ws.append([x["numero"], x["descricao"], x["complemento"], x["classificacao"], x["local_sistema"], x["local_inventario"],
                    ROTULO_SITUACAO[x["situacao_inv"]], x["conservacao"], x["quem_usa"], x["observacao"], x["integrante"],
-                   _data_br(x["lido_em"]), x["foto_url"]])
+                   _data_br(x["lido_em"]), x["foto_url"], x["situacao_bem"]])
     ws2 = wb.create_sheet("Sobras")
     ws2.append([f"{e['nome']} — sobras (bens sem cadastro)"])
     ws2.append(COLUNAS_SOBRAS)
@@ -275,3 +281,148 @@ def exportar_xlsx(conn, evento_id: int, destino, localizacao: str | None = None)
         ws2.append([s["localizacao"], s["descricao"], s["complemento"], s["observacao"], s["integrante"], _data_br(s["criado_em"]), s["foto_url"]])
     wb.save(destino)
     return destino
+
+
+# ---------------------------------------------------------------- planilha de cadastros (migração de inventários)
+ABAS = {
+    "inv_eventos": ["id", "nome", "descricao", "aberto_em", "encerrado_em"],
+    "inv_integrantes": ["evento_id", "nome"],
+    "inv_salas": ["evento_id", "localizacao"],
+    "inv_leituras": ["evento_id", "numero", "localizacao", "lido_em", "integrante", "conservacao", "quem_usa", "observacao", "foto_url"],
+    "inv_sobras": ["evento_id", "localizacao", "descricao", "complemento", "observacao", "foto_url", "integrante", "criado_em"],
+}
+_TABELA = {aba: "inventario_" + aba[4:] for aba in ABAS}
+
+
+def exportar_abas(conn, wb) -> None:
+    """Só acrescenta as abas inv_* quando já existe algum evento de inventário (planilhas de cadastro puras,
+    sem inventário nunca feito, continuam só com as 4 abas de sempre)."""
+    if not conn.execute("SELECT 1 FROM inventario_eventos LIMIT 1").fetchone():
+        return
+    for aba, colunas in ABAS.items():
+        ws = wb.create_sheet(aba)
+        ws.append(colunas)
+        for linha in conn.execute(f"SELECT {', '.join(colunas)} FROM {_TABELA[aba]} ORDER BY {colunas[0]}, {colunas[1]}"):
+            ws.append(list(linha))
+
+
+def _data_iso(valor, rotulo, linha, problemas, obrigatoria):
+    """Aceita datetime do Excel, 'YYYY-MM-DD HH:MM:SS' ou 'YYYY-MM-DD' (vira 00:00:00). Vazio → None."""
+    from datetime import datetime
+    if valor is None or _texto(valor) == "":
+        if obrigatoria:
+            problemas.append(f"{linha}: {rotulo} vazia")
+        return None
+    if isinstance(valor, datetime):
+        return valor.strftime("%Y-%m-%d %H:%M:%S")
+    t = _texto(valor)
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(t, fmt).strftime("%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            pass
+    problemas.append(f"{linha}: {rotulo} inválida ({t}); use AAAA-MM-DD HH:MM:SS")
+    return None
+
+
+def validar_abas(conn, brutos: dict) -> tuple[dict, list]:
+    """brutos: {aba: [linhas dict com _linha]} (aba ausente = []). Devolve ({aba: [tuplas p/ INSERT]}, problemas)."""
+    problemas: list[str] = []
+    linhas: dict = {aba: [] for aba in ABAS}
+    ids, abertos = set(), 0
+    for r in brutos["inv_eventos"]:
+        rot = f"inv_eventos linha {r['_linha']}"
+        try:
+            eid = int(r["id"])
+        except (TypeError, ValueError):
+            problemas.append(f"{rot}: id inválido"); continue
+        if eid in ids:
+            problemas.append(f"{rot}: id {eid} repetido"); continue
+        nome = _texto(r["nome"])
+        if not nome:
+            problemas.append(f"{rot}: nome vazio"); continue
+        aberto = _data_iso(r["aberto_em"], "aberto_em", rot, problemas, True)
+        encerrado = _data_iso(r["encerrado_em"], "encerrado_em", rot, problemas, False)
+        if encerrado is None and _texto(r["encerrado_em"]) == "":
+            abertos += 1
+        ids.add(eid)
+        linhas["inv_eventos"].append((eid, nome, _texto(r["descricao"]) or None, aberto, encerrado))
+    if abertos > 1:
+        problemas.append("inv_eventos: mais de um evento aberto (sem encerrado_em)")
+
+    def evento_ok(r, rot):
+        try:
+            eid = int(r["evento_id"])
+        except (TypeError, ValueError):
+            problemas.append(f"{rot}: evento_id inválido"); return None
+        if eid not in ids:
+            problemas.append(f"{rot}: evento {eid} não está na aba inv_eventos"); return None
+        return eid
+
+    vistos = set()
+    for r in brutos["inv_integrantes"]:
+        rot = f"inv_integrantes linha {r['_linha']}"
+        eid, nome = evento_ok(r, rot), " ".join(_texto(r["nome"]).split())
+        if eid is None or not nome or (eid, nome) in vistos:
+            continue
+        vistos.add((eid, nome))
+        linhas["inv_integrantes"].append((eid, nome))
+    vistos = set()
+    for r in brutos["inv_salas"]:
+        rot = f"inv_salas linha {r['_linha']}"
+        eid, loc = evento_ok(r, rot), _texto(r["localizacao"])
+        if eid is None or not loc or (eid, loc) in vistos:
+            continue
+        vistos.add((eid, loc))
+        linhas["inv_salas"].append((eid, loc))
+    vistos = set()
+    for r in brutos["inv_leituras"]:
+        rot = f"inv_leituras linha {r['_linha']}"
+        eid = evento_ok(r, rot)
+        num = db._numero(r["numero"])
+        if eid is None:
+            continue
+        if num is None or num != int(num) or not db.buscar_bem(conn, int(num)):
+            problemas.append(f"{rot}: bem {_texto(r['numero']) or '(vazio)'} não existe na base"); continue
+        num = int(num)
+        if (eid, num) in vistos:
+            problemas.append(f"{rot}: bem {num} repetido no evento {eid}"); continue
+        cons = _texto(r["conservacao"]) or None
+        valido = True
+        if cons and cons not in CONSERVACAO:
+            problemas.append(f"{rot}: conservação inválida ({cons})"); valido = False
+        loc, integ = _texto(r["localizacao"]), _texto(r["integrante"])
+        if not loc or not integ:
+            problemas.append(f"{rot}: localização e integrante são obrigatórios"); valido = False
+        lido = _data_iso(r["lido_em"], "data lido_em", rot, problemas, True)
+        if lido is None:
+            valido = False
+        if not valido:
+            continue
+        vistos.add((eid, num))
+        linhas["inv_leituras"].append((eid, num, loc, lido, integ, cons, _texto(r["quem_usa"]) or None,
+                                       _texto(r["observacao"]) or None, _texto(r["foto_url"]) or None))
+    for r in brutos["inv_sobras"]:
+        rot = f"inv_sobras linha {r['_linha']}"
+        eid = evento_ok(r, rot)
+        if eid is None:
+            continue
+        loc, desc, obs, integ = (_texto(r[c]) for c in ("localizacao", "descricao", "observacao", "integrante"))
+        if not (loc and desc and obs and integ):
+            problemas.append(f"{rot}: localização, descrição, observação e integrante são obrigatórios"); continue
+        criado = _data_iso(r["criado_em"], "data criado_em", rot, problemas, True)
+        if criado is None:
+            continue
+        linhas["inv_sobras"].append((eid, loc, desc, _texto(r["complemento"]) or None, obs, _texto(r["foto_url"]), integ, criado))
+    return linhas, problemas
+
+
+def substituir_tabelas(conn, linhas: dict) -> None:
+    """Dentro da transação de db.importar_cadastros: apaga e regrava as 5 tabelas (ids de evento preservados)."""
+    for aba in reversed(list(ABAS)):
+        conn.execute(f"DELETE FROM {_TABELA[aba]}")
+    conn.executemany("INSERT INTO inventario_eventos (id, nome, descricao, aberto_em, encerrado_em) VALUES (?,?,?,?,?)", linhas["inv_eventos"])
+    conn.executemany("INSERT INTO inventario_integrantes VALUES (?,?)", linhas["inv_integrantes"])
+    conn.executemany("INSERT INTO inventario_salas VALUES (?,?)", linhas["inv_salas"])
+    conn.executemany("INSERT INTO inventario_leituras (evento_id, numero, localizacao, lido_em, integrante, conservacao, quem_usa, observacao, foto_url) VALUES (?,?,?,?,?,?,?,?,?)", linhas["inv_leituras"])
+    conn.executemany("INSERT INTO inventario_sobras (evento_id, localizacao, descricao, complemento, observacao, foto_url, integrante, criado_em) VALUES (?,?,?,?,?,?,?,?)", linhas["inv_sobras"])
