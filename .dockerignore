@@ -1,0 +1,12 @@
+.git
+.venv
+.pytest_cache
+.superpowers
+__pycache__
+dados
+dist
+build
+docs
+tests
+*.spec
+*.bat

@@ -1,0 +1,11 @@
+services:
+  web:
+    build: .
+    image: termos-patrimonio:latest
+    container_name: termos-patrimonio
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:12012:8000"
+    volumes:
+      # termos.db e timbrado.docx vivem aqui; backup = copiar a pasta dados/
+      - ./dados:/app/dados

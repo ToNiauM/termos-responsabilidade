@@ -50,6 +50,19 @@ para `dist\TermosCFC\dados\` antes de distribuir; sem isso o programa abre com a
 Os parágrafos do termo por centro de custo não carregam mais 4 espaços em branco no início (era um
 resíduo de indentação do código antigo) — confira o `.docx` gerado.
 
+## Servir na web (Docker)
+
+O mesmo código roda em `https://patrimonio.sistemascfc.org`, num container nesta máquina, atrás do nginx do host
+(padrão dos demais sites: container em `127.0.0.1:12012`, Certbot, e senha `auth_basic` em
+`/etc/nginx/.htpasswd_patrimonio`, porque o sistema não tem login próprio).
+
+    docker compose up -d --build   # (re)constrói e sobe; dados em ./dados (termos.db, timbrado.docx)
+    docker compose logs -f         # acompanhar
+    sudo htpasswd /etc/nginx/.htpasswd_patrimonio patrimonio   # trocar a senha do site
+
+`Dockerfile`, `compose.yml` e `.dockerignore` são só do site; o programa de desktop não os usa. O vhost fica em
+`/etc/nginx/conf.d/patrimonio.sistemascfc.org.conf`. Backup continua sendo copiar a pasta `dados/`.
+
 ## Arquivos
 
 | Arquivo | Função |
@@ -61,4 +74,5 @@ resíduo de indentação do código antigo) — confira o `.docx` gerado.
 | `Script_Termo_Individual.py`, `Termo_de_Responsabilidade.py`, `termo_devolucao.py` | geradores `.docx` |
 | `config.py` | pasta de dados (`TERMOS_DADOS` sobrepõe) |
 | `main.py`, `build.bat` | programa de desktop e build |
+| `Dockerfile`, `compose.yml` | site em patrimonio.sistemascfc.org |
 | `templates/`, `static/dsgov/` | telas DSGov 3.7.0 (offline) |
