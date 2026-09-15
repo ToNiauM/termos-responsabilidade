@@ -15,8 +15,10 @@ Três melhorias, implementadas nesta ordem, num único ciclo:
 2. **Rastreio das importações** — cada importação do export do SPW registra o que mudou (bens novos,
    removidos, movidos, mudança de situação). Com a foto do último termo, o sistema aponta quais termos
    estão desatualizados.
-3. **Painel e recorte** — a tela inicial vira um painel com cards e tabelas; uma tela de recorte
-   filtra bens por faixa de valor e período de entrada, com gráfico e exportação.
+3. **Painel e recorte** — a tela inicial vira um painel: cards e um gráfico de barras com tabela
+   para cada dimensão da base e dos cadastros, tudo clicável; uma tela de recorte filtra bens por
+   qualquer combinação (valor, período, centro, pessoa, localização, classificação, situação), com os
+   mesmos gráficos sobre o conjunto filtrado, o botão do termo quando couber, e exportação.
 
 Princípio inalterado: simplicidade. Só acréscimos ao esquema; nada do que existe muda de forma.
 Geradores `.docx`, `termos_html.py` e `textos.py` ficam intocados. Sem biblioteca nova: os gráficos
@@ -175,54 +177,73 @@ CREATE TABLE IF NOT EXISTS importacoes_mudancas (
 
 ## 4. Parte 3 — Painel e recorte
 
+Um único componente serve aos dois: a **macro `barras(titulo, linhas, filtro)`** em `_macros.html`
+recebe `[(rotulo, quantidade, valor, url)]` e desenha um gráfico de barras horizontais (largura
+proporcional à quantidade, rótulo com quantidade e valor em R$) e, ao lado, a tabela equivalente com
+a busca do `br-table`. Cada barra e cada linha é um link para o recorte já filtrado por aquele valor.
+As barras são `div`s com `style="width: N%"`: é o segundo lugar do projeto com inline style, além de
+`termos_html.py`, e por motivo análogo (valor calculado por linha). O CSS fica em `dsgov.css`.
+
 ### 4.1 Painel (tela inicial, `index.html`)
 
-O card de pesquisa continua no topo. Abaixo:
+O card de pesquisa continua no topo. Abaixo, `db.painel(conn)` alimenta:
 
-**Cards** (`br-card` com número grande e legenda), em `db.painel(conn)`:
+**Cards** (`br-card` com número grande e legenda; todos são links para o recorte correspondente):
 
-| card | cálculo |
-|---|---|
-| Bens ativos | `count` de `situacao='ATIVO'` |
-| Valor dos ativos (sem imóveis) | soma de `valor_atual` dos ativos com classificação fora de `{SEDE, TERRENOS}` |
-| Imóveis | quantidade e valor dos ativos em `{SEDE, TERRENOS}` |
-| Sem centro de custo | ativos cuja localização não está em `localizacoes` |
-| Termos a emitir | centros com situação `sem_termo` ou `desatualizado` (individuais idem, em linha menor) |
-| Última importação | data/hora e "N novos, N removidos"; "nenhuma" se não houver |
+| card | cálculo | clique leva a |
+|---|---|---|
+| Bens ativos | `count` de `situacao='ATIVO'` | recorte sem filtro |
+| Valor dos ativos (sem imóveis) | soma de `valor_atual` dos ativos fora de `{SEDE, TERRENOS}` | recorte sem imóveis |
+| Imóveis | quantidade e valor dos ativos em `{SEDE, TERRENOS}` | recorte `classificacao=imoveis` |
+| Sem centro de custo | ativos cuja localização não está em `localizacoes` | recorte `ccusto=-` (sem centro) |
+| Termos a emitir | centros `sem_termo` ou `desatualizado` (pessoas idem, em linha menor) | lista de centros / de pessoas |
+| Última importação | data/hora e "N novos, N removidos"; "nenhuma" se não houver | detalhe da importação |
 
-**Tabelas** (cada uma com a busca do `br-table`; valores em R$ formatados):
+**Dimensões** (cada uma pela macro `barras`; sobre os bens ATIVOS, salvo a primeira):
 
-- por centro de custo: sigla, responsável, quantidade, valor, situação do termo (`br-tag`), link
-  para o termo. Uma linha "sem centro" ao final.
-- por classificação contábil: classe, quantidade, valor. Imóveis aparecem, mas em linha separada
-  ao final para não distorcer a leitura.
-- por localização: localização, centro (ou "—"), quantidade, valor.
-- por faixa de idade (pela `data_entrada`, `DD/MM/AAAA`): até 5 anos, 5 a 10, 10 a 20, mais de 20,
-  sem data; quantidade e valor.
+| dimensão | linhas | filtro do recorte |
+|---|---|---|
+| Situação | ATIVO, BAIXADO, DOADO, INSERVÍVEL… (todas as situações) | `situacao=` |
+| Centro de custo | sigla + responsável; situação do termo como `br-tag`; linha "sem centro" ao final | `ccusto=` |
+| Classificação contábil | as 12 classes; imóveis em linha separada ao final | `classificacao=` |
+| Localização | as 100 localizações, com o centro (ou "—") | `localizacao=` |
+| Faixa de idade | até 5 anos, 5 a 10, 10 a 20, mais de 20, sem data (pela `data_entrada`) | `idade=` |
+| Ano de entrada | um por ano | `entrada_de=`/`entrada_ate=` |
+| Faixa de valor | até 100, 100–500, 500–1.000, 1.000–5.000, 5.000–20.000, acima de 20.000 | `valor_de=`/`valor_ate=` |
+| Pessoas | bens atribuídos por pessoa (cadastro), com situação do termo individual | `pessoa=` |
 
+Na dimensão Centro de custo e em Pessoas, a linha da tabela traz também o link direto para o termo.
 Aviso `br-message warning` quando houver ativos com `valor_atual` nulo ou zero ("35 bens ativos sem
-valor; não entram nas somas"). Cada tabela tem um link "ver no recorte" que abre a tela de recorte
-já filtrada (por classificação, centro, faixa).
+valor; não entram nas somas").
 
 ### 4.2 Recorte (`/recorte`, `recorte.html`, menu "Recorte")
 
-Formulário `GET` com: valor de / até (R$), entrada de / até (data, `input type=date`), classificação
-(`select`, opcional), centro de custo (`select`, opcional), situação (padrão ATIVO). Tudo opcional;
-sem filtro nenhum, mostra os ativos.
+Formulário `GET` com todos os filtros opcionais: valor de / até (R$), entrada de / até (`input
+type=date`), faixa de idade, classificação (`select`; valor especial `imoveis`), centro de custo
+(`select`; valor especial `-` = sem centro), localização (`select`), pessoa (`select`), situação
+(`select`; padrão ATIVO; vazio = todas). Sem filtro nenhum, mostra os ativos.
 
-`db.recorte(conn, filtros) -> dict` devolve `bens` (lista, limite 1.000 com aviso), `quantidade`,
-`valor_total`, `por_ano` (`[(ano, quantidade, valor)]`) e `por_faixa_valor` (faixas fixas: até 100,
-100–500, 500–1.000, 1.000–5.000, 5.000–20.000, acima de 20.000; quantidade e valor). Datas são
-comparadas convertendo `DD/MM/AAAA` para `AAAA-MM-DD` na consulta (`substr`), sem alterar a tabela.
+`db.recorte(conn, filtros) -> dict` monta o `WHERE` só com os filtros presentes e devolve `bens`
+(lista, limite 1.000 com aviso), `quantidade`, `valor_total`, e as mesmas dimensões do painel
+calculadas **sobre o conjunto filtrado** (`por_situacao`, `por_centro`, `por_classificacao`,
+`por_localizacao`, `por_idade`, `por_ano`, `por_faixa_valor`). Datas são comparadas convertendo
+`DD/MM/AAAA` para `AAAA-MM-DD` na consulta (`substr`), sem alterar a tabela. Centro e pessoa entram
+por `LEFT JOIN` em `localizacoes` e `atribuicoes`, como na pesquisa.
 
-Tela: os filtros no topo; dois cards (quantidade, valor total); dois gráficos de barras em HTML/CSS
-(largura proporcional, rótulo com quantidade e valor): **por ano de entrada** e **por faixa de
-valor**; tabela dos bens (número com link para a ficha, descrição, complemento, localização, centro,
-classificação, entrada, valor) com a busca do `br-table`; botão **Exportar .xlsx** (`/recorte/xlsx`,
-mesmos filtros, gerado em memória com openpyxl, sem limite de 1.000).
-
-As barras são `div`s com `style="width: N%"`: é o segundo lugar do projeto com inline style, além de
-`termos_html.py`, e por motivo análogo (valor calculado por linha). O CSS fica em `dsgov.css`.
+Tela:
+- filtros no topo, com os valores atuais preenchidos e um botão *Limpar*;
+- a descrição do recorte em texto ("Bens ativos do GESERV com entrada entre 01/01/2020 e
+  31/12/2024");
+- **botão do termo** quando o filtro for exatamente um centro (`/termo/ccusto/<sigla>`) ou uma
+  pessoa (`/termo/individual/<nome>`), com a situação do termo (`br-tag`) ao lado;
+- dois cards (quantidade, valor total);
+- as dimensões pela macro `barras`, omitindo a que já está filtrada por um único valor. Clicar numa
+  barra **acrescenta** aquele filtro ao recorte atual (drill-down: GESERV → ano 2021 → faixa
+  1.000–5.000);
+- tabela dos bens (número com link para a ficha, descrição, complemento, localização, centro,
+  pessoa, classificação, entrada, valor) com a busca do `br-table`;
+- botão **Exportar .xlsx** (`/recorte/xlsx`, mesmos filtros, gerado em memória com openpyxl, sem o
+  limite de 1.000).
 
 ---
 
@@ -243,6 +264,8 @@ emitidos**, **Recorte**, Cadastros, Textos, Atualizar base.
   histórico junto.
 - Importação: novos/removidos/movidos/situacao contados e gravados; falha desfaz o log;
   `historico_do_bem`.
-- Painel: cards e tabelas com a base de teste (incluindo imóveis separados, sem centro, idade).
-- Recorte: filtros de valor e datas, faixas, limite, xlsx com as colunas e sem limite.
+- Painel: cards e todas as dimensões com a base de teste (imóveis separados, sem centro, idade, ano,
+  faixa de valor, pessoas); cada linha com a URL de recorte certa.
+- Recorte: cada filtro isolado e combinados (drill-down), valores especiais `imoveis` e `-`, faixas,
+  limite, botão do termo só com centro ou pessoa único, xlsx com as colunas e sem limite.
 - Rotas: cada tela nova responde 200 e traz o conteúdo esperado.
