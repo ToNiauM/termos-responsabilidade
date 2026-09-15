@@ -258,7 +258,7 @@ def textos_salvar():
 
 
 # ---------------------------------------------------------------- cadastros
-ABAS = ("responsaveis", "localizacoes", "pessoas")
+ABAS = ("responsaveis", "localizacoes", "pessoas", "processos")
 
 
 @app.route("/cadastros/<aba>")
@@ -274,7 +274,8 @@ def cadastros(aba):
         "cadastros.html", aba=aba, trilha=[("Cadastros", None)],
         centros=db.centros(conn), mapeadas=db.localizacoes_mapeadas(conn), pendentes=db.localizacoes_sem_centro(conn),
         pessoas=db.pessoas(conn), nome=nome, bens_pessoa=db.bens_da_pessoa(conn, nome) if nome else [],
-        confirmar=request.args.get("confirmar"), excluir=request.args.get("excluir"))
+        confirmar=request.args.get("confirmar"), excluir=request.args.get("excluir"),
+        processos=db.processos(conn), tipos=list(db.ROTULO_TIPO.items()))
 
 
 def _volta(aba, **args):
@@ -392,6 +393,35 @@ def pessoas_desatribuir():
     db.desatribuir(obter_conn(), request.form["nome"], int(request.form["numero"]))
     flash("Atribuição removida; o bem volta a responder pelo setor.", "success")
     return _volta("pessoas", nome=request.form["nome"])
+
+
+@app.route("/cadastros/processos/incluir", methods=["POST"])
+def processos_incluir():
+    db.incluir_processo(obter_conn(), request.form.get("tipo", ""), request.form.get("descricao", ""),
+                        request.form.get("numero_sei", ""), vigente=bool(request.form.get("vigente")))
+    flash("Processo incluído.", "success")
+    return _volta("processos")
+
+
+@app.route("/cadastros/processos/vigente", methods=["POST"])
+def processos_vigente():
+    db.marcar_vigente(obter_conn(), int(request.form["id"]))
+    flash("Processo marcado como vigente.", "success")
+    return _volta("processos")
+
+
+@app.route("/cadastros/processos/encerrar", methods=["POST"])
+def processos_encerrar():
+    db.encerrar_processo(obter_conn(), int(request.form["id"]))
+    flash("Processo encerrado; nenhum termo desse tipo será emitido até marcar outro como vigente.", "success")
+    return _volta("processos")
+
+
+@app.route("/cadastros/processos/excluir", methods=["POST"])
+def processos_excluir():
+    db.excluir_processo(obter_conn(), int(request.form["id"]))
+    flash("Processo excluído.", "success")
+    return _volta("processos")
 
 
 @app.route("/cadastros/exportar")

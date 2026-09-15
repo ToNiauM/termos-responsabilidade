@@ -232,3 +232,20 @@ def test_pesquisa_filtra_bens_de_centro_e_pessoa(cliente):
 
 def test_cabecalho_tem_campo_de_pesquisa(cliente):
     assert b'action="/pesquisa"' in cliente.get("/").data
+
+
+def test_cadastro_de_processos_sei(cliente):
+    r = cliente.get("/cadastros/processos")
+    assert r.status_code == 200 and b"Processos SEI" in r.data
+    r = cliente.post("/cadastros/processos/incluir", data={"tipo": "ccusto", "descricao": "Termos 2026", "numero_sei": "2222", "vigente": "1"}, follow_redirects=True)
+    assert b"Termos 2026" in r.data and b"2222" in r.data and b"vigente" in r.data
+    r = cliente.post("/cadastros/processos/incluir", data={"tipo": "ccusto", "descricao": "", "numero_sei": "1"}, follow_redirects=True)
+    assert "Descrição".encode() in r.data
+    import db
+    pid = db.processos(db.conectar())[0]["id"]
+    r = cliente.post("/cadastros/processos/encerrar", data={"id": pid}, follow_redirects=True)
+    assert b"encerrado" in r.data
+    r = cliente.post("/cadastros/processos/vigente", data={"id": pid}, follow_redirects=True)
+    assert b"vigente" in r.data
+    r = cliente.post("/cadastros/processos/excluir", data={"id": pid}, follow_redirects=True)
+    assert "exclu".encode() in r.data and b"Termos 2026" not in r.data

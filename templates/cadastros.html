@@ -9,7 +9,7 @@
 <div class="br-tab">
   <nav class="tab-nav" aria-label="Cadastros">
     <ul role="tablist">
-      {% for id, rotulo in [('responsaveis', 'Responsáveis'), ('localizacoes', 'Localizações'), ('pessoas', 'Pessoas')] %}
+      {% for id, rotulo in [('responsaveis', 'Responsáveis'), ('localizacoes', 'Localizações'), ('pessoas', 'Pessoas'), ('processos', 'Processos SEI')] %}
       <li class="tab-item{% if aba == id %} active{% endif %}" title="{{ rotulo }}" role="presentation">
         <button type="button" role="tab" id="tab-{{ id }}" data-panel="painel-{{ id }}" aria-controls="painel-{{ id }}" aria-selected="{{ 'true' if aba == id else 'false' }}"
                 onclick="history.replaceState(null, '', '{{ url_for('cadastros', aba=id) }}')"><span class="name">{{ rotulo }}</span></button>
@@ -119,6 +119,39 @@
       </table></div>
       <p class="mt-3"><a class="br-button" href="{{ url_for('termo', tipo='individual', chave=nome) }}"><i class="fas fa-file-alt mr-1" aria-hidden="true"></i>Ver termo individual</a></p>
       {% endif %}
+    </div>
+
+    <div class="tab-panel{% if aba == 'processos' %} active{% endif %}" id="painel-processos" role="tabpanel" aria-labelledby="tab-processos">
+      <p class="text-gray-70">Um processo vigente por tipo de termo. Sem processo vigente, o termo daquele tipo não pode ser copiado nem baixado.</p>
+      <form method="post" action="{{ url_for('processos_incluir') }}" class="row mb-4">
+        <div class="col-md-3 mb-3">{{ select('tipo', 'Tipo de termo', tipos) }}</div>
+        <div class="col-md-4 mb-3"><div class="br-input"><label for="p-descricao">Descrição</label><input id="p-descricao" name="descricao" type="text" placeholder="Ex.: Termos de responsabilidade 2026" required/></div></div>
+        <div class="col-md-3 mb-3"><div class="br-input"><label for="p-numero">Número do processo SEI</label><input id="p-numero" name="numero_sei" type="text" required/></div></div>
+        <div class="col-md-2 mb-3 d-flex align-items-end">
+          <div class="br-checkbox mr-2"><input id="p-vigente" name="vigente" type="checkbox" value="1" checked/><label for="p-vigente">Vigente</label></div>
+          <button class="br-button primary" type="submit"><i class="fas fa-plus mr-1" aria-hidden="true"></i>Incluir</button>
+        </div>
+      </form>
+      {{ cabecalho_tabela('Processos SEI', 'proc') }}
+        <thead><tr><th scope="col">Tipo</th><th scope="col">Descrição</th><th scope="col">Número SEI</th><th scope="col">Situação</th><th scope="col">Cadastrado em</th><th scope="col" class="dsgov-acoes">Ações</th></tr></thead>
+        <tbody>
+        {% for p in processos %}
+        <tr>
+          <td>{{ dict(tipos)[p.tipo] }}</td><td>{{ p.descricao }}</td><td>{{ p.numero_sei }}</td>
+          <td>{% if p.vigente %}<span class="br-tag bg-success text-pure-0"><span>vigente</span></span>{% else %}<span class="br-tag bg-gray-20"><span>encerrado</span></span>{% endif %}</td>
+          <td>{{ p.criado_em[:10] }}</td>
+          <td class="dsgov-acoes">
+            {% if p.vigente %}
+            <form method="post" action="{{ url_for('processos_encerrar') }}" class="d-inline"><input type="hidden" name="id" value="{{ p.id }}"/><button class="br-button secondary small" type="submit">Encerrar</button></form>
+            {% else %}
+            <form method="post" action="{{ url_for('processos_vigente') }}" class="d-inline"><input type="hidden" name="id" value="{{ p.id }}"/><button class="br-button secondary small" type="submit">Marcar vigente</button></form>
+            <form method="post" action="{{ url_for('processos_excluir') }}" class="d-inline"><input type="hidden" name="id" value="{{ p.id }}"/><button class="br-button circle small" type="submit" aria-label="Excluir processo {{ p.numero_sei }}"><i class="fas fa-trash" aria-hidden="true"></i></button></form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
     </div>
 
   </div>
