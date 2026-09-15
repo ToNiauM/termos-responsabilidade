@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% from "_macros.html" import cabecalho_tabela %}
+{% block titulo %}Inventário{% endblock %}
+{% block conteudo %}
+<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Inventário</h1></div>
+{% if aberto %}
+<div class="br-card mb-4">
+  <div class="card-header"><div class="text-weight-semi-bold text-up-02">{{ aberto.nome }}</div>
+    <div class="text-down-01 text-gray-70">Aberto em {{ aberto.aberto_em[8:10] }}/{{ aberto.aberto_em[5:7] }}/{{ aberto.aberto_em[:4] }}{% if aberto.descricao %} · {{ aberto.descricao }}{% endif %} · Comissão: {{ aberto.integrantes|join(', ') }}</div></div>
+  <div class="card-content">
+    {% set r = aberto.resumo %}
+    <div class="row">
+      {% for valor, legenda in [(r.salas_iniciadas ~ ' / ' ~ r.salas, 'salas iniciadas'), (r.lidos ~ ' / ' ~ r.bens, 'bens localizados'), (r.divergentes, 'divergentes'), (r.pendentes, 'pendentes'), (r.sobras, 'sobras')] %}
+      <div class="col-6 col-md mb-3"><div class="text-up-03 text-weight-bold">{{ valor }}</div><div class="text-down-01 text-gray-70">{{ legenda }}</div></div>
+      {% endfor %}
+    </div>
+    <div class="br-message info mb-3"><div class="icon"><i class="fas fa-info-circle fa-lg" aria-hidden="true"></i></div>
+      <div class="content"><span class="message-body">{{ r.pct_bens }}% dos bens localizados.</span></div></div>
+    <a class="br-button primary" href="{{ url_for('inventario.evento_tela', id=aberto.id) }}"><i class="fas fa-door-open mr-1" aria-hidden="true"></i>Salas e leitura</a>
+    <a class="br-button secondary ml-2" href="{{ url_for('inventario.relatorio_tela', id=aberto.id) }}"><i class="fas fa-table mr-1" aria-hidden="true"></i>Relatório</a>
+  </div>
+</div>
+{% else %}
+<p class="text-gray-70">Nenhum evento aberto. Abra um evento para começar a conferência.</p>
+<form method="post" action="{{ url_for('inventario.abrir') }}" class="br-card mb-4"><div class="card-content">
+  <div class="text-weight-semi-bold text-up-01 mb-3">Abrir evento</div>
+  <div class="row">
+    <div class="col-md-6 mb-3"><div class="br-input"><label for="nome">Nome</label><input id="nome" name="nome" type="text" placeholder="Ex.: Inventário 2026" required/></div></div>
+    <div class="col-md-6 mb-3"><div class="br-input"><label for="descricao">Descrição (portaria, observações)</label><input id="descricao" name="descricao" type="text"/></div></div>
+    <div class="col-md-6 mb-3"><div class="br-textarea"><label for="integrantes">Integrantes da comissão (um por linha)</label><textarea id="integrantes" name="integrantes" rows="4" required></textarea></div></div>
+    <div class="col-md-6 mb-3">
+      <div class="text-weight-semi-bold mb-2">Escopo</div>
+      <div class="br-radio mb-2"><input id="escopo-todas" name="escopo" type="radio" value="todas" checked/><label for="escopo-todas">Todas as salas com bens ativos ({{ salas_ativas|length }})</label></div>
+      <div class="br-radio mb-2"><input id="escopo-escolher" name="escopo" type="radio" value="escolher"/><label for="escopo-escolher">Escolher salas (amostragem)</label></div>
+      <div id="lista-salas" hidden>
+        {% for s in salas_ativas %}<div class="br-checkbox"><input id="sala-{{ loop.index }}" name="salas" type="checkbox" value="{{ s }}"/><label for="sala-{{ loop.index }}">{{ s }}</label></div>{% endfor %}
+      </div>
+    </div>
+  </div>
+  <button class="br-button primary" type="submit"><i class="fas fa-play mr-1" aria-hidden="true"></i>Abrir evento</button>
+</div></form>
+{% endif %}
+{% if eventos %}
+{{ cabecalho_tabela('Eventos encerrados', 'eventos') }}
+  <thead><tr><th scope="col">Evento</th><th scope="col">Aberto em</th><th scope="col">Encerrado em</th><th scope="col" class="dsgov-acoes">Relatório</th></tr></thead>
+  <tbody>{% for e in eventos %}
+  <tr><td><a href="{{ url_for('inventario.evento_tela', id=e.id) }}">{{ e.nome }}</a></td><td>{{ e.aberto_em[8:10] }}/{{ e.aberto_em[5:7] }}/{{ e.aberto_em[:4] }}</td><td>{{ e.encerrado_em[8:10] }}/{{ e.encerrado_em[5:7] }}/{{ e.encerrado_em[:4] }}</td>
+    <td class="dsgov-acoes"><a class="br-button circle small" href="{{ url_for('inventario.relatorio_tela', id=e.id) }}" aria-label="Relatório de {{ e.nome }}"><i class="fas fa-table" aria-hidden="true"></i></a></td></tr>
+  {% endfor %}</tbody>
+</table></div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('input[name="escopo"]').forEach(function (r) {
+  r.addEventListener("change", function () { document.getElementById("lista-salas").hidden = this.value !== "escolher"; });
+});
+</script>
+{% endblock %}

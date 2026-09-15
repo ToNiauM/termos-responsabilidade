@@ -370,3 +370,27 @@ def test_recorte_tela_filtros_termo_e_xlsx(cliente):
     assert b'href="/recorte/xlsx?situacao="' in r.data
     ws = load_workbook(io.BytesIO(cliente.get("/recorte/xlsx?situacao=").data)).active
     assert ws.max_row - 1 == 4     # 4 bens da semente (inclui 1003 BAIXADO); a tela mostra o mesmo total
+
+
+def test_inventario_eventos_abrir_e_encerrar(cliente):
+    r = cliente.get("/inventario")
+    assert r.status_code == 200 and b"Abrir evento" in r.data and b"Nenhum evento aberto" in r.data
+    r = cliente.post("/inventario/abrir", data={"nome": "Inventário 2026", "descricao": "Portaria 1", "integrantes": "Fulano\nBeltrana", "escopo": "todas"}, follow_redirects=True)
+    assert "Inventário 2026".encode() in r.data and b"01 - SALA CCI" in r.data and b"99 - SEM MAPA" in r.data
+    assert "Inventário".encode() in cliente.get("/").data                          # menu
+    r = cliente.post("/inventario/abrir", data={"nome": "Outro", "integrantes": "X", "escopo": "todas"}, follow_redirects=True)
+    assert "já existe".encode() in r.data.lower() or "Já existe".encode() in r.data
+    import db, inventario
+    eid = inventario.evento_aberto(db.conectar())["id"]
+    r = cliente.post(f"/inventario/{eid}/integrante", data={"integrante": "Fulano", "volta": f"/inventario/{eid}"}, follow_redirects=True)
+    assert b"Fulano" in r.data
+    r = cliente.post(f"/inventario/{eid}/encerrar", data={}, follow_redirects=True)
+    assert b"Confirmar encerramento" in r.data
+    r = cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"}, follow_redirects=True)
+    assert b"encerrado" in r.data
+    assert cliente.get("/inventario/999").status_code == 404
+
+
+def test_inventario_abrir_com_amostragem(cliente):
+    r = cliente.post("/inventario/abrir", data={"nome": "Amostra", "integrantes": "A", "escopo": "escolher", "salas": ["99 - SEM MAPA"]}, follow_redirects=True)
+    assert b"99 - SEM MAPA" in r.data and b"01 - SALA CCI" not in r.data.split(b"<tbody>")[1]

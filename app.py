@@ -4,6 +4,7 @@ import re
 
 from flask import Flask, abort, flash, g, redirect, render_template, request, send_file, session, url_for
 
+from app_inventario import inventario_bp
 import config
 import db
 import painel
@@ -16,6 +17,7 @@ from termo_devolucao import gerar_termo_devolucao
 app = Flask(__name__, template_folder=str(config.pasta_recursos() / "templates"),
             static_folder=str(config.pasta_recursos() / "static"))
 app.secret_key = "termos-cfc-local"  # sessão só guarda seleção de bens; programa roda em 127.0.0.1
+app.register_blueprint(inventario_bp)
 
 DSGOV_FIXO = {"SISTEMA": "Termos de Responsabilidade", "SUBTITULO": "Setor de Patrimônio"}
 
@@ -30,6 +32,7 @@ def contexto_dsgov():
         ("Termo de devolução", "fa-box-open", url_for("termo_devolucao")),
         ("Termos emitidos", "fa-history", url_for("termos_emitidos_tela")),
         ("Recorte", "fa-filter", url_for("recorte")),
+        ("Inventário", "fa-clipboard-check", url_for("inventario.eventos_tela")),
         ("Cadastros", "fa-address-book", url_for("cadastros", aba="responsaveis")),
         ("Textos", "fa-file-signature", url_for("textos_tela")),
         ("Atualizar base", "fa-upload", url_for("upload")),
