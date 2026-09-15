@@ -82,9 +82,15 @@ def test_grafico_tipos_pela_quantidade_de_itens(dados):
         return {"chave": str(i), "rotulo": str(i), "quantidade": i, "valor": 0}
 
     with app.test_request_context():
-        op, sub, alto = painel._grafico([item(i) for i in range(25, 0, -1)], {"situacao": "ATIVO"}, "ano")
+        op, sub, alto = painel._grafico([item(i) for i in range(25, 0, -1)], {"situacao": "ATIVO"}, "pessoa")
         assert op["series"][0]["type"] == "bar" and op["xAxis"]["type"] == "category"
         assert len(op["xAxis"]["data"]) == 20 and sub is not None and "20 maiores" in sub and alto
+        assert op["xAxis"]["data"][0] == "25"                       # os 20 maiores: começa pelo maior
+
+        anos = [{"chave": str(a), "rotulo": str(a), "quantidade": 1, "valor": 0} for a in range(1990, 2016)]  # 26 anos, cronológico
+        op, sub, alto = painel._grafico(anos, {"situacao": "ATIVO"}, "ano")
+        assert op["xAxis"]["data"] == [str(a) for a in range(1996, 2016)] and "mais recentes" in sub   # corte = 20 mais recentes
+        assert op["series"][0]["data"][-1]["url"].endswith("ano=2015")
 
         op, sub, alto = painel._grafico([item(i) for i in range(15, 0, -1)], {"situacao": "ATIVO"}, "ano")
         assert op["series"][0]["type"] == "bar" and len(op["xAxis"]["data"]) == 15 and sub is None and alto

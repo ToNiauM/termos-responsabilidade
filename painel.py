@@ -47,8 +47,10 @@ def _urls(itens, f, chave):
 
 
 def _grafico(itens, f, chave):
-    """Tipo pelo número de itens (regra do usuário): ≤5 rosca, 6–10 barras, 11–20 colunas, >20 colunas dos 20 maiores."""
-    top = itens[:TOP]
+    """Tipo pelo número de itens (regra do usuário): ≤5 rosca, 6–10 barras, 11–20 colunas, >20 colunas dos 20 maiores.
+    'ano' vem em ordem cronológica, então o corte é "20 mais recentes", não "20 maiores"."""
+    recentes = chave == "ano"
+    top = itens[-TOP:] if recentes else itens[:TOP]
     if len(itens) <= 5:
         op = graficos.rosca([(i["rotulo"], i["quantidade"]) for i in itens], total=(sum(i["quantidade"] for i in itens), "bens"),
                             urls={i["rotulo"]: u for i, u in zip(itens, _urls(itens, f, chave))})
@@ -56,7 +58,7 @@ def _grafico(itens, f, chave):
         op = graficos.barras_horizontais([i["rotulo"] for i in itens], [i["quantidade"] for i in itens], "Bens", escala=True, urls=_urls(itens, f, chave))
     else:
         op = graficos.colunas([i["rotulo"] for i in top], {"Bens": [i["quantidade"] for i in top]}, rotulos=True, urls={"Bens": _urls(top, f, chave)})
-    sub = f"{TOP} maiores no gráfico; todos na tabela" if len(itens) > TOP else None
+    sub = (f"{TOP} anos mais recentes no gráfico; todos na tabela" if recentes else f"{TOP} maiores no gráfico; todos na tabela") if len(itens) > TOP else None
     return op, sub, len(itens) > 10
 
 
