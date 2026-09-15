@@ -119,8 +119,8 @@ def _bens_do_termo(conn, tipo, chave):
 
 @app.route("/centro-custos")
 def centro_custos():
-    return render_template("centro_custos.html", centros=db.centros(obter_conn()),
-                           trilha=[("Termo por centro de custo", None)])
+    conn = obter_conn()
+    return render_template("centro_custos.html", centros=db.situacoes_centros(conn), trilha=[("Termo por centro de custo", None)])
 
 
 @app.route("/gerar", methods=["POST"])
@@ -130,7 +130,8 @@ def gerar():
 
 @app.route("/termos-individuais")
 def termos_individuais():
-    return render_template("termos_individuais.html", nomes=db.pessoas(obter_conn()),
+    conn = obter_conn()
+    return render_template("termos_individuais.html", nomes=db.pessoas(conn), pessoas=db.situacoes_pessoas(conn),
                            trilha=[("Termo individual", None)])
 
 

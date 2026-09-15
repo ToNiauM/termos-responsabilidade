@@ -303,3 +303,13 @@ def test_termos_emitidos_lista_detalhe_e_documento_sei(cliente):
     assert b"0459999" in r.data
     assert cliente.get("/termos-emitidos/999").status_code == 404
     assert b"Termos emitidos" in cliente.get("/").data    # menu
+
+
+def test_listas_mostram_situacao_do_termo(cliente):
+    r = cliente.get("/centro-custos")
+    assert b"sem termo" in r.data and b"/termo/ccusto/CCI" in r.data
+    r = cliente.get("/termos-individuais")
+    assert b"ANA SILVA" in r.data and b"sem termo" in r.data and b"/termo/individual/ANA" in r.data
+    cliente.post("/cadastros/processos/incluir", data={"tipo": "ccusto", "descricao": "T", "numero_sei": "2", "vigente": "1"})
+    cliente.get("/termo/ccusto/CCI/docx")
+    assert b"vigente" in cliente.get("/centro-custos").data
