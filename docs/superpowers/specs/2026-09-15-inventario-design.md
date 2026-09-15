@@ -1,7 +1,7 @@
 # Módulo de inventário
 
 **Data:** 2026-09-15
-**Estado:** aprovado em conversa; aguardando revisão do texto.
+**Estado:** aprovado pelo usuário em 2026-09-15 (execução autorizada, commit e push ao final).
 **Base:** `main` em `2cf7ff0`+ (rodada "processos SEI, histórico, painel e recorte" concluída e publicada).
 **Origem das regras:** sistema antigo em `/opt/web/sga/cfc` (sistemadeinventario.com.br), levantado em
 `docs/superpowers/notes/2026-09-15-inventario-existente.md`. Contexto e decisões em
@@ -277,3 +277,38 @@ geração e filtro. Nome do arquivo: `inventario_<id>_<sala ou tudo>.xlsx`.
   `configurado` com/sem env; `enviar`/`apagar` com `boto3` substituído por um cliente falso.
 - `tests/test_app.py`: rotas 200/JSON (ler 200/404/409), fluxo abrir → ler → sobra (com `fotos.enviar`
   monkeypatched) → concluir → relatório → xlsx → encerrar → escrita bloqueada; card do painel; menu.
+
+---
+
+## 9. Planilha de cadastros: abas de inventário (migração de inventários antigos)
+
+A exportação em Cadastros → *Exportar cadastros* passa a gerar, além das 4 abas atuais, cinco abas
+opcionais com o **estado inteiro** das tabelas de inventário, no formato do banco (uma coluna por
+campo, cabeçalho = nome da coluna):
+
+| aba | colunas |
+|---|---|
+| `inv_eventos` | id, nome, descricao, aberto_em, encerrado_em |
+| `inv_integrantes` | evento_id, nome |
+| `inv_salas` | evento_id, localizacao, concluida_em |
+| `inv_leituras` | evento_id, numero, localizacao, lido_em, integrante, conservacao, quem_usa, observacao, foto_url |
+| `inv_sobras` | evento_id, localizacao, descricao, complemento, observacao, foto_url, integrante, criado_em |
+
+Importar (*Atualizar base → Importar cadastros*): as abas `inv_*` são **opcionais**. Se nenhuma existir,
+as tabelas de inventário não são tocadas (planilhas antigas continuam válidas). Se **qualquer** uma
+existir, as cinco tabelas são substituídas pelo conteúdo das abas presentes (aba ausente = tabela
+vazia), tudo ou nada junto com as 4 abas de cadastro. Validações (mesmo estilo das atuais, linha e
+motivo): `id` de evento único e inteiro; `evento_id` das outras abas existe em `inv_eventos`; no máximo
+um evento sem `encerrado_em`; `numero` de leitura existe em `bens`; `conservacao` vazia ou em
+`CONSERVACAO`; `(evento_id, numero)` de leitura único; datas em ISO `YYYY-MM-DD HH:MM:SS` (ou
+`YYYY-MM-DD`, completada com `00:00:00`); sobra com descricao, observacao, integrante.
+
+É assim que um inventário feito no sistema antigo (planilha com "Local Inventariado", "Conservação",
+"Integrante", "Data/Hora Inventário", "Usuário do Bem", "Observação", "Foto") migra: o usuário monta
+`inv_eventos` com uma linha (o evento antigo, já encerrado), `inv_salas` com as salas, e `inv_leituras`
+com uma linha por bem lido, copiando as colunas da planilha antiga. Os ids de evento ficam como estão
+na aba (a importação preserva o `id`).
+
+`db.exportar_cadastros` / `db.importar_cadastros` são estendidos; o módulo `inventario.py` fornece
+`exportar_abas(conn, wb)` e `validar_abas(conn, brutos) -> (linhas_por_tabela, problemas)` para que a
+regra de inventário não vaze para `db.py`.
