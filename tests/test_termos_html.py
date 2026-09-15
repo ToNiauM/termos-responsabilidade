@@ -23,7 +23,7 @@ def test_devolucao_com_data_e_assinaturas():
     html = th.corpo_devolucao("ANA SILVA", bens(), hoje=date(2026, 9, 14))
     assert "width:80%" in html and "TERMO DE DEVOLUÇÃO" in html
     assert "Brasília (DF), 14 de setembro de 2026" in html
-    assert "BRUNO DE ARAUJO GOMES" in html and "Gerente de Serviços Administrativos" in html
+    assert "Bruno de Araujo Gomes" in html and "Gerente de Serviços Administrativos" in html
 
 
 def test_documento_envelopa_com_titulo_e_escapa():
