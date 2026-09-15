@@ -73,8 +73,9 @@ CREATE TABLE IF NOT EXISTS termos_emitidos_bens (   -- a foto
 - **Sem processo vigente do tipo, não há emissão.** Em `db.processo_vigente(conn, tipo)` → `None`
   faz a tela do termo mostrar `br-message danger` ("Cadastre um processo SEI vigente para termos
   <tipo> em Cadastros → Processos SEI", com link) e esconder Copiar e Baixar. As rotas
-  `/termo/<tipo>/<chave>/documento` e `/docx` também recusam (flash + redirect para a tela do termo),
-  para não escapar pela URL. O iframe com a prévia continua aparecendo (só visualiza).
+  `/termo/<tipo>/<chave>/docx` e `/registrar` também recusam (flash + redirect para a tela do termo;
+  `/registrar` responde 409 em JSON), para não escapar pela URL. `/documento` continua servindo a
+  prévia do iframe (só visualiza).
 - **Copiar ou Baixar registra.** `db.registrar_emissao(conn, tipo, chave, bens)` grava
   `termos_emitidos` + foto. Baixar: a rota `/docx` registra antes de enviar. Copiar: o botão faz
   `fetch POST /termo/<tipo>/<chave>/registrar` após a cópia dar certo; a resposta é JSON
@@ -155,8 +156,8 @@ CREATE TABLE IF NOT EXISTS importacoes_mudancas (
 
 - `importar_bens` lê a tabela atual num dicionário `{numero: (situacao, localizacao, descricao)}`
   antes do `DELETE`, e depois do `INSERT` calcula: `novo` (número só no export), `removido` (só na
-  tabela antiga), `movido` (mesma situação, localização diferente: `de`/`para` = localizações),
-  `situacao` (situação diferente: `de`/`para` = situações). Um bem pode gerar `movido` e `situacao`.
+  tabela antiga), `movido` (localização diferente: `de`/`para` = localizações), `situacao` (situação
+  diferente: `de`/`para` = situações). Um bem pode gerar `movido` e `situacao` na mesma importação.
   Tudo na mesma transação; falha em qualquer ponto desfaz importação e log.
 - A primeira importação com a tabela vazia registra tudo como `novo`; isso é o esperado.
 - O resumo devolvido ganha `novos`, `removidos`, `movidos`, `situacao`, `importacao_id`.
