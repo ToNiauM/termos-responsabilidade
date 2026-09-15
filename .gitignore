@@ -25,3 +25,7 @@ build/
 dist/
 *.spec
 secrets/
+
+# Scripts
+
+backup.sh
