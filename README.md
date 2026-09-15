@@ -12,6 +12,16 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    têm que bater (`computador GEX-LIC` = computadores do GEX-LIC; o "e" solto é ignorado). Texto simples
    busca "contém"; com `*` o padrão é literal (`GEX*` começa com GEX, `*ITEC` termina com ITEC). Nos
    resultados, centro ou pessoa têm *Ver bens* (lista filtrada) e *Termo*.
+   **Processos SEI** (Cadastros → Processos SEI): um vigente por tipo de termo (centro de custo,
+   individual, devolução). Sem processo vigente o termo não pode ser copiado nem baixado.
+   **Termos emitidos**: cada cópia ou download registra data, processo e a lista de bens daquele
+   momento (foto). Na tela do termo aparece o último registro e se entraram/saíram bens desde então
+   (termo *desatualizado*). O número do documento SEI pode ser anotado depois, no registro.
+   **Atualizar base** guarda o que mudou a cada importação (novos, removidos, movidos, situação) e a
+   ficha do bem mostra o histórico dele.
+   **Início** é o painel: cards e gráficos por situação, centro, classificação, localização, idade, ano e
+   faixa de valor, todos clicáveis. **Recorte** filtra bens por qualquer combinação, com os mesmos
+   gráficos, o termo do centro/pessoa quando couber e *Exportar .xlsx*.
 2. **Atualizar base**: envie o export do sistema de patrimônio (`.xlsx`). Só a tabela de bens muda.
    *Exportar bens (formato SPW)* devolve a mesma tabela em `.xlsx`, nas 9 colunas do export — backup reimportável.
 3. **Cadastros**: responsáveis por centro de custo (editar, inclusive a sigla — as localizações
@@ -81,3 +91,4 @@ O mesmo código roda em `https://patrimonio.sistemascfc.org`, num container nest
 | `main.py`, `build.bat` | programa de desktop e build |
 | `Dockerfile`, `compose.yml` | site em patrimonio.sistemascfc.org |
 | `templates/`, `static/dsgov/` | telas DSGov 3.7.0 (offline) |
+| `painel.py`, `graficos.py` | cards de gráfico (ECharts embutido, tema DSGov) |
