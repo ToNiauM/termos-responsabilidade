@@ -192,14 +192,14 @@ acordeão "Ver dados" com a tabela companheira (`br-table` com busca; células c
 Cada fatia, barra ou ponto leva `url` → o `echarts-dsgov.js` navega ao clique para o recorte já
 filtrado; a mesma navegação existe na tabela, para não depender de clique em canvas.
 
-Tipo por dimensão (regras da skill: rosca até 6 fatias, linha para tempo, barras horizontais para
+Tipo por dimensão (regra do usuário: rosca/pizza só até 5 categorias, acima disso barras ou colunas; regras da skill: linha para tempo, barras horizontais para
 ranking com rótulos longos, colunas para poucas categorias curtas):
 
 | dimensão | gráfico | observação |
 |---|---|---|
-| Situação | rosca | total no centro |
+| Situação | rosca (≤ 5 fatias; acima disso vira barras) | total no centro |
 | Centro de custo | barras horizontais com escala | 20 maiores no gráfico; tabela completa |
-| Classificação contábil | rosca | 5 maiores + "Outras"; tabela completa; imóveis fora do gráfico |
+| Classificação contábil | barras horizontais | todas as classes (12 > 5: rosca proibida); imóveis também na tabela |
 | Localização | barras horizontais | 20 maiores no gráfico; tabela completa |
 | Faixa de idade | colunas | 5 faixas |
 | Ano de entrada | linha | quantidade por ano; valor na tabela |
