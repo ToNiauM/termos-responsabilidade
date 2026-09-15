@@ -84,8 +84,8 @@ def _json_erro(e, status=409):
 
 
 def _numero_lido(texto) -> int | None:
-    t = "".join(ch for ch in str(texto or "") if ch.isdigit()).lstrip("0")
-    return int(t) if t else None
+    t = str(texto or "").strip()
+    return int(t) if t.isdigit() and t.strip("0") else None
 
 
 def _bem_json(r):
@@ -95,14 +95,19 @@ def _bem_json(r):
             "leitura_anterior": r["leitura_anterior"], "lido_em": r["lido_em"], "integrante": r["integrante"]}
 
 
+_ORDEM_SITUACAO = {"pendente": 0, "localizado": 1, "divergente": 2}
+
+
 @inventario_bp.route("/<int:id>/sala/<path:localizacao>")
 def sala_tela(id, localizacao):
     conn = _conn()
     e = _evento_ou_404(conn, id)
-    if not any(s["localizacao"] == localizacao for s in inventario.salas(conn, id)):
+    salas = inventario.salas(conn, id)
+    sala = next((s for s in salas if s["localizacao"] == localizacao), None)
+    if not sala:
         abort(404)
     d = inventario.bens_da_sala(conn, id, localizacao)
-    sala = next(s for s in inventario.salas(conn, id) if s["localizacao"] == localizacao)
+    d["bens"].sort(key=lambda b: (_ORDEM_SITUACAO[b["situacao_inv"]], b["numero"]))
     return render_template("inventario_sala.html", e=e, sala=sala, localizacao=localizacao, integrante=session.get("integrante"),
                            conservacao=inventario.CONSERVACAO, fotos_ativas=fotos.configurado(), **d,
                            trilha=_trilha(e, (localizacao, None)))
@@ -147,8 +152,12 @@ def _foto_processada():
 def foto_leitura(id, numero):
     conn = _conn()
     try:
+        inventario._evento_aberto_ou_erro(conn, id)
         dados = _foto_processada()
-        url = fotos.enviar(fotos.nome_bem(id, numero), dados)
+        try:
+            url = fotos.enviar(fotos.nome_bem(id, numero), dados)
+        except Exception:
+            return _json_erro("Falha ao enviar a foto.")
         inventario.atualizar_leitura(conn, id, numero, foto_url=url)
     except db.ErroDeNegocio as e:
         return _json_erro(e)
@@ -161,8 +170,8 @@ def foto_excluir(id, numero):
     atual = conn.execute("SELECT foto_url, localizacao FROM inventario_leituras WHERE evento_id = ? AND numero = ?", (id, numero)).fetchone()
     if not atual:
         abort(404)
-    fotos.apagar(atual["foto_url"])
     inventario.atualizar_leitura(conn, id, numero, foto_url="")
+    fotos.apagar(atual["foto_url"])
     flash("Foto removida.", "success")
     return redirect(url_for("inventario.sala_tela", id=id, localizacao=request.form.get("volta") or atual["localizacao"]))
 

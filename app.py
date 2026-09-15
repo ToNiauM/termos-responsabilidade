@@ -562,8 +562,11 @@ def importar_cadastros():
         flash("Envie a planilha de cadastros em .xlsx.", "error")
         return redirect(url_for("upload"))
     r = db.importar_cadastros(obter_conn(), arquivo.stream)
-    flash(f"Cadastros importados: {r['responsaveis']} centro(s) de custo, {r['localizacoes']} localização(ões), "
-          f"{r['pessoas']} pessoa(s), {r['atribuicoes']} atribuição(ões).", "success")
+    msg = (f"Cadastros importados: {r['responsaveis']} centro(s) de custo, {r['localizacoes']} localização(ões), "
+           f"{r['pessoas']} pessoa(s), {r['atribuicoes']} atribuição(ões).")
+    if "inv_eventos" in r:
+        msg += f" Inventário: {r['inv_eventos']} evento(s), {r['inv_leituras']} leitura(s), {r['inv_sobras']} sobra(s)."
+    flash(msg, "success")
     return redirect(url_for("upload"))
 
 

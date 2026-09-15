@@ -227,7 +227,7 @@ _CAMPOS_REL = """b.numero AS numero, b.descricao, b.complemento, b.classificacao
 def relatorio(conn, evento_id: int, localizacao: str | None = None, situacao: str | None = None) -> list[dict]:
     """Uma linha por bem ativo das salas do escopo (ou da sala pedida), mais os lidos nela vindos de fora
     do escopo (ou de bens que deixaram de estar ATIVO). situacao filtra por localizado | divergente | pendente."""
-    if not evento(conn, evento_id):
+    if not _um(conn, "SELECT id FROM inventario_eventos WHERE id = ?", evento_id):
         raise ErroDeNegocio("Evento de inventário não encontrado.")
     filtro_sala = ""
     params = [evento_id]
@@ -261,7 +261,7 @@ def _data_br(iso):
 
 def exportar_xlsx(conn, evento_id: int, destino, localizacao: str | None = None):
     from openpyxl import Workbook
-    e = evento(conn, evento_id)
+    e = _um(conn, "SELECT nome FROM inventario_eventos WHERE id = ?", evento_id)
     if not e:
         raise ErroDeNegocio("Evento de inventário não encontrado.")
     wb = Workbook()

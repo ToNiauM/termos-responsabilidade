@@ -38,7 +38,7 @@
 {{ cabecalho_tabela('Bens da sala', 'bens') }}
   <thead><tr><th scope="col">Nº</th><th scope="col">Descrição</th><th scope="col">Situação</th><th scope="col">Conservação</th><th scope="col">Quem usa</th><th scope="col">Observação</th><th scope="col">Foto</th></tr></thead>
   <tbody id="tabela-bens">
-  {% for b in bens|sort(attribute='situacao_inv') %}
+  {% for b in bens %}
   <tr data-numero="{{ b.numero }}" data-situacao="{{ b.situacao_inv }}">
     <td>{{ b.numero }}</td><td>{{ b.descricao }}{% if b.complemento %} <span class="text-gray-70">{{ b.complemento }}</span>{% endif %}</td>
     <td class="situacao">{% if b.situacao_inv == 'localizado' %}<span class="br-tag bg-success text-pure-0"><span>Localizado</span></span>{% elif b.situacao_inv == 'divergente' %}<span class="br-tag bg-warning"><span>Divergente · lido em {{ b.lido_em_sala }}</span></span>{% else %}<span class="br-tag bg-gray-20"><span>Pendente</span></span>{% endif %}</td>
@@ -200,20 +200,21 @@
     if (el.classList.contains("campo")) {
       var corpo = {}; corpo[el.dataset.campo] = el.value;
       fetch(URL_LEITURA.replace(/\/0$/, "/" + tr.dataset.numero), {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(corpo)})
-        .then(function (r) { if (!r.ok) return r.json().then(function (j) { mostrar("danger", j.erro); }); })
+        .then(function (r) { if (!r.ok) return r.json().then(function (j) { mostrar("danger", j.erro || "Erro ao salvar."); }); })
         .catch(function () { mostrar("danger", "Sem conexão; alteração não salva."); });
     } else if (el.classList.contains("foto-input") && el.files[0]) {
       var fd = new FormData(); fd.append("foto", el.files[0]);
       fetch(URL_LEITURA.replace(/\/0$/, "/" + tr.dataset.numero) + "/foto", {method: "POST", body: fd})
         .then(function (r) { return r.json().then(function (j) { return {ok: r.ok, j: j}; }); })
         .then(function (res) {
-          if (!res.ok) { mostrar("danger", res.j.erro); return; }
+          if (!res.ok) { mostrar("danger", res.j.erro || "Erro ao salvar."); return; }
           preencherFoto(tr.querySelector(".foto"), res.j.foto_url, tr.dataset.numero);
           mostrar("success", "Foto enviada.");
         })
         .catch(function () { mostrar("danger", "Sem conexão; alteração não salva."); });
     }
   });
+  document.addEventListener("click", function (ev) { if (!ev.target.closest("input, select, textarea, button, label, a, #camera")) focar(); });
   focar();
 })();
 </script>

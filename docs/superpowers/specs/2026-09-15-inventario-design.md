@@ -208,7 +208,7 @@ confirmação em duas etapas como a exclusão de centro).
   aberto para leituras seguidas até fechar) e **Digitar** (troca `inputmode` para `numeric` e foca, para
   plaqueta ilegível; volta a `none` após enviar).
 - Envio por `fetch` JSON; a página nunca recarrega numa leitura. Resposta atualiza a linha do bem na
-  lista (ou insere em "Trazidos de outra sala"), toca um `br-message` curto e some em 3 s:
+  lista (ou insere em "Trazidos de outra sala"), toca um `br-message` curto e some em 4 s:
   - localizado: verde "Bem 14359 localizado".
   - divergente: amarelo "Bem 14359 cadastrado em 03 - CGTI; registrado aqui".
   - reler: se o bem já tinha leitura neste evento, a resposta traz `reler=true` e a leitura anterior; a
@@ -241,7 +241,7 @@ evento) quando há evento aberto; senão "Nenhum inventário aberto" (link para 
 
 Aba **Bens** (uma linha por bem do escopo, ou da sala filtrada): Patrimônio, Descrição, Complemento,
 Classificação, Local sistema, Local inventário, Situação (Localizado/Divergente/Não localizado),
-Conservação, Quem usa, Observação, Integrante, Data/hora, Foto (URL). Aba **Sobras**: Sala, Descrição,
+Conservação, Quem usa, Observação, Integrante, Data/hora, Foto (URL), Situação do bem. Aba **Sobras**: Sala, Descrição,
 Complemento, Observação, Integrante, Data/hora, Foto (URL). Primeira linha: título do evento, data de
 geração e filtro. Nome do arquivo: `inventario_<id>_<sala ou tudo>.xlsx`.
 

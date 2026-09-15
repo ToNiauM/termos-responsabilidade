@@ -13,7 +13,7 @@
   <a class="br-button ml-2" href="{{ url_for('bens_exportar') }}"><i class="fas fa-file-excel mr-1" aria-hidden="true"></i>Exportar bens (formato SPW)</a>
 </form>
 <form method="post" action="{{ url_for('importar_cadastros') }}" enctype="multipart/form-data" class="col-md-8 mb-4">
-  <p class="text-gray-70">Importar cadastros: a planilha exportada em <a href="{{ url_for('cadastros_exportar') }}">Cadastros → Exportar</a>, editada. Substitui responsáveis, localizações, pessoas e atribuições inteiros; o que não estiver na planilha some. Bens não mudam.</p>
+  <p class="text-gray-70">Importar cadastros: a planilha exportada em <a href="{{ url_for('cadastros_exportar') }}">Cadastros → Exportar</a>, editada. Substitui responsáveis, localizações, pessoas e atribuições inteiros; o que não estiver na planilha some. Bens não mudam. Se a planilha tiver abas <code>inv_*</code>, os inventários (eventos, salas, leituras e sobras) também são substituídos.</p>
   <div class="br-upload mb-3">
     <label class="upload-label" for="arquivo-cadastros"><span>Planilha de cadastros .xlsx</span></label>
     <input class="upload-input" id="arquivo-cadastros" name="arquivo" type="file" accept=".xlsx" required/>

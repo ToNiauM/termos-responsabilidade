@@ -257,6 +257,15 @@ def test_exportar_e_importar_cadastros(cliente):
     assert "inválido".encode() in r.data
 
 
+def test_importar_cadastros_reimporta_inventario(cliente):
+    eid = _abrir(cliente)
+    cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+    r = cliente.get("/cadastros/exportar")
+    r = cliente.post("/importar-cadastros", data={"arquivo": (io.BytesIO(r.data), "cadastros.xlsx")},
+                     content_type="multipart/form-data", follow_redirects=True)
+    assert "Inventário: 1 evento".encode() in r.data
+
+
 def test_exportar_bens(cliente):
     r = cliente.get("/bens/exportar")
     assert r.status_code == 200 and r.headers["Content-Disposition"].endswith("bens.xlsx")
@@ -424,10 +433,14 @@ def test_inventario_sala_leitura_json(cliente):
     assert r.status_code == 404 and r.get_json()["numero"] == 99999
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "abc"})
     assert r.status_code == 404
+    for numero in ("ABC1001", "S/N-1001", "12.345", "1001x"):
+        r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": numero})
+        assert r.status_code == 404
     j = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"}).get_json()
     assert j["reler"] and j["leitura_anterior"]["integrante"] == "Fulano"
     r = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI")
     assert b"Localizado" in r.data and b"Divergente" in r.data and b"1004" in r.data
+    assert r.data.index(b'data-numero="1002"') < r.data.index(b'data-numero="1001"')   # pendente antes de localizado
     r = cliente.post(f"/inventario/{eid}/leitura/1001", json={"conservacao": "Ruim", "quem_usa": "Ciclana"})
     assert r.status_code == 200 and r.get_json()["ok"]
     assert cliente.post(f"/inventario/{eid}/leitura/1001", json={"conservacao": "Péssimo"}).status_code == 409
@@ -475,6 +488,14 @@ def test_inventario_fotos_e_sobras(cliente, monkeypatch, tmp_path):
     assert [s["descricao"] for s in sobras] == ["CADEIRA VELHA", "VENTILADOR"]
     r = cliente.post(f"/inventario/{eid}/sobra/{sobras[0]['id']}/excluir", follow_redirects=True)
     assert b"CADEIRA VELHA" not in r.data and len(apagados) == 2
+    # evento encerrado: não mexe em foto no bucket nem aceita novo envio
+    monkeypatch.setattr(fotos, "enviar", lambda nome, dados: enviados.append(nome) or f"https://f.exemplo.org/inventario/{nome}")
+    cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"})
+    n_apagados, n_enviados = len(apagados), len(enviados)
+    cliente.post(f"/inventario/{eid}/leitura/1001/foto/excluir", follow_redirects=True)
+    assert len(apagados) == n_apagados
+    r = cliente.post(f"/inventario/{eid}/leitura/1001/foto", data={"foto": (io.BytesIO(imagem), "d.png")}, content_type="multipart/form-data")
+    assert r.status_code == 409 and len(enviados) == n_enviados
 
 
 def test_inventario_relatorio_xlsx_e_card_do_painel(cliente):
