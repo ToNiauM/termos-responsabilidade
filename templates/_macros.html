@@ -77,3 +77,41 @@
 {% elif s.estado == 'desatualizado' %}<span class="br-tag bg-warning"><span>desatualizado +{{ s.entraram }} −{{ s.sairam }}</span></span>
 {% else %}<span class="br-tag bg-gray-20"><span>sem termo</span></span>{% endif %}
 {% endmacro %}
+
+{% macro grafico(g) %}
+{# g = {id, titulo, subtitulo, opcoes (dict ECharts), resumo (aria-label), alto (bool), col, tabela (graficos.tabela_dados)} #}
+<div class="{{ g.col or 'col-sm-12 col-md-6' }} mb-3">
+  <div class="br-card h-100">
+    <div class="card-header">
+      <div class="text-weight-semi-bold text-up-01">{{ g.titulo }}</div>
+      {% if g.subtitulo %}<div class="text-down-01 text-gray-70">{{ g.subtitulo }}</div>{% endif %}
+    </div>
+    <div class="card-content">
+      <script type="application/json" id="{{ g.id }}">{{ g.opcoes|tojson }}</script>
+      <div class="{% if g.alto %}dsgov-grafico-alto{% else %}dsgov-grafico{% endif %}" data-grafico="{{ g.id }}" role="img" aria-label="{{ g.resumo }}"></div>
+      {% if g.tabela %}
+      <div class="br-accordion mt-2" id="acc-{{ g.id }}">
+        <div class="item">
+          <button class="header" type="button" aria-controls="acc-{{ g.id }}-dados" aria-expanded="false">
+            <span class="icon"><i class="fas fa-angle-down" aria-hidden="true"></i></span><span class="title">Ver dados</span>
+          </button>
+        </div>
+        <div class="content" id="acc-{{ g.id }}-dados">
+          <div class="br-table small"><div class="table-header"></div>
+            <table>
+              <caption class="sr-only">{{ g.titulo }} — dados</caption>
+              <thead><tr>{% for c in g.tabela.colunas %}<th scope="col"{% if not loop.first %} class="dsgov-numero"{% endif %}>{{ c }}</th>{% endfor %}</tr></thead>
+              <tbody>
+              {% for linha in g.tabela.linhas %}
+              <tr>{% for cel in linha %}<td{% if not loop.first %} class="dsgov-numero"{% endif %}>{% if cel.url %}<a href="{{ cel.url }}">{{ cel.valor }}</a>{% else %}{{ cel.valor }}{% endif %}</td>{% endfor %}</tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endmacro %}
