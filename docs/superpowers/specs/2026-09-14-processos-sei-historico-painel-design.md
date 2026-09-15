@@ -192,19 +192,19 @@ acordeão "Ver dados" com a tabela companheira (`br-table` com busca; células c
 Cada fatia, barra ou ponto leva `url` → o `echarts-dsgov.js` navega ao clique para o recorte já
 filtrado; a mesma navegação existe na tabela, para não depender de clique em canvas.
 
-Tipo por dimensão (regra do usuário: rosca/pizza só até 5 categorias, acima disso barras ou colunas; regras da skill: linha para tempo, barras horizontais para
-ranking com rótulos longos, colunas para poucas categorias curtas):
+Tipo do gráfico escolhido **pelo número de itens** da dimensão, regra do usuário, igual no painel e no
+recorte (onde o conjunto filtrado pode ter menos itens e mudar o tipo):
 
-| dimensão | gráfico | observação |
-|---|---|---|
-| Situação | rosca (≤ 5 fatias; acima disso vira barras) | total no centro |
-| Centro de custo | barras horizontais com escala | 20 maiores no gráfico; tabela completa |
-| Classificação contábil | barras horizontais | todas as classes (12 > 5: rosca proibida); imóveis também na tabela |
-| Localização | barras horizontais | 20 maiores no gráfico; tabela completa |
-| Faixa de idade | colunas | 5 faixas |
-| Ano de entrada | linha | quantidade por ano; valor na tabela |
-| Faixa de valor | colunas | 6 faixas |
-| Pessoas | barras horizontais | bens atribuídos por pessoa |
+| itens | gráfico |
+|---|---|
+| até 5 | rosca, com total no centro |
+| 6 a 10 | barras horizontais com escala |
+| 11 a 20 | colunas |
+| mais de 20 | colunas com os 20 maiores; a tabela "Ver dados" traz todos |
+
+Tudo clicável: cada fatia, barra ou coluna leva ao recorte filtrado, e a tabela companheira repete os
+mesmos links. Imóveis (SEDE, TERRENOS) entram no gráfico de classificação como qualquer classe (é
+contagem, não valor) e continuam separados só nos cards de valor.
 
 Alturas pelas classes `dsgov-grafico` / `dsgov-grafico-alto` em `dsgov.css` (sem `style` inline).
 
