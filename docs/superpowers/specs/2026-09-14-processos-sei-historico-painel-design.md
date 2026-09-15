@@ -21,8 +21,8 @@ Três melhorias, implementadas nesta ordem, num único ciclo:
    mesmos gráficos sobre o conjunto filtrado, o botão do termo quando couber, e exportação.
 
 Princípio inalterado: simplicidade. Só acréscimos ao esquema; nada do que existe muda de forma.
-Geradores `.docx`, `termos_html.py` e `textos.py` ficam intocados. Sem biblioteca nova: os gráficos
-são barras em HTML/CSS.
+Geradores `.docx`, `termos_html.py` e `textos.py` ficam intocados. Gráficos com **ECharts 5.5.0**
+embutido (offline), com o tema DSGov e o helper Python da skill `/dsgov`, copiados para o projeto.
 
 Fora do escopo: backup automático (próxima rodada), web service do SEI, e-mail, login individual.
 Os processos SEI **não** entram na planilha de cadastros (4 abas).
@@ -177,12 +177,35 @@ CREATE TABLE IF NOT EXISTS importacoes_mudancas (
 
 ## 4. Parte 3 — Painel e recorte
 
-Um único componente serve aos dois: a **macro `barras(titulo, linhas, filtro)`** em `_macros.html`
-recebe `[(rotulo, quantidade, valor, url)]` e desenha um gráfico de barras horizontais (largura
-proporcional à quantidade, rótulo com quantidade e valor em R$) e, ao lado, a tabela equivalente com
-a busca do `br-table`. Cada barra e cada linha é um link para o recorte já filtrado por aquele valor.
-As barras são `div`s com `style="width: N%"`: é o segundo lugar do projeto com inline style, além de
-`termos_html.py`, e por motivo análogo (valor calculado por linha). O CSS fica em `dsgov.css`.
+**Gráficos.** Três arquivos vêm da skill `/dsgov` (`assets/projeto/core/...`), sem alteração de
+conteúdo: `echarts.min.js` (1 MB, em `static/dsgov/vendor/echarts/`), `echarts-dsgov.js` (tema, cores,
+formatação pt-BR e a navegação ao clique, em `static/dsgov/js/`) e `graficos.py` (monta o dicionário
+de opções: `rosca`, `barras_horizontais`, `colunas`, `linha`, `tabela_dados`; sem dependência de
+Django, vai para a raiz do projeto). Os dois `.js` só são carregados nas telas de painel e recorte
+(`{% block scripts %}`). No desktop (PyInstaller) entram junto com `static/`, então continua offline.
+
+Um único componente serve aos dois: a **macro `grafico(id, titulo, opcoes, tabela)`** em
+`_macros.html`, versão Jinja do `_grafico_card.html` da skill: um `br-card` com título, o `<div
+data-grafico>` e as opções em `<script type="application/json">{{ opcoes|tojson }}</script>`, mais um
+acordeão "Ver dados" com a tabela companheira (`br-table` com busca; células com `url` viram links).
+Cada fatia, barra ou ponto leva `url` → o `echarts-dsgov.js` navega ao clique para o recorte já
+filtrado; a mesma navegação existe na tabela, para não depender de clique em canvas.
+
+Tipo por dimensão (regras da skill: rosca até 6 fatias, linha para tempo, barras horizontais para
+ranking com rótulos longos, colunas para poucas categorias curtas):
+
+| dimensão | gráfico | observação |
+|---|---|---|
+| Situação | rosca | total no centro |
+| Centro de custo | barras horizontais com escala | 20 maiores no gráfico; tabela completa |
+| Classificação contábil | rosca | 5 maiores + "Outras"; tabela completa; imóveis fora do gráfico |
+| Localização | barras horizontais | 20 maiores no gráfico; tabela completa |
+| Faixa de idade | colunas | 5 faixas |
+| Ano de entrada | linha | quantidade por ano; valor na tabela |
+| Faixa de valor | colunas | 6 faixas |
+| Pessoas | barras horizontais | bens atribuídos por pessoa |
+
+Alturas pelas classes `dsgov-grafico` / `dsgov-grafico-alto` em `dsgov.css` (sem `style` inline).
 
 ### 4.1 Painel (tela inicial, `index.html`)
 
@@ -199,7 +222,7 @@ O card de pesquisa continua no topo. Abaixo, `db.painel(conn)` alimenta:
 | Termos a emitir | centros `sem_termo` ou `desatualizado` (pessoas idem, em linha menor) | lista de centros / de pessoas |
 | Última importação | data/hora e "N novos, N removidos"; "nenhuma" se não houver | detalhe da importação |
 
-**Dimensões** (cada uma pela macro `barras`; sobre os bens ATIVOS, salvo a primeira):
+**Dimensões** (cada uma pela macro `grafico`; sobre os bens ATIVOS, salvo a primeira):
 
 | dimensão | linhas | filtro do recorte |
 |---|---|---|
@@ -237,8 +260,8 @@ Tela:
 - **botão do termo** quando o filtro for exatamente um centro (`/termo/ccusto/<sigla>`) ou uma
   pessoa (`/termo/individual/<nome>`), com a situação do termo (`br-tag`) ao lado;
 - dois cards (quantidade, valor total);
-- as dimensões pela macro `barras`, omitindo a que já está filtrada por um único valor. Clicar numa
-  barra **acrescenta** aquele filtro ao recorte atual (drill-down: GESERV → ano 2021 → faixa
+- as dimensões pela macro `grafico`, omitindo a que já está filtrada por um único valor. Clicar numa
+  fatia, barra ou ponto **acrescenta** aquele filtro ao recorte atual (drill-down: GESERV → ano 2021 → faixa
   1.000–5.000);
 - tabela dos bens (número com link para a ficha, descrição, complemento, localização, centro,
   pessoa, classificação, entrada, valor) com a busca do `br-table`;
