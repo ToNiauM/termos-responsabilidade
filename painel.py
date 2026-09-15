@@ -46,7 +46,7 @@ def _urls(itens, f, chave):
     return [url_recorte(f, **{chave: i["chave"]}) for i in itens]
 
 
-CURTOS = ("ano", "faixa", "idade")   # rótulos curtos: colunas servem; os demais têm nomes longos → barras horizontais
+CURTOS = ("ano", "idade")   # rótulos realmente curtos (anos, faixas de idade): colunas servem; o resto → barras horizontais
 
 
 def _grafico(itens, f, chave):
