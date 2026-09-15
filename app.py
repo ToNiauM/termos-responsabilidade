@@ -5,6 +5,7 @@ from flask import Flask, abort, flash, g, redirect, render_template, request, se
 
 import config
 import db
+import painel
 import termos_html
 import textos
 from Script_Termo_Individual import criar_termo_responsabilidade
@@ -65,7 +66,10 @@ def _baixar(arquivo: io.BytesIO, nome: str):
 # ---------------------------------------------------------------- início e ficha do bem
 @app.route("/")
 def home():
-    return render_template("index.html", trilha=[])
+    p = db.painel(obter_conn())
+    f = {"situacao": "ATIVO"}
+    return render_template("index.html", p=p, cards=painel.cards_graficos(p["dimensoes"], f), f=f,
+                           moeda=painel.moeda, url_recorte=painel.url_recorte, trilha=[])
 
 
 @app.route("/recorte")

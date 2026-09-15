@@ -322,6 +322,16 @@ def test_termos_emitidos_lista_detalhe_e_documento_sei(cliente):
     assert b"Termos emitidos" in cliente.get("/").data    # menu
 
 
+def test_painel_na_tela_inicial(cliente):
+    r = cliente.get("/")
+    assert r.status_code == 200
+    assert b"bens ativos" in r.data and b'data-grafico="g-centro"' in r.data and b'data-grafico="g-ano"' in r.data
+    assert b"echarts.min.js" in r.data and b"echarts-dsgov.js" in r.data
+    assert b"/recorte?situacao=ATIVO&amp;ccusto=CCI" in r.data or b"/recorte?situacao=ATIVO&ccusto=CCI" in r.data
+    assert b"/termo/ccusto/CCI" in r.data and b"sem termo" in r.data
+    assert b"Nenhuma" in r.data       # última importação: nenhuma
+
+
 def test_listas_mostram_situacao_do_termo(cliente):
     r = cliente.get("/centro-custos")
     assert b"sem termo" in r.data and b"/termo/ccusto/CCI" in r.data
