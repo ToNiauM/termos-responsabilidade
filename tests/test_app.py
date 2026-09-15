@@ -334,6 +334,7 @@ def test_termos_emitidos_lista_detalhe_e_documento_sei(cliente):
 def test_painel_na_tela_inicial(cliente):
     r = cliente.get("/")
     assert r.status_code == 200
+    assert b"dsgov-atalhos" in r.data and "Realizar inventário".encode() in r.data and b'href="/inventario"' in r.data   # carrossel de atalhos
     assert b"bens ativos" in r.data and b'data-grafico="g-centro"' in r.data and b'data-grafico="g-ano"' in r.data
     assert b"echarts.min.js" in r.data and b"echarts-dsgov.js" in r.data
     assert b"/recorte?situacao=ATIVO&amp;ccusto=CCI" in r.data or b"/recorte?situacao=ATIVO&ccusto=CCI" in r.data
