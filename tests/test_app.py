@@ -27,6 +27,7 @@ def test_home_e_busca_de_bem(cliente):
 
 
 def test_termo_ccusto_documento_docx_planilha(cliente):
+    cliente.post("/cadastros/processos/incluir", data={"tipo": "ccusto", "descricao": "T", "numero_sei": "1111", "vigente": "1"})
     r = cliente.post("/gerar", data={"ccusto": "CCI"})
     assert r.status_code == 302 and r.headers["Location"].endswith("/termo/ccusto/CCI")
     assert cliente.get("/termo/ccusto/CCI").status_code == 200
@@ -37,12 +38,46 @@ def test_termo_ccusto_documento_docx_planilha(cliente):
 
 
 def test_termo_individual(cliente):
+    cliente.post("/cadastros/processos/incluir", data={"tipo": "individual", "descricao": "T", "numero_sei": "1111", "vigente": "1"})
     r = cliente.post("/gerar-individual", data={"nome": "ANA SILVA"})
     assert r.status_code == 302
     doc = cliente.get("/termo/individual/ANA SILVA/documento").data.decode()
     assert "width:80%" in doc and "NOTEBOOK" in doc
     assert cliente.get("/termo/individual/ANA SILVA/docx").status_code == 200
     assert cliente.get("/termo/individual/NINGUEM").status_code == 404
+
+
+def test_termo_sem_processo_vigente_nao_emite(cliente):
+    r = cliente.get("/termo/ccusto/CCI")
+    assert b"Cadastre um processo SEI vigente" in r.data and b'id="copiar"' not in r.data
+    r = cliente.get("/termo/ccusto/CCI/docx", follow_redirects=True)
+    assert b"Cadastre um processo SEI vigente" in r.data
+    assert cliente.get("/termo/ccusto/CCI/documento").status_code == 200    # prévia continua
+    r = cliente.post("/termo/ccusto/CCI/registrar")
+    assert r.status_code == 409 and "erro" in r.get_json()
+
+
+def test_termo_com_processo_registra_ao_baixar_e_ao_copiar(cliente):
+    cliente.post("/cadastros/processos/incluir", data={"tipo": "ccusto", "descricao": "T", "numero_sei": "2222", "vigente": "1"})
+    r = cliente.get("/termo/ccusto/CCI")
+    assert b'id="copiar"' in r.data and b"Nenhum termo registrado" in r.data
+    assert cliente.get("/termo/ccusto/CCI/docx").status_code == 200
+    r = cliente.get("/termo/ccusto/CCI")
+    assert "Último termo registrado".encode() in r.data and b"Bens iguais aos de hoje" in r.data
+    j = cliente.post("/termo/ccusto/CCI/registrar").get_json()
+    assert j["id"] and j["emitido_em"][:4] == "2026"
+    assert cliente.get("/termo/ccusto/CCI/planilha").status_code == 200
+    import db
+    assert len(db.termos_emitidos(db.conectar())) == 1     # docx + registrar no mesmo dia = 1 registro; planilha não registra
+
+
+def test_termo_devolucao_registra_no_processo_de_devolucao(cliente):
+    cliente.post("/cadastros/processos/incluir", data={"tipo": "devolucao", "descricao": "D", "numero_sei": "3333", "vigente": "1"})
+    cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "numero_bem": "1001"})
+    assert cliente.get("/termo/devolucao/ANA SILVA/docx").status_code == 200
+    import db
+    t = db.termos_emitidos(db.conectar(), tipo="devolucao")[0]
+    assert t["chave"] == "ANA SILVA" and t["quantidade"] == 1
 
 
 def test_upload_importa_e_lista_sem_centro(cliente):
@@ -140,6 +175,7 @@ def test_cadastro_pessoas_atribuir_com_confirmacao(cliente):
 
 
 def test_termo_devolucao_fluxo(cliente):
+    cliente.post("/cadastros/processos/incluir", data={"tipo": "devolucao", "descricao": "T", "numero_sei": "1111", "vigente": "1"})
     r = cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "numero_bem": "1001"}, follow_redirects=True)
     assert b"CADEIRA" in r.data
     r = cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "numero_bem": "9999"}, follow_redirects=True)

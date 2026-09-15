@@ -138,11 +138,25 @@ def gerar_individual():
     return redirect(url_for("termo", tipo="individual", chave=request.form["nome"]))
 
 
+def _exigir_processo(conn, tipo, chave):
+    """Sem processo SEI vigente do tipo não há emissão: flash + volta à tela do termo."""
+    if db.processo_vigente(conn, tipo):
+        return None
+    flash(f"Cadastre um processo SEI vigente para {db.ROTULO_TIPO[tipo]} em Cadastros → Processos SEI.", "error")
+    return redirect(url_for("termo", tipo=tipo, chave=chave))
+
+
 @app.route("/termo/<tipo>/<chave>")
 def termo(tipo, chave):
-    titulo, _, bens, _ = _bens_do_termo(obter_conn(), tipo, chave)
+    conn = obter_conn()
+    titulo, _, bens, _ = _bens_do_termo(conn, tipo, chave)
+    if tipo == "devolucao":
+        situacao = {"estado": None, "ultimo": db.ultimo_termo(conn, tipo, chave), "entraram": 0, "sairam": 0}
+    else:
+        situacao = db.situacao_termo(conn, tipo, chave, bens)
     return render_template("termo.html", tipo=tipo, chave=chave, titulo=titulo, quantidade=len(bens),
-                           trilha=[(titulo, None)])
+                           processo=db.processo_vigente(conn, tipo), situacao=situacao,
+                           rotulo_tipo=db.ROTULO_TIPO[tipo], trilha=[(titulo, None)])
 
 
 @app.route("/termo/<tipo>/<chave>/documento")
@@ -154,6 +168,8 @@ def termo_documento(tipo, chave):
 @app.route("/termo/<tipo>/<chave>/docx")
 def termo_docx(tipo, chave):
     conn = obter_conn()
+    if (volta := _exigir_processo(conn, tipo, chave)):
+        return volta
     _, _, bens, extra = _bens_do_termo(conn, tipo, chave)
     t = textos.obter(conn)
     arquivo = io.BytesIO()   # gerado em memória: nada fica gravado no servidor
@@ -168,13 +184,36 @@ def termo_docx(tipo, chave):
             flash("Nenhum bem selecionado.", "error")
             return redirect(url_for("termo_devolucao"))
         nome = f"Termo_Devolucao_{_nome_arquivo(chave)}.docx"
+    db.registrar_emissao(conn, tipo, chave, bens)
     return _baixar(arquivo, nome)
+
+
+@app.route("/termo/<tipo>/<chave>/registrar", methods=["POST"])
+def termo_registrar(tipo, chave):
+    """Chamado pelo botão Copiar depois da cópia dar certo. Responde JSON."""
+    conn = obter_conn()
+    _, _, bens, _ = _bens_do_termo(conn, tipo, chave)
+    if not db.processo_vigente(conn, tipo):
+        return {"erro": f"Cadastre um processo SEI vigente para {db.ROTULO_TIPO[tipo]}."}, 409
+    t = db.registrar_emissao(conn, tipo, chave, bens)
+    return {"id": t["id"], "emitido_em": t["emitido_em"]}
 
 
 @app.route("/termo/ccusto/<chave>/planilha")
 def termo_planilha(chave):
     _, _, bens, _ = _bens_do_termo(obter_conn(), "ccusto", chave)
     return _baixar(gerar_planilha_centro(bens, io.BytesIO()), f"planilha_{_nome_arquivo(chave)}.xlsx")
+
+
+@app.route("/termos-emitidos/<int:id>")
+def termo_emitido_tela(id):
+    t = db.termo_emitido(obter_conn(), id) or abort(404)
+    return render_template("termo_emitido.html", t=t, rotulos=db.ROTULO_TIPO, trilha=[("Termos emitidos", url_for("termos_emitidos_tela")), (f"Registro {id}", None)])
+
+
+@app.route("/termos-emitidos")
+def termos_emitidos_tela():
+    return redirect(url_for("home"))   # completada na Task 5
 
 
 # ---------------------------------------------------------------- atualizar base

@@ -3,15 +3,27 @@
 {% block conteudo %}
 <div class="d-flex align-items-center mb-4">
   <h1 class="mb-0">{{ titulo }}</h1>
+  {% if processo %}
   <div class="ml-auto">
-    <button class="br-button primary" type="button" id="copiar"><i class="fas fa-copy mr-1" aria-hidden="true"></i>Copiar para o SEI</button>
+    <button class="br-button primary" type="button" id="copiar" data-registrar="{{ url_for('termo_registrar', tipo=tipo, chave=chave) }}"><i class="fas fa-copy mr-1" aria-hidden="true"></i>Copiar para o SEI</button>
     <a class="br-button secondary ml-2" href="{{ url_for('termo_docx', tipo=tipo, chave=chave) }}"><i class="fas fa-download mr-1" aria-hidden="true"></i>Baixar .docx</a>
     {% if tipo == 'ccusto' %}<a class="br-button ml-2" href="{{ url_for('termo_planilha', chave=chave) }}">Baixar planilha</a>{% endif %}
   </div>
+  {% endif %}
 </div>
+{% if not processo %}
+<div class="br-message danger"><div class="icon"><i class="fas fa-times-circle fa-lg" aria-hidden="true"></i></div>
+  <div class="content" role="alert"><span class="message-title">Sem processo SEI.</span><span class="message-body"> Cadastre um processo SEI vigente para {{ rotulo_tipo }} em <a href="{{ url_for('cadastros', aba='processos') }}">Cadastros → Processos SEI</a> para copiar ou baixar este termo.</span></div></div>
+{% else %}
+<p class="text-gray-70 mb-3">Processo SEI {{ processo.numero_sei }} ({{ processo.descricao }}).
+  {% if situacao.ultimo %}Último termo registrado em {{ situacao.ultimo.emitido_em[8:10] }}/{{ situacao.ultimo.emitido_em[5:7] }}/{{ situacao.ultimo.emitido_em[:4] }} {{ situacao.ultimo.emitido_em[11:16] }}{% if situacao.ultimo.documento_sei %} (SEI {{ situacao.ultimo.documento_sei }}){% endif %}
+    (<a href="{{ url_for('termo_emitido_tela', id=situacao.ultimo.id) }}">ver registro</a>).
+    {% if situacao.estado == 'vigente' %}Bens iguais aos de hoje.{% elif situacao.estado == 'desatualizado' %}Desde então entraram {{ situacao.entraram }} e saíram {{ situacao.sairam }} bem(ns): emita de novo.{% endif %}
+  {% else %}Nenhum termo registrado para {{ chave }}.{% endif %}</p>
+{% endif %}
 <div id="aviso-copiado" class="br-message success" hidden>
   <div class="icon"><i class="fas fa-check-circle fa-lg" aria-hidden="true"></i></div>
-  <div class="content" role="alert"><span class="message-title">Copiado.</span><span class="message-body"> Cole no editor do SEI (Ctrl+V).</span></div>
+  <div class="content" role="alert"><span class="message-title">Copiado.</span><span class="message-body" id="aviso-texto"> Cole no editor do SEI (Ctrl+V).</span></div>
 </div>
 {% if quantidade == 0 %}
 <div class="br-message warning"><div class="icon"><i class="fas fa-exclamation-triangle fa-lg" aria-hidden="true"></i></div>
@@ -22,6 +34,7 @@
 </div></div>
 {% endblock %}
 {% block scripts %}
+{% if processo %}
 <script>
 document.getElementById("copiar").addEventListener("click", async function () {
   var corpo = document.getElementById("documento").contentDocument.body;
@@ -35,9 +48,16 @@ document.getElementById("copiar").addEventListener("click", async function () {
     range.selectNodeContents(corpo); sel.removeAllRanges(); sel.addRange(range);
     docIframe.execCommand("copy"); sel.removeAllRanges();
   }
-  var aviso = document.getElementById("aviso-copiado");
+  var aviso = document.getElementById("aviso-copiado"), textoAviso = document.getElementById("aviso-texto");
+  textoAviso.textContent = " Cole no editor do SEI (Ctrl+V).";
+  try {
+    var r = await fetch(this.dataset.registrar, {method: "POST"});
+    var j = await r.json();
+    textoAviso.textContent = r.ok ? " Cole no editor do SEI (Ctrl+V). Emissão registrada às " + j.emitido_em.slice(11, 16) + "." : " " + j.erro;
+  } catch (e) { textoAviso.textContent += " (não foi possível registrar a emissão)"; }
   aviso.hidden = false;
-  setTimeout(function () { aviso.hidden = true; }, 3000);
+  setTimeout(function () { aviso.hidden = true; }, 5000);
 });
 </script>
+{% endif %}
 {% endblock %}
