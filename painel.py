@@ -62,7 +62,7 @@ def _grafico(itens, f, chave):
     elif chave in CURTOS:
         op = graficos.colunas([i["rotulo"] for i in top], {"Bens": [i["quantidade"] for i in top]}, rotulos=True, urls={"Bens": _urls(top, f, chave)})
     else:
-        op = graficos.barras_horizontais([i["rotulo"] for i in top], [i["quantidade"] for i in top], "Bens", escala=True, urls=_urls(top, f, chave))
+        op = graficos.barras_horizontais([i["rotulo"] for i in top], [i["quantidade"] for i in top], "Bens", escala=False, urls=_urls(top, f, chave))  # azul da marca em todas as barras (a escala clara ficava ilegível)
     sub = (f"{TOP} anos mais recentes no gráfico; todos na tabela" if recentes else f"{TOP} maiores no gráfico; todos na tabela") if n > TOP else None
     barras = n > 5 and chave not in CURTOS
     altura = "extra" if barras and len(top) > 15 else ("alto" if len(top) > 8 else None)
