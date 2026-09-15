@@ -395,6 +395,8 @@ def test_inventario_eventos_abrir_e_encerrar(cliente):
     assert b"Fulano" in r.data
     r = cliente.post(f"/inventario/{eid}/integrante", data={"integrante": "Fulano", "volta": "//evil.example"})
     assert r.headers["Location"].startswith("/inventario/")
+    r = cliente.post(f"/inventario/{eid}/integrante", data={"integrante": "Fulano", "volta": "/\\evil.example"})
+    assert r.headers["Location"].startswith("/inventario/")
     r = cliente.post(f"/inventario/{eid}/encerrar", data={}, follow_redirects=True)
     assert b"Confirmar encerramento" in r.data
     r = cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"}, follow_redirects=True)

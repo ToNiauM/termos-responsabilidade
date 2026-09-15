@@ -56,7 +56,7 @@
 <h2 class="text-up-01 mt-4 mb-2">Trazidos de outras salas ou não ativos</h2>
 <div class="br-table"><table><thead><tr><th scope="col">Nº</th><th scope="col">Descrição</th><th scope="col">Cadastrado em</th><th scope="col">Situação</th><th scope="col">Lido em</th></tr></thead>
 <tbody id="tabela-trazidos">
-{% for t in trazidos %}<tr data-numero="{{ t.numero }}"><td>{{ t.numero }}</td><td>{{ t.descricao }}</td><td>{{ t.localizacao }}</td><td>{{ t.situacao }}</td><td>{{ t.lido_em[8:10] }}/{{ t.lido_em[5:7] }} {{ t.lido_em[11:16] }} · {{ t.integrante }}</td></tr>{% endfor %}
+{% for t in trazidos %}<tr data-numero="{{ t.numero }}" data-ativo="{{ 'sim' if t.situacao == 'ATIVO' else 'nao' }}"><td>{{ t.numero }}</td><td>{{ t.descricao }}</td><td>{{ t.localizacao }}</td><td>{{ t.situacao }}</td><td>{{ t.lido_em[8:10] }}/{{ t.lido_em[5:7] }} {{ t.lido_em[11:16] }} · {{ t.integrante }}</td></tr>{% endfor %}
 </tbody></table></div>
 
 <h2 class="text-up-01 mt-4 mb-2">Sobras (bens sem cadastro)</h2>
@@ -91,6 +91,7 @@
 (function () {
   var URL_LER = {{ url_for('inventario.ler', id=e.id, localizacao=localizacao)|tojson }};
   var URL_LEITURA = {{ url_for('inventario.atualizar_leitura', id=e.id, numero=0)|tojson }};   // troca o 0 pelo número
+  var URL_FOTO_EXCLUIR = {{ url_for('inventario.foto_excluir', id=e.id, numero=0)|tojson }};   // troca o 0 pelo número
   var SALA = {{ localizacao|tojson }};
   var campo = document.getElementById("leitura"), aviso = document.getElementById("aviso"), avisoTexto = document.getElementById("aviso-texto");
   var btnSobra = document.getElementById("btn-sobra"), formSobra = document.getElementById("form-sobra");
@@ -103,27 +104,54 @@
     btnSobra.hidden = !sobra; clearTimeout(timerAviso); if (!sobra) timerAviso = setTimeout(function () { aviso.hidden = true; }, 4000);
   }
   function contar() {
-    var linhas = document.querySelectorAll("#tabela-bens tr"), loc = 0, div = 0;
-    linhas.forEach(function (tr) { var s = tr.dataset.situacao; if (s === "localizado") loc++; else if (s === "divergente") div++; });
-    var trazidos = document.querySelectorAll("#tabela-trazidos tr").length;
+    var linhas = document.querySelectorAll("#tabela-bens tr"), loc = 0;
+    linhas.forEach(function (tr) { if (tr.dataset.situacao === "localizado") loc++; });
+    var trazidos = document.querySelectorAll('#tabela-trazidos tr[data-ativo="sim"]').length;
     document.getElementById("n-localizados").textContent = loc;
     document.getElementById("n-divergentes").textContent = trazidos;
     document.getElementById("n-pendentes").textContent = document.getElementById("contadores").dataset.total - loc;
   }
-  function tag(classe, texto) { return '<span class="br-tag ' + classe + '"><span>' + texto + '</span></span>'; }
+  function celula(texto) { var td = document.createElement("td"); td.textContent = texto; return td; }
+  function chip(classe, texto) {
+    var span = document.createElement("span"); span.className = "br-tag " + classe;
+    var inner = document.createElement("span"); inner.textContent = texto;
+    span.appendChild(inner);
+    return span;
+  }
+  function preencherFoto(td, url, numero) {
+    td.textContent = "";
+    var a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener";
+    var img = document.createElement("img"); img.src = url; img.alt = "Foto"; img.className = "dsgov-miniatura";
+    a.appendChild(img); td.appendChild(a);
+    var form = document.createElement("form"); form.method = "post"; form.className = "d-inline";
+    form.action = URL_FOTO_EXCLUIR.replace(/\/0\/foto\/excluir$/, "/" + numero + "/foto/excluir");
+    var input = document.createElement("input"); input.type = "hidden"; input.name = "volta"; input.value = SALA;
+    var btn = document.createElement("button"); btn.className = "br-button circle small"; btn.type = "submit"; btn.setAttribute("aria-label", "Excluir foto");
+    btn.innerHTML = '<i class="fas fa-trash" aria-hidden="true"></i>';
+    form.appendChild(input); form.appendChild(btn);
+    td.appendChild(form);
+  }
   function aplicar(j) {
     var tr = document.querySelector('#tabela-bens tr[data-numero="' + j.numero + '"]');
     if (tr) {
       tr.dataset.situacao = j.situacao;
-      tr.querySelector(".situacao").innerHTML = j.situacao === "localizado" ? tag("bg-success text-pure-0", "Localizado") : tag("bg-warning", "Divergente · lido em " + SALA);
+      var situacaoTd = tr.querySelector(".situacao");
+      situacaoTd.textContent = "";
+      situacaoTd.appendChild(j.situacao === "localizado" ? chip("bg-success text-pure-0", "Localizado") : chip("bg-warning", "Divergente · lido em " + SALA));
       tr.querySelectorAll(".campo, .foto-input").forEach(function (el) { el.disabled = false; });
       var rotulo = tr.querySelector("label.disabled"); if (rotulo) rotulo.classList.remove("disabled");
       document.getElementById("tabela-bens").prepend(tr);
     } else {
       var t = document.querySelector('#tabela-trazidos tr[data-numero="' + j.numero + '"]');
       if (t) t.remove();
-      var novo = document.createElement("tr"); novo.dataset.numero = j.numero;
-      novo.innerHTML = "<td>" + j.numero + "</td><td>" + j.descricao + "</td><td>" + j.cadastrado_em + "</td><td>" + j.situacao_bem + "</td><td>agora · " + j.integrante + "</td>";
+      var novo = document.createElement("tr");
+      novo.dataset.numero = j.numero;
+      novo.dataset.ativo = j.ativo ? "sim" : "nao";
+      novo.appendChild(celula(j.numero));
+      novo.appendChild(celula(j.descricao));
+      novo.appendChild(celula(j.cadastrado_em));
+      novo.appendChild(celula(j.situacao_bem));
+      novo.appendChild(celula("agora · " + j.integrante));
       document.getElementById("tabela-trazidos").prepend(novo);
     }
     contar();
@@ -154,14 +182,16 @@
   var btnCancelar = document.getElementById("btn-cancelar-sobra"); if (btnCancelar) btnCancelar.addEventListener("click", function () { formSobra.hidden = true; focar(); });
 
   // Câmera (html5-qrcode): fica aberta para leituras seguidas até fechar.
-  var leitor = null, cameraDiv = document.getElementById("camera");
+  var leitor = null, cameraDiv = document.getElementById("camera"), cameraAberta = false;
   document.getElementById("btn-camera").addEventListener("click", function () {
+    if (cameraAberta) return;
+    cameraAberta = true;
     cameraDiv.hidden = false;
     if (!leitor) leitor = new Html5QrcodeScanner("leitor-camera", {fps: 10, qrbox: {width: 250, height: 120}}, false);
     leitor.render(function (texto) { ler(texto); }, function () {});
   });
   document.getElementById("btn-fechar-camera").addEventListener("click", function () {
-    cameraDiv.hidden = true; if (leitor) leitor.clear().catch(function () {}); leitor = null; focar();
+    cameraDiv.hidden = true; if (leitor) leitor.clear().catch(function () {}); leitor = null; cameraAberta = false; focar();
   });
 
   // Campos por bem: salvam ao mudar.
@@ -169,17 +199,19 @@
     var el = ev.target, tr = el.closest("tr"); if (!tr) return;
     if (el.classList.contains("campo")) {
       var corpo = {}; corpo[el.dataset.campo] = el.value;
-      fetch(URL_LEITURA.replace(/0$/, tr.dataset.numero), {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(corpo)})
-        .then(function (r) { if (!r.ok) return r.json().then(function (j) { mostrar("danger", j.erro); }); });
+      fetch(URL_LEITURA.replace(/\/0$/, "/" + tr.dataset.numero), {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(corpo)})
+        .then(function (r) { if (!r.ok) return r.json().then(function (j) { mostrar("danger", j.erro); }); })
+        .catch(function () { mostrar("danger", "Sem conexão; alteração não salva."); });
     } else if (el.classList.contains("foto-input") && el.files[0]) {
       var fd = new FormData(); fd.append("foto", el.files[0]);
-      fetch(URL_LEITURA.replace(/0$/, tr.dataset.numero) + "/foto", {method: "POST", body: fd})
+      fetch(URL_LEITURA.replace(/\/0$/, "/" + tr.dataset.numero) + "/foto", {method: "POST", body: fd})
         .then(function (r) { return r.json().then(function (j) { return {ok: r.ok, j: j}; }); })
         .then(function (res) {
           if (!res.ok) { mostrar("danger", res.j.erro); return; }
-          tr.querySelector(".foto").innerHTML = '<a href="' + res.j.foto_url + '" target="_blank" rel="noopener"><img src="' + res.j.foto_url + '" alt="Foto" class="dsgov-miniatura"/></a>';
+          preencherFoto(tr.querySelector(".foto"), res.j.foto_url, tr.dataset.numero);
           mostrar("success", "Foto enviada.");
-        });
+        })
+        .catch(function () { mostrar("danger", "Sem conexão; alteração não salva."); });
     }
   });
   focar();
