@@ -85,7 +85,8 @@ def salas(conn, evento_id: int) -> list[dict]:
              WHERE r.evento_id = s.evento_id AND r.localizacao = s.localizacao
                AND b.localizacao = s.localizacao AND b.situacao = 'ATIVO') AS localizados,
           (SELECT count(*) FROM inventario_leituras r JOIN bens b ON b.numero = r.numero
-             WHERE r.evento_id = s.evento_id AND r.localizacao = s.localizacao AND b.localizacao <> s.localizacao) AS divergentes
+             WHERE r.evento_id = s.evento_id AND r.localizacao = s.localizacao AND b.localizacao <> s.localizacao
+               AND b.situacao = 'ATIVO') AS divergentes
         FROM inventario_salas s LEFT JOIN localizacoes l ON l.localizacao = s.localizacao
         WHERE s.evento_id = ? ORDER BY s.localizacao""", evento_id)
     for s in linhas:
@@ -110,3 +111,99 @@ def resumo(conn, evento_id: int) -> dict:
             "bens": bens, "lidos": lidos, "divergentes": sum(s["divergentes"] for s in ss),
             "pendentes": sum(s["pendentes"] for s in ss), "sobras": sobras,
             "pct_bens": round(100 * lidos / bens, 1) if bens else 0.0}
+
+
+# ---------------------------------------------------------------- leituras
+_LEITURA = "r.localizacao AS lido_em_sala, r.lido_em, r.integrante, r.conservacao, r.quem_usa, r.observacao, r.foto_url"
+
+
+def ler(conn, evento_id: int, localizacao: str, numero: int, integrante: str) -> dict:
+    """Registra (ou atualiza) a leitura do bem nesta sala. Qualquer bem cadastrado é aceito em qualquer sala;
+    a divergência é só sinalizada (regra do sistema antigo)."""
+    _evento_aberto_ou_erro(conn, evento_id)
+    _sala_ou_erro(conn, evento_id, localizacao)
+    if not conn.execute("SELECT 1 FROM inventario_integrantes WHERE evento_id = ? AND nome = ?", (evento_id, integrante)).fetchone():
+        raise ErroDeNegocio("Escolha o integrante da comissão antes de ler.")
+    bem = db.buscar_bem(conn, numero)
+    if not bem:
+        raise BemNaoEncontrado(numero)
+    anterior = _um(conn, "SELECT * FROM inventario_leituras WHERE evento_id = ? AND numero = ?", evento_id, numero)
+    agora = _agora()
+    if anterior:
+        conn.execute("UPDATE inventario_leituras SET localizacao = ?, lido_em = ?, integrante = ? WHERE id = ?",
+                     (localizacao, agora, integrante, anterior["id"]))
+    else:
+        conn.execute("INSERT INTO inventario_leituras (evento_id, numero, localizacao, lido_em, integrante) VALUES (?,?,?,?,?)",
+                     (evento_id, numero, localizacao, agora, integrante))
+    conn.commit()
+    return {"situacao": "localizado" if bem["localizacao"] == localizacao else "divergente", "bem": bem,
+            "cadastrado_em": bem["localizacao"], "ativo": bem["situacao"] == "ATIVO", "reler": bool(anterior),
+            "leitura_anterior": anterior, "lido_em": agora, "integrante": integrante}
+
+
+def bens_da_sala(conn, evento_id: int, localizacao: str) -> dict:
+    """bens: ativos cadastrados na sala (com a leitura do evento, se houver) e situacao_inv;
+    trazidos: leituras feitas nesta sala de bens de outra sala ou não ativos; sobras: desta sala."""
+    bens = _todos(conn, f"""
+        SELECT b.*, {_LEITURA} FROM bens b
+        LEFT JOIN inventario_leituras r ON r.numero = b.numero AND r.evento_id = ?
+        WHERE b.localizacao = ? AND b.situacao = 'ATIVO' ORDER BY b.numero""", evento_id, localizacao)
+    for b in bens:
+        b["situacao_inv"] = "pendente" if not b["lido_em"] else ("localizado" if b["lido_em_sala"] == localizacao else "divergente")
+    trazidos = _todos(conn, f"""
+        SELECT b.*, {_LEITURA} FROM inventario_leituras r JOIN bens b ON b.numero = r.numero
+        WHERE r.evento_id = ? AND r.localizacao = ? AND (b.localizacao <> ? OR b.situacao <> 'ATIVO')
+        ORDER BY r.lido_em DESC""", evento_id, localizacao, localizacao)
+    sobras = _todos(conn, "SELECT * FROM inventario_sobras WHERE evento_id = ? AND localizacao = ? ORDER BY id DESC",
+                    evento_id, localizacao)
+    return {"bens": bens, "trazidos": trazidos, "sobras": sobras}
+
+
+def atualizar_leitura(conn, evento_id: int, numero: int, **campos) -> None:
+    """Campos: conservacao, quem_usa, observacao, foto_url (só os presentes são gravados; '' vira NULL)."""
+    _evento_aberto_ou_erro(conn, evento_id)
+    permitidos = {"conservacao", "quem_usa", "observacao", "foto_url"}
+    extra = set(campos) - permitidos
+    if extra:
+        raise ErroDeNegocio(f"Campo desconhecido: {', '.join(sorted(extra))}.")
+    if "conservacao" in campos and campos["conservacao"] and campos["conservacao"] not in CONSERVACAO:
+        raise ErroDeNegocio("Estado de conservação inválido.")
+    if not _um(conn, "SELECT id FROM inventario_leituras WHERE evento_id = ? AND numero = ?", evento_id, numero):
+        raise ErroDeNegocio("Leia o bem antes de preencher os dados.")
+    for campo, valor in campos.items():
+        conn.execute(f"UPDATE inventario_leituras SET {campo} = ? WHERE evento_id = ? AND numero = ?",
+                     (_texto(valor) or None, evento_id, numero))
+    conn.commit()
+
+
+# ---------------------------------------------------------------- sobras
+def registrar_sobra(conn, evento_id, localizacao, descricao, complemento, observacao, foto_url, integrante, exigir_foto=True) -> int:
+    """Bem sem cadastro encontrado na sala. Foto obrigatória quando as fotos estão ativas (exigir_foto)."""
+    _evento_aberto_ou_erro(conn, evento_id)
+    _sala_ou_erro(conn, evento_id, localizacao)
+    descricao = _obrigatorio(descricao, "Descrição")
+    observacao = _obrigatorio(observacao, "Observação")
+    integrante = _obrigatorio(integrante, "Integrante")
+    if exigir_foto and not _texto(foto_url):
+        raise ErroDeNegocio("A sobra precisa de foto.")
+    cur = conn.execute("""INSERT INTO inventario_sobras (evento_id, localizacao, descricao, complemento, observacao, foto_url, integrante, criado_em)
+                          VALUES (?,?,?,?,?,?,?,?)""",
+                       (evento_id, localizacao, descricao, _texto(complemento) or None, observacao, _texto(foto_url), integrante, _agora()))
+    conn.commit()
+    return cur.lastrowid
+
+
+def definir_foto_sobra(conn, sobra_id: int, foto_url: str) -> None:
+    conn.execute("UPDATE inventario_sobras SET foto_url = ? WHERE id = ?", (_texto(foto_url), sobra_id))
+    conn.commit()
+
+
+def excluir_sobra(conn, evento_id: int, sobra_id: int) -> dict:
+    """Só sobras podem ser apagadas (leituras de bens cadastrados, nunca). Devolve a sobra para apagar a foto."""
+    _evento_aberto_ou_erro(conn, evento_id)
+    s = _um(conn, "SELECT * FROM inventario_sobras WHERE evento_id = ? AND id = ?", evento_id, sobra_id)
+    if not s:
+        raise ErroDeNegocio("Sobra não encontrada.")
+    conn.execute("DELETE FROM inventario_sobras WHERE id = ?", (sobra_id,))
+    conn.commit()
+    return s

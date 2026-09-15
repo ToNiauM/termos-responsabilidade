@@ -65,3 +65,70 @@ def test_salas_contadores_e_resumo(dados):
     inventario.encerrar_evento(dados, eid)                                        # idempotente
     with pytest.raises(db.ErroDeNegocio):
         inventario.encerrar_evento(dados, 999)
+
+
+def test_ler_localizado_divergente_reler_e_erros(dados):
+    eid = semear_inventario(dados)
+    r = inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    assert r["situacao"] == "localizado" and r["reler"] is False and r["ativo"] and r["bem"]["descricao"] == "CADEIRA"
+    r = inventario.ler(dados, eid, "01 - SALA CCI", 2001, "Fulano")             # MONITOR é da SALA B
+    assert r["situacao"] == "divergente" and r["cadastrado_em"] == "02 - SALA B"
+    r = inventario.ler(dados, eid, "02 - SALA B", 2001, "Beltrana")             # reler: atualiza a mesma linha
+    assert r["situacao"] == "localizado" and r["reler"] and r["leitura_anterior"]["localizacao"] == "01 - SALA CCI"
+    assert dados.execute("SELECT count(*) FROM inventario_leituras WHERE evento_id = ?", (eid,)).fetchone()[0] == 2
+    r = inventario.ler(dados, eid, "01 - SALA CCI", 1003, "Fulano")             # BAIXADO: registra, avisa
+    assert r["ativo"] is False and r["situacao"] == "localizado"
+    with pytest.raises(inventario.BemNaoEncontrado) as e:
+        inventario.ler(dados, eid, "01 - SALA CCI", 99999, "Fulano")
+    assert e.value.numero == 99999
+    with pytest.raises(db.ErroDeNegocio):
+        inventario.ler(dados, eid, "SALA QUE NÃO EXISTE", 1001, "Fulano")
+    with pytest.raises(db.ErroDeNegocio):
+        inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Ninguém")
+    s = {x["localizacao"]: x for x in inventario.salas(dados, eid)}
+    assert (s["01 - SALA CCI"]["localizados"], s["01 - SALA CCI"]["pendentes"]) == (1, 1)
+    assert (s["02 - SALA B"]["localizados"], s["02 - SALA B"]["divergentes"]) == (1, 0)
+    assert s["01 - SALA CCI"]["divergentes"] == 0
+    inventario.encerrar_evento(dados, eid)
+    with pytest.raises(db.ErroDeNegocio):
+        inventario.ler(dados, eid, "01 - SALA CCI", 1002, "Fulano")
+
+
+def test_bens_da_sala_e_atualizar_leitura(dados):
+    eid = semear_inventario(dados)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    inventario.ler(dados, eid, "01 - SALA CCI", 2002, "Fulano")                 # trazido da SALA B
+    inventario.ler(dados, eid, "02 - SALA B", 1002, "Fulano")                   # bem da CCI lido na SALA B
+    inventario.ler(dados, eid, "01 - SALA CCI", 1003, "Fulano")                 # BAIXADO da própria sala
+    d = inventario.bens_da_sala(dados, eid, "01 - SALA CCI")
+    por = {b["numero"]: b for b in d["bens"]}
+    assert set(por) == {1001, 1002}                                              # só ativos da sala
+    assert por[1001]["situacao_inv"] == "localizado" and por[1002]["situacao_inv"] == "divergente" and por[1002]["lido_em_sala"] == "02 - SALA B"
+    assert [t["numero"] for t in d["trazidos"]] == [1003, 2002] and d["sobras"] == []
+    inventario.atualizar_leitura(dados, eid, 1001, conservacao="Ruim", quem_usa="Ciclana", observacao="pé quebrado")
+    b = {x["numero"]: x for x in inventario.bens_da_sala(dados, eid, "01 - SALA CCI")["bens"]}[1001]
+    assert (b["conservacao"], b["quem_usa"], b["observacao"]) == ("Ruim", "Ciclana", "pé quebrado")
+    inventario.atualizar_leitura(dados, eid, 1001, conservacao="")                # limpa
+    assert {x["numero"]: x for x in inventario.bens_da_sala(dados, eid, "01 - SALA CCI")["bens"]}[1001]["conservacao"] is None
+    with pytest.raises(db.ErroDeNegocio):
+        inventario.atualizar_leitura(dados, eid, 1001, conservacao="Ótimo")
+    with pytest.raises(db.ErroDeNegocio):
+        inventario.atualizar_leitura(dados, eid, 2001, quem_usa="x")             # sem leitura
+
+
+def test_sobras(dados):
+    eid = semear_inventario(dados)
+    with pytest.raises(db.ErroDeNegocio):
+        inventario.registrar_sobra(dados, eid, "01 - SALA CCI", "", "", "achado", "http://x/1.webp", "Fulano")
+    with pytest.raises(db.ErroDeNegocio):
+        inventario.registrar_sobra(dados, eid, "01 - SALA CCI", "VENTILADOR", "", "", "http://x/1.webp", "Fulano")
+    with pytest.raises(db.ErroDeNegocio):
+        inventario.registrar_sobra(dados, eid, "01 - SALA CCI", "VENTILADOR", "", "achado", "", "Fulano")
+    sid = inventario.registrar_sobra(dados, eid, "01 - SALA CCI", "VENTILADOR", "", "achado", "", "Fulano", exigir_foto=False)
+    inventario.definir_foto_sobra(dados, sid, "http://x/1.webp")
+    s = inventario.bens_da_sala(dados, eid, "01 - SALA CCI")["sobras"]
+    assert len(s) == 1 and s[0]["foto_url"] == "http://x/1.webp" and inventario.resumo(dados, eid)["sobras"] == 1
+    with pytest.raises(db.ErroDeNegocio):
+        inventario.excluir_sobra(dados, eid, 999)
+    assert inventario.excluir_sobra(dados, eid, sid)["descricao"] == "VENTILADOR"
+    assert inventario.resumo(dados, eid)["sobras"] == 0
