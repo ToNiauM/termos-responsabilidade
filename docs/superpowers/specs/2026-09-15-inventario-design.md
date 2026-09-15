@@ -48,7 +48,6 @@ CREATE TABLE IF NOT EXISTS inventario_integrantes (
 CREATE TABLE IF NOT EXISTS inventario_salas (
   evento_id    INTEGER NOT NULL REFERENCES inventario_eventos(id) ON DELETE CASCADE,
   localizacao  TEXT NOT NULL,                 -- valor de bens.localizacao
-  concluida_em TEXT,
   PRIMARY KEY (evento_id, localizacao)
 );
 CREATE TABLE IF NOT EXISTS inventario_leituras (
@@ -105,8 +104,8 @@ def abrir_evento(conn, nome, descricao, integrantes: list[str], salas: list[str]
     # salas=None → todas as localizações com bens ATIVO (db.localizacoes_ativas)
 def encerrar_evento(conn, id) -> None                            # grava encerrado_em; idempotente
 def salas(conn, evento_id) -> list[dict]
-    # por sala: localizacao, ccustos (via localizacoes), total (ativos), lidos, divergentes, pendentes, concluida_em
-def concluir_sala(conn, evento_id, localizacao) -> None          # toggle: marca/desmarca
+    # por sala: localizacao, ccustos (via localizacoes), total (ativos), localizados, divergentes, pendentes
+    # (não existe "concluir sala": o evento fica aberto até ser encerrado; a sala está "completa" quando pendentes = 0)
 def bens_da_sala(conn, evento_id, localizacao) -> dict
     # {"bens": [bem + leitura + situacao], "trazidos": [lidos aqui mas de outra sala], "sobras": [...]}
 def ler(conn, evento_id, localizacao, numero: int, integrante: str) -> dict
@@ -122,7 +121,7 @@ def relatorio(conn, evento_id, localizacao=None, situacao=None) -> list[dict]
     # uma linha por bem do escopo (todas as salas ou uma), com situação, leitura e dados do bem
 def exportar_xlsx(conn, evento_id, destino, localizacao=None) -> destino   # abas "Bens" e "Sobras"
 def resumo(conn, evento_id) -> dict
-    # {"salas": n, "salas_concluidas": n, "bens": n, "lidos": n, "divergentes": n, "pendentes": n, "sobras": n, "pct_salas": float}
+    # {"salas": n, "salas_iniciadas": n, "bens": n, "lidos": n, "divergentes": n, "pendentes": n, "sobras": n, "pct_bens": float}
 ```
 
 `db.py` ganha só `localizacoes_ativas(conn) -> list[str]` (localizações distintas de bens ATIVO,
@@ -173,7 +172,6 @@ escolhido fica em `session["integrante"]`.
 | `/inventario/<id>/leitura/<numero>/foto/excluir` | POST | apaga no bucket e zera `foto_url` |
 | `/inventario/<id>/sala/<localizacao>/sobra` | POST (multipart) | descrição, complemento, observação, foto → cria sobra; se o upload falhar, não cria (ordem: valida → comprime → cria linha → envia → grava url; falha no envio apaga a linha) |
 | `/inventario/<id>/sobra/<sobra_id>/excluir` | POST | apaga sobra e sua foto |
-| `/inventario/<id>/sala/<localizacao>/concluir` | POST | toggle concluída |
 | `/inventario/<id>/relatorio` | GET | tabela filtrável (sala, situação) |
 | `/inventario/<id>/xlsx` | GET | `.xlsx` em memória (`_baixar`), mesmos filtros |
 
@@ -184,13 +182,13 @@ Evento encerrado: toda rota de escrita responde `ErroDeNegocio("Evento encerrado
 ## 4. Telas (templates `inventario_eventos.html`, `inventario_evento.html`, `inventario_sala.html`, `inventario_relatorio.html`)
 
 **Eventos.** Card do evento aberto: nome, aberto em, integrantes, resumo em cards pequenos (salas
-concluídas/total, bens lidos/total, divergentes, sobras) e `br-progress`-like (barra DSGov). Formulário
+iniciadas/total, bens lidos/total, divergentes, sobras) e `br-progress`-like (barra DSGov). Formulário
 "Abrir evento" só quando não há aberto: nome, descrição, integrantes (textarea), escopo (`br-radio`
 "Todas as salas com bens ativos" / "Escolher salas" → lista de checkboxes das `localizacoes_ativas`).
 Histórico: tabela dos encerrados com link.
 
 **Evento.** Tabela das salas (macro `cabecalho_tabela`, busca): sala, centro de custo, bens, lidos,
-divergentes, pendentes, situação (`br-tag` concluída / em andamento / não iniciada), botão **Ler**.
+divergentes, pendentes, situação (`br-tag` completa (pendentes = 0) / em andamento / não iniciada), botão **Ler**.
 Barra superior: select de integrante (o da sessão, marcado), botões Relatório e Encerrar (com
 confirmação em duas etapas como a exclusão de centro).
 
@@ -222,13 +220,13 @@ confirmação em duas etapas como a exclusão de centro).
   Excluir; botão Câmera abre `<input type="file" accept="image/*" capture="environment">`). Campos
   salvam ao `change` via `fetch`. Pendentes primeiro, depois localizados, depois divergentes.
 - Seções "Trazidos de outras salas" e "Sobras desta sala" (com Excluir).
-- Rodapé fixo: **Concluir sala** (toggle) e voltar ao evento.
+- Rodapé: voltar ao evento. Não há "concluir sala": o evento fica aberto até ser encerrado.
 - Evento encerrado: tudo somente leitura, campo de leitura desabilitado, aviso no topo.
 
 **Relatório.** Filtros (sala, situação), cards (lidos, divergentes, pendentes, sobras), tabela com as
 colunas do xlsx, botão **Exportar .xlsx**.
 
-**Painel (tela inicial).** Card "Inventário em andamento: N% das salas · M divergentes" (link para o
+**Painel (tela inicial).** Card "Inventário em andamento: N% dos bens · M divergentes" (link para o
 evento) quando há evento aberto; senão "Nenhum inventário aberto" (link para Inventário).
 
 **Menu.** "Inventário" (ícone `fa-clipboard-check`) entre "Recorte" e "Cadastros".
@@ -272,11 +270,11 @@ geração e filtro. Nome do arquivo: `inventario_<id>_<sala ou tudo>.xlsx`.
   validações), `salas` com contadores, `ler` nos quatro casos (localizado, divergente, reler atualiza,
   não encontrado, bem não ativo, evento encerrado, sala fora do escopo, integrante inválido),
   `atualizar_leitura`, `registrar_sobra` (obrigatórios; sem foto quando fotos desativadas), `excluir_sobra`,
-  `concluir_sala` toggle, `relatorio` e `resumo`, `exportar_xlsx` (abas, cabeçalhos, linhas).
+   `relatorio` e `resumo`, `exportar_xlsx` (abas, cabeçalhos, linhas).
 - `tests/test_fotos.py`: `validar` (extensão, tamanho, conteúdo), `comprimir` (WebP, ≤1920), nomes,
   `configurado` com/sem env; `enviar`/`apagar` com `boto3` substituído por um cliente falso.
 - `tests/test_app.py`: rotas 200/JSON (ler 200/404/409), fluxo abrir → ler → sobra (com `fotos.enviar`
-  monkeypatched) → concluir → relatório → xlsx → encerrar → escrita bloqueada; card do painel; menu.
+  monkeypatched) → relatório → xlsx → encerrar → escrita bloqueada; card do painel; menu.
 
 ---
 
@@ -290,7 +288,7 @@ campo, cabeçalho = nome da coluna):
 |---|---|
 | `inv_eventos` | id, nome, descricao, aberto_em, encerrado_em |
 | `inv_integrantes` | evento_id, nome |
-| `inv_salas` | evento_id, localizacao, concluida_em |
+| `inv_salas` | evento_id, localizacao |
 | `inv_leituras` | evento_id, numero, localizacao, lido_em, integrante, conservacao, quem_usa, observacao, foto_url |
 | `inv_sobras` | evento_id, localizacao, descricao, complemento, observacao, foto_url, integrante, criado_em |
 

@@ -60,3 +60,6 @@ fluxo brainstorming → spec → plano → subagent-driven-development, como nas
 - Versão COMPLETA (com câmera e fotos) nesta rodada. Módulo separado: `inventario.py` (dados) +
   blueprint `app_inventario.py` (rotas) + templates `inventario_*.html`.
 - Spec: docs/superpowers/specs/2026-09-15-inventario-design.md
+- Ajustes finais do usuário (2026-09-15): SEM "concluir sala" (evento fica aberto até encerrar; progresso = % de
+  bens localizados); bem baixado lido fica registrado e consultável, continua baixado; um evento aberto por vez;
+  código em arquivos próprios; bibliotecas embutidas. Plano: docs/superpowers/plans/2026-09-15-inventario.md.
