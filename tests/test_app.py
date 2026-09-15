@@ -372,6 +372,15 @@ def test_recorte_tela_filtros_termo_e_xlsx(cliente):
     assert ws.max_row - 1 == 4     # 4 bens da semente (inclui 1003 BAIXADO); a tela mostra o mesmo total
 
 
+def _abrir(cliente, integrante="Fulano"):
+    cliente.post("/inventario/abrir", data={"nome": "Inv", "integrantes": "Fulano\nBeltrana", "escopo": "todas"})
+    import db, inventario
+    eid = inventario.evento_aberto(db.conectar())["id"]
+    if integrante:
+        cliente.post(f"/inventario/{eid}/integrante", data={"integrante": integrante})
+    return eid
+
+
 def test_inventario_eventos_abrir_e_encerrar(cliente):
     r = cliente.get("/inventario")
     assert r.status_code == 200 and b"Abrir evento" in r.data and b"Nenhum evento aberto" in r.data
@@ -384,6 +393,8 @@ def test_inventario_eventos_abrir_e_encerrar(cliente):
     eid = inventario.evento_aberto(db.conectar())["id"]
     r = cliente.post(f"/inventario/{eid}/integrante", data={"integrante": "Fulano", "volta": f"/inventario/{eid}"}, follow_redirects=True)
     assert b"Fulano" in r.data
+    r = cliente.post(f"/inventario/{eid}/integrante", data={"integrante": "Fulano", "volta": "//evil.example"})
+    assert r.headers["Location"].startswith("/inventario/")
     r = cliente.post(f"/inventario/{eid}/encerrar", data={}, follow_redirects=True)
     assert b"Confirmar encerramento" in r.data
     r = cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"}, follow_redirects=True)
@@ -394,3 +405,71 @@ def test_inventario_eventos_abrir_e_encerrar(cliente):
 def test_inventario_abrir_com_amostragem(cliente):
     r = cliente.post("/inventario/abrir", data={"nome": "Amostra", "integrantes": "A", "escopo": "escolher", "salas": ["99 - SEM MAPA"]}, follow_redirects=True)
     assert b"99 - SEM MAPA" in r.data and b"01 - SALA CCI" not in r.data.split(b"<tbody>")[1]
+
+
+def test_inventario_sala_leitura_json(cliente):
+    eid = _abrir(cliente, integrante=None)
+    r = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI")
+    assert r.status_code == 200 and b'id="leitura"' in r.data and b"html5-qrcode" in r.data and b"Escolha o integrante" in r.data
+    r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+    assert r.status_code == 409 and "integrante" in r.get_json()["erro"].lower()
+    cliente.post(f"/inventario/{eid}/integrante", data={"integrante": "Fulano"})
+    j = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "001001"}).get_json()
+    assert j["situacao"] == "localizado" and j["numero"] == 1001 and j["descricao"] == "CADEIRA" and j["reler"] is False
+    j = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1004"}).get_json()
+    assert j["situacao"] == "divergente" and j["cadastrado_em"] == "99 - SEM MAPA"
+    r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "99999"})
+    assert r.status_code == 404 and r.get_json()["numero"] == 99999
+    r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "abc"})
+    assert r.status_code == 404
+    j = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"}).get_json()
+    assert j["reler"] and j["leitura_anterior"]["integrante"] == "Fulano"
+    r = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI")
+    assert b"Localizado" in r.data and b"Divergente" in r.data and b"1004" in r.data
+    r = cliente.post(f"/inventario/{eid}/leitura/1001", json={"conservacao": "Ruim", "quem_usa": "Ciclana"})
+    assert r.status_code == 200 and r.get_json()["ok"]
+    assert cliente.post(f"/inventario/{eid}/leitura/1001", json={"conservacao": "Péssimo"}).status_code == 409
+    assert cliente.post(f"/inventario/{eid}/leitura/1002", json={"observacao": "x"}).status_code == 409   # não lido
+
+
+def test_inventario_fotos_e_sobras(cliente, monkeypatch, tmp_path):
+    import io
+    from PIL import Image
+    import fotos
+    eid = _abrir(cliente)
+    buf = io.BytesIO(); Image.new("RGB", (30, 20), (1, 2, 3)).save(buf, "PNG"); imagem = buf.getvalue()
+    # fotos desativadas: sobra sem foto é aceita; foto de bem recusada
+    for v in fotos.VARIAVEIS:
+        monkeypatch.delenv(v, raising=False)
+    r = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI")
+    assert b"Fotos desativadas" in r.data
+    r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/sobra", data={"descricao": "VENTILADOR", "observacao": "sem plaqueta"}, follow_redirects=True)
+    assert b"VENTILADOR" in r.data
+    cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+    r = cliente.post(f"/inventario/{eid}/leitura/1001/foto", data={"foto": (io.BytesIO(imagem), "a.png")}, content_type="multipart/form-data")
+    assert r.status_code == 409 and "desativadas" in r.get_json()["erro"]
+    # fotos ativas: cliente falso
+    for v in fotos.VARIAVEIS:
+        monkeypatch.setenv(v, "x")
+    monkeypatch.setenv("R2_PUBLIC_URL", "https://f.exemplo.org")
+    enviados = []
+    monkeypatch.setattr(fotos, "enviar", lambda nome, dados: enviados.append(nome) or f"https://f.exemplo.org/inventario/{nome}")
+    apagados = []
+    monkeypatch.setattr(fotos, "apagar", lambda url: apagados.append(url))
+    r = cliente.post(f"/inventario/{eid}/leitura/1001/foto", data={"foto": (io.BytesIO(imagem), "a.png")}, content_type="multipart/form-data")
+    assert r.status_code == 200 and r.get_json()["foto_url"].startswith("https://f.exemplo.org/inventario/INV") and enviados[-1].startswith(f"INV{eid}_BEM_1001_")
+    r = cliente.post(f"/inventario/{eid}/leitura/1001/foto/excluir", follow_redirects=True)
+    assert apagados and b"Foto removida" in r.data
+    r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/sobra", data={"descricao": "CADEIRA VELHA", "observacao": "x"}, follow_redirects=True)
+    assert "precisa de foto".encode() in r.data
+    r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/sobra", data={"descricao": "CADEIRA VELHA", "observacao": "x", "foto": (io.BytesIO(imagem), "b.jpg")}, content_type="multipart/form-data", follow_redirects=True)
+    assert b"CADEIRA VELHA" in r.data and enviados[-1].startswith(f"INV{eid}_SOBRA_")
+    # falha no envio: sobra não fica registrada
+    monkeypatch.setattr(fotos, "enviar", lambda nome, dados: (_ for _ in ()).throw(RuntimeError("bucket fora")))
+    r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/sobra", data={"descricao": "MESA VELHA", "observacao": "x", "foto": (io.BytesIO(imagem), "c.jpg")}, content_type="multipart/form-data", follow_redirects=True)
+    assert b"MESA VELHA" not in r.data and "não registrada".encode() in r.data
+    import db, inventario
+    sobras = inventario.bens_da_sala(db.conectar(), eid, "01 - SALA CCI")["sobras"]
+    assert [s["descricao"] for s in sobras] == ["CADEIRA VELHA", "VENTILADOR"]
+    r = cliente.post(f"/inventario/{eid}/sobra/{sobras[0]['id']}/excluir", follow_redirects=True)
+    assert b"CADEIRA VELHA" not in r.data and len(apagados) == 2

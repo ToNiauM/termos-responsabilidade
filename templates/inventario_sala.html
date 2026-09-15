@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% from "_macros.html" import cabecalho_tabela %}
+{% block titulo %}{{ localizacao }}{% endblock %}
+{% block conteudo %}
+{% set fechado = e.encerrado_em is not none %}
+<div class="d-flex align-items-center mb-2">
+  <div><h1 class="mb-0">{{ localizacao }}</h1><div class="text-gray-70">{{ e.nome }}{% if sala.ccustos %} · centro {{ sala.ccustos }}{% endif %} ·
+    {% if integrante %}lendo como <strong>{{ integrante }}</strong>{% else %}<strong>Escolha o integrante</strong>{% endif %}
+    (<a href="{{ url_for('inventario.evento_tela', id=e.id) }}">trocar</a>)</div></div>
+  <div class="ml-auto text-right" id="contadores" data-total="{{ sala.total }}">
+    <span class="br-tag bg-success text-pure-0"><span id="n-localizados">{{ sala.localizados }}</span></span>
+    <span class="br-tag bg-warning"><span id="n-divergentes">{{ sala.divergentes }}</span></span>
+    <span class="br-tag bg-gray-20"><span id="n-pendentes">{{ sala.pendentes }}</span></span>
+    <div class="text-down-01 text-gray-70">localizados · divergentes · pendentes de {{ sala.total }}</div>
+  </div>
+</div>
+{% if fechado %}
+<div class="br-message warning mb-3"><div class="icon"><i class="fas fa-lock fa-lg" aria-hidden="true"></i></div><div class="content"><span class="message-body">Evento encerrado: somente consulta.</span></div></div>
+{% endif %}
+{% if not fotos_ativas %}
+<div class="br-message info mb-3"><div class="icon"><i class="fas fa-camera fa-lg" aria-hidden="true"></i></div><div class="content"><span class="message-body">Fotos desativadas: bucket não configurado. Leituras e sobras funcionam sem foto.</span></div></div>
+{% endif %}
+
+<div class="br-card mb-3"><div class="card-content">
+  <div class="d-flex align-items-end">
+    <div class="br-input flex-fill mr-2">
+      <label for="leitura">Ler plaqueta (leitor de código de barras ou câmera)</label>
+      <input id="leitura" type="text" inputmode="none" autocomplete="off" enterkeyhint="done" placeholder="Aproxime o leitor…"{% if fechado or not integrante %} disabled{% endif %} autofocus/>
+    </div>
+    <button class="br-button secondary mr-2" type="button" id="btn-camera"{% if fechado or not integrante %} disabled{% endif %}><i class="fas fa-camera mr-1" aria-hidden="true"></i>Câmera</button>
+    <button class="br-button" type="button" id="btn-digitar"{% if fechado or not integrante %} disabled{% endif %}><i class="fas fa-keyboard mr-1" aria-hidden="true"></i>Digitar</button>
+  </div>
+  <div id="aviso" class="br-message mt-3" hidden><div class="icon"><i class="fas fa-info-circle fa-lg" aria-hidden="true"></i></div><div class="content" role="alert"><span class="message-body" id="aviso-texto"></span>
+    <button class="br-button small secondary ml-2" type="button" id="btn-sobra" hidden>Registrar sobra</button></div></div>
+  <div id="camera" class="mt-3" hidden><div id="leitor-camera" class="dsgov-leitor"></div><button class="br-button small mt-2" type="button" id="btn-fechar-camera">Fechar câmera</button></div>
+</div></div>
+
+{{ cabecalho_tabela('Bens da sala', 'bens') }}
+  <thead><tr><th scope="col">Nº</th><th scope="col">Descrição</th><th scope="col">Situação</th><th scope="col">Conservação</th><th scope="col">Quem usa</th><th scope="col">Observação</th><th scope="col">Foto</th></tr></thead>
+  <tbody id="tabela-bens">
+  {% for b in bens|sort(attribute='situacao_inv') %}
+  <tr data-numero="{{ b.numero }}" data-situacao="{{ b.situacao_inv }}">
+    <td>{{ b.numero }}</td><td>{{ b.descricao }}{% if b.complemento %} <span class="text-gray-70">{{ b.complemento }}</span>{% endif %}</td>
+    <td class="situacao">{% if b.situacao_inv == 'localizado' %}<span class="br-tag bg-success text-pure-0"><span>Localizado</span></span>{% elif b.situacao_inv == 'divergente' %}<span class="br-tag bg-warning"><span>Divergente · lido em {{ b.lido_em_sala }}</span></span>{% else %}<span class="br-tag bg-gray-20"><span>Pendente</span></span>{% endif %}</td>
+    <td><select class="campo" data-campo="conservacao"{% if fechado or not b.lido_em %} disabled{% endif %}><option value="">—</option>{% for c in conservacao %}<option{% if b.conservacao == c %} selected{% endif %}>{{ c }}</option>{% endfor %}</select></td>
+    <td><input class="campo" data-campo="quem_usa" type="text" value="{{ b.quem_usa or '' }}"{% if fechado or not b.lido_em %} disabled{% endif %}/></td>
+    <td><input class="campo" data-campo="observacao" type="text" value="{{ b.observacao or '' }}"{% if fechado or not b.lido_em %} disabled{% endif %}/></td>
+    <td class="foto">{% if b.foto_url %}<a href="{{ b.foto_url }}" target="_blank" rel="noopener"><img src="{{ b.foto_url }}" alt="Foto do bem {{ b.numero }}" class="dsgov-miniatura"/></a>
+      {% if not fechado %}<form method="post" action="{{ url_for('inventario.foto_excluir', id=e.id, numero=b.numero) }}" class="d-inline"><input type="hidden" name="volta" value="{{ localizacao }}"/><button class="br-button circle small" type="submit" aria-label="Excluir foto"><i class="fas fa-trash" aria-hidden="true"></i></button></form>{% endif %}
+      {% elif fotos_ativas and not fechado %}<label class="br-button circle small{% if not b.lido_em %} disabled{% endif %}" aria-label="Foto do bem {{ b.numero }}"><i class="fas fa-camera" aria-hidden="true"></i><input type="file" accept="image/*" capture="environment" class="foto-input" hidden{% if not b.lido_em %} disabled{% endif %}/></label>{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+
+<h2 class="text-up-01 mt-4 mb-2">Trazidos de outras salas ou não ativos</h2>
+<div class="br-table"><table><thead><tr><th scope="col">Nº</th><th scope="col">Descrição</th><th scope="col">Cadastrado em</th><th scope="col">Situação</th><th scope="col">Lido em</th></tr></thead>
+<tbody id="tabela-trazidos">
+{% for t in trazidos %}<tr data-numero="{{ t.numero }}"><td>{{ t.numero }}</td><td>{{ t.descricao }}</td><td>{{ t.localizacao }}</td><td>{{ t.situacao }}</td><td>{{ t.lido_em[8:10] }}/{{ t.lido_em[5:7] }} {{ t.lido_em[11:16] }} · {{ t.integrante }}</td></tr>{% endfor %}
+</tbody></table></div>
+
+<h2 class="text-up-01 mt-4 mb-2">Sobras (bens sem cadastro)</h2>
+{% if sobras %}
+<div class="br-table"><table><thead><tr><th scope="col">Descrição</th><th scope="col">Observação</th><th scope="col">Foto</th><th scope="col">Por</th>{% if not fechado %}<th scope="col" class="dsgov-acoes">Ações</th>{% endif %}</tr></thead><tbody>
+{% for s in sobras %}<tr><td>{{ s.descricao }}{% if s.complemento %} <span class="text-gray-70">{{ s.complemento }}</span>{% endif %}</td><td>{{ s.observacao }}</td>
+  <td>{% if s.foto_url %}<a href="{{ s.foto_url }}" target="_blank" rel="noopener"><img src="{{ s.foto_url }}" alt="Foto da sobra" class="dsgov-miniatura"/></a>{% else %}—{% endif %}</td><td>{{ s.integrante }}</td>
+  {% if not fechado %}<td class="dsgov-acoes"><form method="post" action="{{ url_for('inventario.sobra_excluir', id=e.id, sobra_id=s.id) }}"><button class="br-button circle small" type="submit" aria-label="Excluir sobra"><i class="fas fa-trash" aria-hidden="true"></i></button></form></td>{% endif %}</tr>{% endfor %}
+</tbody></table></div>
+{% else %}<p class="text-gray-70">Nenhuma sobra nesta sala.</p>{% endif %}
+{% if not fechado %}
+<form method="post" action="{{ url_for('inventario.sobra', id=e.id, localizacao=localizacao) }}" enctype="multipart/form-data" class="br-card mt-3" id="form-sobra" hidden><div class="card-content">
+  <div class="text-weight-semi-bold text-up-01 mb-2">Registrar sobra</div>
+  <div class="row">
+    <div class="col-md-4 mb-2"><div class="br-input"><label for="s-descricao">Descrição</label><input id="s-descricao" name="descricao" type="text" required/></div></div>
+    <div class="col-md-4 mb-2"><div class="br-input"><label for="s-complemento">Complemento</label><input id="s-complemento" name="complemento" type="text"/></div></div>
+    <div class="col-md-4 mb-2"><div class="br-input"><label for="s-observacao">Observação (obrigatória)</label><input id="s-observacao" name="observacao" type="text" required/></div></div>
+    {% if fotos_ativas %}<div class="col-md-6 mb-2"><div class="br-upload"><label class="upload-label" for="s-foto"><span>Foto (obrigatória)</span></label><input class="upload-input" id="s-foto" name="foto" type="file" accept="image/*" capture="environment" required/><div class="upload-list"></div></div></div>{% endif %}
+  </div>
+  <button class="br-button primary" type="submit">Registrar sobra</button>
+  <button class="br-button ml-2" type="button" id="btn-cancelar-sobra">Cancelar</button>
+</div></form>
+{% endif %}
+
+<div class="mt-4">
+  <a class="br-button" href="{{ url_for('inventario.evento_tela', id=e.id) }}"><i class="fas fa-arrow-left mr-1" aria-hidden="true"></i>Salas</a>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='dsgov/vendor/html5-qrcode/html5-qrcode.min.js') }}"></script>
+<script>
+(function () {
+  var URL_LER = {{ url_for('inventario.ler', id=e.id, localizacao=localizacao)|tojson }};
+  var URL_LEITURA = {{ url_for('inventario.atualizar_leitura', id=e.id, numero=0)|tojson }};   // troca o 0 pelo número
+  var SALA = {{ localizacao|tojson }};
+  var campo = document.getElementById("leitura"), aviso = document.getElementById("aviso"), avisoTexto = document.getElementById("aviso-texto");
+  var btnSobra = document.getElementById("btn-sobra"), formSobra = document.getElementById("form-sobra");
+  var ultimoLido = "", ultimoQuando = 0, timerAviso = null;
+  if (!campo) return;
+
+  function focar() { if (!campo.disabled) { campo.value = ""; campo.focus(); } }
+  function mostrar(tipo, texto, sobra) {
+    aviso.className = "br-message mt-3 " + tipo; avisoTexto.textContent = texto; aviso.hidden = false;
+    btnSobra.hidden = !sobra; clearTimeout(timerAviso); if (!sobra) timerAviso = setTimeout(function () { aviso.hidden = true; }, 4000);
+  }
+  function contar() {
+    var linhas = document.querySelectorAll("#tabela-bens tr"), loc = 0, div = 0;
+    linhas.forEach(function (tr) { var s = tr.dataset.situacao; if (s === "localizado") loc++; else if (s === "divergente") div++; });
+    var trazidos = document.querySelectorAll("#tabela-trazidos tr").length;
+    document.getElementById("n-localizados").textContent = loc;
+    document.getElementById("n-divergentes").textContent = trazidos;
+    document.getElementById("n-pendentes").textContent = document.getElementById("contadores").dataset.total - loc;
+  }
+  function tag(classe, texto) { return '<span class="br-tag ' + classe + '"><span>' + texto + '</span></span>'; }
+  function aplicar(j) {
+    var tr = document.querySelector('#tabela-bens tr[data-numero="' + j.numero + '"]');
+    if (tr) {
+      tr.dataset.situacao = j.situacao;
+      tr.querySelector(".situacao").innerHTML = j.situacao === "localizado" ? tag("bg-success text-pure-0", "Localizado") : tag("bg-warning", "Divergente · lido em " + SALA);
+      tr.querySelectorAll(".campo, .foto-input").forEach(function (el) { el.disabled = false; });
+      var rotulo = tr.querySelector("label.disabled"); if (rotulo) rotulo.classList.remove("disabled");
+      document.getElementById("tabela-bens").prepend(tr);
+    } else {
+      var t = document.querySelector('#tabela-trazidos tr[data-numero="' + j.numero + '"]');
+      if (t) t.remove();
+      var novo = document.createElement("tr"); novo.dataset.numero = j.numero;
+      novo.innerHTML = "<td>" + j.numero + "</td><td>" + j.descricao + "</td><td>" + j.cadastrado_em + "</td><td>" + j.situacao_bem + "</td><td>agora · " + j.integrante + "</td>";
+      document.getElementById("tabela-trazidos").prepend(novo);
+    }
+    contar();
+  }
+  function ler(numero) {
+    numero = String(numero || "").trim(); if (!numero) return;
+    var agora = Date.now(); if (numero === ultimoLido && agora - ultimoQuando < 3000) return;   // leitura dupla do leitor/câmera
+    ultimoLido = numero; ultimoQuando = agora;
+    fetch(URL_LER, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({numero: numero})})
+      .then(function (r) { return r.json().then(function (j) { return {status: r.status, j: j}; }); })
+      .then(function (res) {
+        var j = res.j;
+        if (res.status === 404) { mostrar("danger", "Bem " + numero + " não está na base.", true); return; }
+        if (res.status !== 200) { mostrar("danger", j.erro || "Erro ao registrar a leitura."); return; }
+        var texto = j.situacao === "localizado" ? "Bem " + j.numero + " localizado." : "Bem " + j.numero + " cadastrado em " + j.cadastrado_em + "; registrado aqui.";
+        if (!j.ativo) texto = "Bem " + j.numero + " está " + j.situacao_bem + "; leitura registrada.";
+        if (j.reler && j.leitura_anterior) texto += " Já lido em " + j.leitura_anterior.lido_em.slice(8, 10) + "/" + j.leitura_anterior.lido_em.slice(5, 7) + " por " + j.leitura_anterior.integrante + " em " + j.leitura_anterior.localizacao + ". Atualizado.";
+        mostrar(!j.ativo ? "info" : (j.situacao === "localizado" ? "success" : "warning"), texto);
+        aplicar(j);
+      })
+      .catch(function () { mostrar("danger", "Sem conexão; tente de novo."); })
+      .finally(focar);
+  }
+  campo.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); ler(campo.value); } });
+  document.getElementById("btn-digitar").addEventListener("click", function () { campo.inputMode = "numeric"; campo.placeholder = "Digite o número e Enter"; campo.focus(); });
+  campo.addEventListener("blur", function () { campo.inputMode = "none"; });
+  btnSobra.addEventListener("click", function () { if (formSobra) { formSobra.hidden = false; formSobra.querySelector("#s-descricao").focus(); } });
+  var btnCancelar = document.getElementById("btn-cancelar-sobra"); if (btnCancelar) btnCancelar.addEventListener("click", function () { formSobra.hidden = true; focar(); });
+
+  // Câmera (html5-qrcode): fica aberta para leituras seguidas até fechar.
+  var leitor = null, cameraDiv = document.getElementById("camera");
+  document.getElementById("btn-camera").addEventListener("click", function () {
+    cameraDiv.hidden = false;
+    if (!leitor) leitor = new Html5QrcodeScanner("leitor-camera", {fps: 10, qrbox: {width: 250, height: 120}}, false);
+    leitor.render(function (texto) { ler(texto); }, function () {});
+  });
+  document.getElementById("btn-fechar-camera").addEventListener("click", function () {
+    cameraDiv.hidden = true; if (leitor) leitor.clear().catch(function () {}); leitor = null; focar();
+  });
+
+  // Campos por bem: salvam ao mudar.
+  document.getElementById("tabela-bens").addEventListener("change", function (ev) {
+    var el = ev.target, tr = el.closest("tr"); if (!tr) return;
+    if (el.classList.contains("campo")) {
+      var corpo = {}; corpo[el.dataset.campo] = el.value;
+      fetch(URL_LEITURA.replace(/0$/, tr.dataset.numero), {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(corpo)})
+        .then(function (r) { if (!r.ok) return r.json().then(function (j) { mostrar("danger", j.erro); }); });
+    } else if (el.classList.contains("foto-input") && el.files[0]) {
+      var fd = new FormData(); fd.append("foto", el.files[0]);
+      fetch(URL_LEITURA.replace(/0$/, tr.dataset.numero) + "/foto", {method: "POST", body: fd})
+        .then(function (r) { return r.json().then(function (j) { return {ok: r.ok, j: j}; }); })
+        .then(function (res) {
+          if (!res.ok) { mostrar("danger", res.j.erro); return; }
+          tr.querySelector(".foto").innerHTML = '<a href="' + res.j.foto_url + '" target="_blank" rel="noopener"><img src="' + res.j.foto_url + '" alt="Foto" class="dsgov-miniatura"/></a>';
+          mostrar("success", "Foto enviada.");
+        });
+    }
+  });
+  focar();
+})();
+</script>
+{% endblock %}

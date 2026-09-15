@@ -75,12 +75,128 @@ def integrante(id):
         raise db.ErroDeNegocio("Integrante não está na comissão deste evento.")
     session["integrante"] = nome
     volta = request.form.get("volta") or url_for("inventario.evento_tela", id=id)
-    return redirect(volta if volta.startswith("/") else url_for("inventario.evento_tela", id=id))
+    return redirect(volta if (volta.startswith("/") and not volta.startswith("//") and not volta.startswith("/\\"))
+                     else url_for("inventario.evento_tela", id=id))
+
+
+def _json_erro(e, status=409):
+    return jsonify({"erro": str(e)}), status
+
+
+def _numero_lido(texto) -> int | None:
+    t = "".join(ch for ch in str(texto or "") if ch.isdigit()).lstrip("0")
+    return int(t) if t else None
+
+
+def _bem_json(r):
+    b = r["bem"]
+    return {"situacao": r["situacao"], "numero": b["numero"], "descricao": b["descricao"], "complemento": b["complemento"],
+            "situacao_bem": b["situacao"], "ativo": r["ativo"], "cadastrado_em": r["cadastrado_em"], "reler": r["reler"],
+            "leitura_anterior": r["leitura_anterior"], "lido_em": r["lido_em"], "integrante": r["integrante"]}
 
 
 @inventario_bp.route("/<int:id>/sala/<path:localizacao>")
 def sala_tela(id, localizacao):
-    return redirect(url_for("inventario.evento_tela", id=id))      # completada na Task 7
+    conn = _conn()
+    e = _evento_ou_404(conn, id)
+    if not any(s["localizacao"] == localizacao for s in inventario.salas(conn, id)):
+        abort(404)
+    d = inventario.bens_da_sala(conn, id, localizacao)
+    sala = next(s for s in inventario.salas(conn, id) if s["localizacao"] == localizacao)
+    return render_template("inventario_sala.html", e=e, sala=sala, localizacao=localizacao, integrante=session.get("integrante"),
+                           conservacao=inventario.CONSERVACAO, fotos_ativas=fotos.configurado(), **d,
+                           trilha=_trilha(e, (localizacao, None)))
+
+
+@inventario_bp.route("/<int:id>/sala/<path:localizacao>/ler", methods=["POST"])
+def ler(id, localizacao):
+    conn = _conn()
+    numero = _numero_lido((request.get_json(silent=True) or {}).get("numero"))
+    if numero is None:
+        return jsonify({"erro": "Número inválido.", "numero": None}), 404
+    try:
+        r = inventario.ler(conn, id, localizacao, numero, session.get("integrante") or "")
+    except inventario.BemNaoEncontrado as e:
+        return jsonify({"erro": str(e), "numero": e.numero}), 404
+    except db.ErroDeNegocio as e:
+        return _json_erro(e)
+    return jsonify(_bem_json(r))
+
+
+@inventario_bp.route("/<int:id>/leitura/<int:numero>", methods=["POST"])
+def atualizar_leitura(id, numero):
+    dados = request.get_json(silent=True) or {}
+    try:
+        inventario.atualizar_leitura(_conn(), id, numero, **{k: v for k, v in dados.items() if k in ("conservacao", "quem_usa", "observacao")})
+    except db.ErroDeNegocio as e:
+        return _json_erro(e)
+    return jsonify({"ok": True})
+
+
+def _foto_processada():
+    """Valida e comprime a foto enviada em request.files['foto']; ErroDeNegocio se faltar ou fotos desativadas."""
+    if not fotos.configurado():
+        raise db.ErroDeNegocio("Fotos desativadas: bucket não configurado.")
+    arquivo = request.files.get("foto")
+    if not arquivo or not arquivo.filename:
+        raise db.ErroDeNegocio("Envie a foto.")
+    return fotos.comprimir(fotos.validar(arquivo))
+
+
+@inventario_bp.route("/<int:id>/leitura/<int:numero>/foto", methods=["POST"])
+def foto_leitura(id, numero):
+    conn = _conn()
+    try:
+        dados = _foto_processada()
+        url = fotos.enviar(fotos.nome_bem(id, numero), dados)
+        inventario.atualizar_leitura(conn, id, numero, foto_url=url)
+    except db.ErroDeNegocio as e:
+        return _json_erro(e)
+    return jsonify({"foto_url": url})
+
+
+@inventario_bp.route("/<int:id>/leitura/<int:numero>/foto/excluir", methods=["POST"])
+def foto_excluir(id, numero):
+    conn = _conn()
+    atual = conn.execute("SELECT foto_url, localizacao FROM inventario_leituras WHERE evento_id = ? AND numero = ?", (id, numero)).fetchone()
+    if not atual:
+        abort(404)
+    fotos.apagar(atual["foto_url"])
+    inventario.atualizar_leitura(conn, id, numero, foto_url="")
+    flash("Foto removida.", "success")
+    return redirect(url_for("inventario.sala_tela", id=id, localizacao=request.form.get("volta") or atual["localizacao"]))
+
+
+@inventario_bp.route("/<int:id>/sala/<path:localizacao>/sobra", methods=["POST"])
+def sobra(id, localizacao):
+    conn = _conn()
+    f = request.form
+    integrante = session.get("integrante") or ""
+    exigir = fotos.configurado()
+    dados = None
+    if exigir:
+        if not (request.files.get("foto") and request.files["foto"].filename):
+            raise db.ErroDeNegocio("A sobra precisa de foto.")
+        dados = fotos.comprimir(fotos.validar(request.files["foto"]))
+    sid = inventario.registrar_sobra(conn, id, localizacao, f.get("descricao", ""), f.get("complemento", ""),
+                                     f.get("observacao", ""), "", integrante, exigir_foto=False)
+    if exigir:
+        try:
+            url = fotos.enviar(fotos.nome_sobra(id, sid), dados)
+        except Exception:
+            inventario.excluir_sobra(conn, id, sid)
+            raise db.ErroDeNegocio("Falha ao enviar a foto; sobra não registrada. Tente de novo.")
+        inventario.definir_foto_sobra(conn, sid, url)
+    flash("Sobra registrada.", "success")
+    return redirect(url_for("inventario.sala_tela", id=id, localizacao=localizacao))
+
+
+@inventario_bp.route("/<int:id>/sobra/<int:sobra_id>/excluir", methods=["POST"])
+def sobra_excluir(id, sobra_id):
+    s = inventario.excluir_sobra(_conn(), id, sobra_id)
+    fotos.apagar(s["foto_url"])
+    flash("Sobra excluída.", "success")
+    return redirect(url_for("inventario.sala_tela", id=id, localizacao=s["localizacao"]))
 
 
 @inventario_bp.route("/<int:id>/relatorio")

@@ -163,3 +163,7 @@
 /* Card-indicador clicável do painel. */
 a.dsgov-kpi { display: block; color: inherit; text-decoration: none; }
 a.dsgov-kpi:hover { box-shadow: var(--surface-shadow-md); }
+
+/* Inventário: miniatura da foto e área do leitor por câmera. */
+.dsgov-miniatura { width: 56px; height: 56px; object-fit: cover; border-radius: 4px; }
+.dsgov-leitor { max-width: 480px; }
