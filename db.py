@@ -47,11 +47,59 @@ CREATE TABLE IF NOT EXISTS textos (
   chave TEXT PRIMARY KEY,
   valor TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS processos_sei (
+  id         INTEGER PRIMARY KEY,
+  tipo       TEXT NOT NULL CHECK (tipo IN ('ccusto','individual','devolucao')),
+  descricao  TEXT NOT NULL,
+  numero_sei TEXT NOT NULL,
+  vigente    INTEGER NOT NULL DEFAULT 0,
+  criado_em  TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS processos_sei_vigente ON processos_sei(tipo) WHERE vigente = 1;
+CREATE TABLE IF NOT EXISTS termos_emitidos (
+  id            INTEGER PRIMARY KEY,
+  tipo          TEXT NOT NULL,
+  chave         TEXT NOT NULL,
+  processo_id   INTEGER NOT NULL REFERENCES processos_sei(id),
+  documento_sei TEXT,
+  emitido_em    TEXT NOT NULL,
+  quantidade    INTEGER NOT NULL,
+  valor_total   REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS termos_emitidos_bens (
+  termo_id    INTEGER NOT NULL REFERENCES termos_emitidos(id) ON DELETE CASCADE,
+  numero      INTEGER NOT NULL,
+  descricao   TEXT, complemento TEXT, localizacao TEXT, valor_atual REAL,
+  PRIMARY KEY (termo_id, numero)
+);
+CREATE TABLE IF NOT EXISTS importacoes (
+  id            INTEGER PRIMARY KEY,
+  importado_em  TEXT NOT NULL,
+  arquivo       TEXT,
+  total INTEGER NOT NULL, ativos INTEGER NOT NULL,
+  novos INTEGER NOT NULL, removidos INTEGER NOT NULL, movidos INTEGER NOT NULL, situacao INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS importacoes_mudancas (
+  importacao_id INTEGER NOT NULL REFERENCES importacoes(id) ON DELETE CASCADE,
+  numero        INTEGER NOT NULL,
+  tipo          TEXT NOT NULL CHECK (tipo IN ('novo','removido','movido','situacao')),
+  de            TEXT, para TEXT,
+  descricao     TEXT
+);
 """
 
 
 class ErroDeNegocio(Exception):
     """Erro que vira mensagem para o usuário (flash), não traceback."""
+
+
+TIPOS_TERMO = ("ccusto", "individual", "devolucao")
+ROTULO_TIPO = {"ccusto": "termos por centro de custo", "individual": "termos individuais",
+               "devolucao": "termos de devolução"}
+
+
+def _agora() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def conectar(caminho: Path | None = None) -> sqlite3.Connection:
@@ -416,6 +464,57 @@ def atribuir(conn, nome: str, numero: int, confirmar: bool = False) -> None:
 
 def desatribuir(conn, nome: str, numero: int) -> None:
     conn.execute("DELETE FROM atribuicoes WHERE nome = ? AND numero = ?", (nome, numero))
+    conn.commit()
+
+
+# ---------------------------------------------------------------- processos SEI
+def processos(conn) -> list[dict]:
+    return _todos(conn, "SELECT * FROM processos_sei ORDER BY vigente DESC, criado_em DESC, id DESC")
+
+
+def processo_vigente(conn, tipo: str) -> dict | None:
+    return _um(conn, "SELECT * FROM processos_sei WHERE tipo = ? AND vigente = 1", tipo)
+
+
+def incluir_processo(conn, tipo: str, descricao: str, numero_sei: str, vigente: bool = True) -> int:
+    if tipo not in TIPOS_TERMO:
+        raise ErroDeNegocio("Tipo de termo inválido.")
+    descricao = _obrigatorio(descricao, "Descrição")
+    numero_sei = _obrigatorio(numero_sei, "Número SEI")
+    if vigente:
+        conn.execute("UPDATE processos_sei SET vigente = 0 WHERE tipo = ?", (tipo,))
+    cur = conn.execute("INSERT INTO processos_sei (tipo, descricao, numero_sei, vigente, criado_em) VALUES (?,?,?,?,?)",
+                       (tipo, descricao, numero_sei, 1 if vigente else 0, _agora()))
+    conn.commit()
+    return cur.lastrowid
+
+
+def _processo(conn, id: int) -> dict:
+    return _um(conn, "SELECT * FROM processos_sei WHERE id = ?", id) or _erro("Processo não encontrado.")
+
+
+def _erro(msg):
+    raise ErroDeNegocio(msg)
+
+
+def marcar_vigente(conn, id: int) -> None:
+    p = _processo(conn, id)
+    conn.execute("UPDATE processos_sei SET vigente = 0 WHERE tipo = ?", (p["tipo"],))
+    conn.execute("UPDATE processos_sei SET vigente = 1 WHERE id = ?", (id,))
+    conn.commit()
+
+
+def encerrar_processo(conn, id: int) -> None:
+    _processo(conn, id)
+    conn.execute("UPDATE processos_sei SET vigente = 0 WHERE id = ?", (id,))
+    conn.commit()
+
+
+def excluir_processo(conn, id: int) -> None:
+    _processo(conn, id)
+    if conn.execute("SELECT 1 FROM termos_emitidos WHERE processo_id = ? LIMIT 1", (id,)).fetchone():
+        raise ErroDeNegocio("Este processo tem termos registrados; encerre-o em vez de excluir.")
+    conn.execute("DELETE FROM processos_sei WHERE id = ?", (id,))
     conn.commit()
 
 

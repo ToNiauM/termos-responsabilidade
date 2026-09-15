@@ -393,3 +393,38 @@ def test_pesquisar_limite(dados):
     r = db.pesquisar(dados, "sala", limite=2)
     assert [b["numero"] for b in r["bens"]] == [1001, 1002] and r["truncado"] is True
     assert db.pesquisar(dados, "sala")["truncado"] is False
+
+
+# ---------------------------------------------------------------- processos SEI
+def test_esquema_cria_tabelas_novas(dados):
+    nomes = {r[0] for r in dados.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert {"processos_sei", "termos_emitidos", "termos_emitidos_bens", "importacoes", "importacoes_mudancas"} <= nomes
+
+
+def test_processos_um_vigente_por_tipo(dados):
+    a = db.incluir_processo(dados, "ccusto", "Termos 2025", "1111")
+    b = db.incluir_processo(dados, "ccusto", "Termos 2026", "2222")
+    c = db.incluir_processo(dados, "individual", "Individuais 2026", "3333")
+    assert db.processo_vigente(dados, "ccusto")["id"] == b
+    assert db.processo_vigente(dados, "individual")["id"] == c
+    assert db.processo_vigente(dados, "devolucao") is None
+    db.marcar_vigente(dados, a)
+    assert db.processo_vigente(dados, "ccusto")["id"] == a
+    db.encerrar_processo(dados, a)
+    assert db.processo_vigente(dados, "ccusto") is None
+    assert [p["id"] for p in db.processos(dados)][0] == c          # vigentes primeiro
+    with pytest.raises(sqlite3.IntegrityError):
+        dados.execute("INSERT INTO processos_sei (tipo, descricao, numero_sei, vigente, criado_em) VALUES ('individual','x','9',1,'2026-01-01 00:00:00')")
+
+
+def test_processos_validacao_e_exclusao(dados):
+    with pytest.raises(db.ErroDeNegocio):
+        db.incluir_processo(dados, "outro", "x", "1")
+    with pytest.raises(db.ErroDeNegocio):
+        db.incluir_processo(dados, "ccusto", "", "1")
+    with pytest.raises(db.ErroDeNegocio):
+        db.incluir_processo(dados, "ccusto", "x", "  ")
+    i = db.incluir_processo(dados, "ccusto", "x", "1", vigente=False)
+    assert db.processo_vigente(dados, "ccusto") is None
+    db.excluir_processo(dados, i)
+    assert db.processos(dados) == []
