@@ -201,4 +201,20 @@ def sobra_excluir(id, sobra_id):
 
 @inventario_bp.route("/<int:id>/relatorio")
 def relatorio_tela(id):
-    return redirect(url_for("inventario.evento_tela", id=id))      # completada na Task 8
+    conn = _conn()
+    e = _evento_ou_404(conn, id)
+    loc, sit = request.args.get("localizacao") or None, request.args.get("situacao") or None
+    return render_template("inventario_relatorio.html", e=e, linhas=inventario.relatorio(conn, id, loc, sit), localizacao=loc, situacao=sit,
+                           salas=[s["localizacao"] for s in inventario.salas(conn, id)], rotulos=inventario.ROTULO_SITUACAO,
+                           trilha=_trilha(e, ("Relatório", None)))
+
+
+@inventario_bp.route("/<int:id>/xlsx")
+def xlsx(id):
+    conn = _conn()
+    e = _evento_ou_404(conn, id)
+    loc = request.args.get("localizacao") or None
+    arquivo = inventario.exportar_xlsx(conn, id, io.BytesIO(), loc)
+    arquivo.seek(0)
+    nome = f"inventario_{id}_{''.join(c if c.isalnum() else '_' for c in (loc or 'todas'))}.xlsx"
+    return send_file(arquivo, as_attachment=True, download_name=nome)

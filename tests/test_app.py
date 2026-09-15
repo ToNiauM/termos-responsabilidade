@@ -475,3 +475,17 @@ def test_inventario_fotos_e_sobras(cliente, monkeypatch, tmp_path):
     assert [s["descricao"] for s in sobras] == ["CADEIRA VELHA", "VENTILADOR"]
     r = cliente.post(f"/inventario/{eid}/sobra/{sobras[0]['id']}/excluir", follow_redirects=True)
     assert b"CADEIRA VELHA" not in r.data and len(apagados) == 2
+
+
+def test_inventario_relatorio_xlsx_e_card_do_painel(cliente):
+    assert b"Nenhum invent" in cliente.get("/").data
+    eid = _abrir(cliente)
+    cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+    r = cliente.get("/")
+    assert b"Invent\xc3\xa1rio em andamento" in r.data and f"/inventario/{eid}".encode() in r.data
+    r = cliente.get(f"/inventario/{eid}/relatorio")
+    assert r.status_code == 200 and b"1001" in r.data and b"Localizado" in r.data and b"1002" in r.data
+    assert b"1002" not in cliente.get(f"/inventario/{eid}/relatorio?situacao=localizado").data.split(b"<tbody>")[1]
+    assert b"1004" not in cliente.get(f"/inventario/{eid}/relatorio?localizacao=01 - SALA CCI").data.split(b"<tbody>")[1]
+    r = cliente.get(f"/inventario/{eid}/xlsx?localizacao=01 - SALA CCI")
+    assert r.status_code == 200 and r.headers["Content-Disposition"].endswith(".xlsx")

@@ -41,6 +41,12 @@
     </div></a>
     {% else %}<div class="br-card h-100"><div class="card-content"><div class="text-up-03 text-weight-bold">—</div><div class="text-down-01 text-gray-70">Nenhuma importação registrada</div></div></div>{% endif %}
   </div>
+  <div class="col-sm-6 col-md-4 col-lg mb-3">
+    {% if inventario_aberto %}<a class="br-card h-100 dsgov-kpi" href="{{ url_for('inventario.evento_tela', id=inventario_aberto.id) }}"><div class="card-content">
+      <div class="text-up-03 text-weight-bold">{{ inventario_aberto.resumo.pct_bens }}%</div>
+      <div class="text-down-01 text-gray-70">Inventário em andamento · {{ inventario_aberto.resumo.divergentes }} divergentes</div></div></a>
+    {% else %}<a class="br-card h-100 dsgov-kpi" href="{{ url_for('inventario.eventos_tela') }}"><div class="card-content"><div class="text-up-03 text-weight-bold">—</div><div class="text-down-01 text-gray-70">Nenhum inventário aberto</div></div></a>{% endif %}
+  </div>
 </div>
 
 <div class="row">

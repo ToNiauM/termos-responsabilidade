@@ -7,6 +7,7 @@ from flask import Flask, abort, flash, g, redirect, render_template, request, se
 from app_inventario import inventario_bp
 import config
 import db
+import inventario
 import painel
 import termos_html
 import textos
@@ -73,8 +74,9 @@ def _baixar(arquivo: io.BytesIO, nome: str):
 def home():
     p = db.painel(obter_conn())
     f = {"situacao": "ATIVO"}
+    inventario_aberto = inventario.evento(obter_conn(), a["id"]) if (a := inventario.evento_aberto(obter_conn())) else None
     return render_template("index.html", p=p, cards=painel.cards_graficos(p["dimensoes"], f), f=f,
-                           moeda=painel.moeda, url_recorte=painel.url_recorte, trilha=[])
+                           moeda=painel.moeda, url_recorte=painel.url_recorte, trilha=[], inventario_aberto=inventario_aberto)
 
 
 def _decimal(v: str) -> str:
