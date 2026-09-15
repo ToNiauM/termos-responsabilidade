@@ -7,6 +7,9 @@ import graficos
 
 ROTULO_FILTRO = {"situacao": "situação", "ccusto": "centro de custo", "pessoa": "pessoa", "localizacao": "localização",
                  "classificacao": "classificação", "idade": "idade", "faixa": "faixa de valor", "ano": "ano de entrada"}
+ROTULOS_ESPECIAIS = {"ccusto": {"-": "sem centro"}, "pessoa": {"-": "sem pessoa"},
+                     "classificacao": {"-": "sem classificação", "imoveis": "imóveis", "sem-imoveis": "sem imóveis"},
+                     "localizacao": {"-": "sem localização"}, "ano": {"-": "sem data"}}
 TOP = 20
 
 
@@ -15,8 +18,17 @@ def moeda(v) -> str:
 
 
 def url_recorte(f: dict, **extra) -> str:
-    """URL de /recorte com os filtros atuais mais os de `extra` (drill-down acrescenta, não substitui)."""
-    return url_for("recorte", **{k: v for k, v in {**f, **extra}.items() if v})
+    """URL de /recorte com os filtros atuais mais `extra` (drill-down acrescenta). `situacao` sempre viaja,
+    mesmo vazia: ausente significa ATIVO, vazia significa todas."""
+    args = {k: v for k, v in {**f, **extra}.items() if v}
+    args.setdefault("situacao", f.get("situacao", ""))
+    return url_for("recorte", **args)
+
+
+def url_recorte_xlsx(f: dict) -> str:
+    args = {k: v for k, v in f.items() if v}
+    args.setdefault("situacao", f.get("situacao", ""))
+    return url_for("recorte_xlsx", **args)
 
 
 def _tabela(itens, f, chave, rotulo_col):
@@ -95,7 +107,7 @@ def descrever(f: dict, nomes: dict | None = None) -> str:
     partes = ["Bens " + f["situacao"] if f.get("situacao") else "Bens (todas as situações)"]
     for k in ("ccusto", "pessoa", "localizacao", "classificacao", "idade", "faixa", "ano"):
         if f.get(k):
-            v = nomes.get(k) or {"-": "sem centro", "imoveis": "imóveis", "sem-imoveis": "sem imóveis"}.get(f[k], f[k])
+            v = nomes.get(k) or ROTULOS_ESPECIAIS.get(k, {}).get(f[k], f[k])
             partes.append(f"{ROTULO_FILTRO[k]} {v}")
     if f.get("valor_de") and f.get("valor_ate"):
         partes.append(f"valor de {moeda(float(f['valor_de']))} a {moeda(float(f['valor_ate']))}")

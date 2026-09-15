@@ -26,7 +26,7 @@
     (p.ativos, 'bens ativos', url_recorte(f)),
     (moeda(p.valor_sem_imoveis), 'valor dos ativos (sem imóveis)', url_recorte(f, classificacao='sem-imoveis')),
     (p.imoveis ~ ' · ' ~ moeda(p.valor_imoveis), 'imóveis (SEDE, TERRENOS)', url_recorte(f, classificacao='imoveis')),
-    (p.sem_centro, 'ativos sem centro de custo', url_recorte(f, ccusto='-')),
+    (p.sem_centro, 'ativos sem centro nem pessoa', url_recorte(f, ccusto='-', pessoa='-')),
     (p.a_emitir_centros ~ ' centro(s) · ' ~ p.a_emitir_pessoas ~ ' pessoa(s)', 'termos a emitir ou reemitir', url_for('centro_custos')),
   ] %}
   {% for valor, legenda, url in kpis %}

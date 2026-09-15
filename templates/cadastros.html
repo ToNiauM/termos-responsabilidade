@@ -139,7 +139,7 @@
         <tr>
           <td>{{ dict(tipos)[p.tipo] }}</td><td>{{ p.descricao }}</td><td>{{ p.numero_sei }}</td>
           <td>{% if p.vigente %}<span class="br-tag bg-success text-pure-0"><span>vigente</span></span>{% else %}<span class="br-tag bg-gray-20"><span>encerrado</span></span>{% endif %}</td>
-          <td>{{ p.criado_em[:10] }}</td>
+          <td>{{ p.criado_em[8:10] }}/{{ p.criado_em[5:7] }}/{{ p.criado_em[:4] }}</td>
           <td class="dsgov-acoes">
             {% if p.vigente %}
             <form method="post" action="{{ url_for('processos_encerrar') }}" class="d-inline"><input type="hidden" name="id" value="{{ p.id }}"/><button class="br-button secondary small" type="submit">Encerrar</button></form>

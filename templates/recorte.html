@@ -6,7 +6,7 @@
   <h1 class="mb-0">Recorte</h1>
   <div class="ml-auto">
     {% if termo_de %}<a class="br-button primary" href="{{ url_for('termo', tipo=termo_de[0], chave=termo_de[1]) }}"><i class="fas fa-file-alt mr-1" aria-hidden="true"></i>Termo de {{ termo_de[1] }}</a> {{ tag_termo(termo_de[2]) }}{% endif %}
-    <a class="br-button secondary ml-2" href="{{ url_for('recorte_xlsx', **f) }}"><i class="fas fa-file-excel mr-1" aria-hidden="true"></i>Exportar .xlsx</a>
+    <a class="br-button secondary ml-2" href="{{ url_xlsx }}"><i class="fas fa-file-excel mr-1" aria-hidden="true"></i>Exportar .xlsx</a>
   </div>
 </div>
 <p class="text-gray-70">{{ descricao }}</p>
@@ -14,7 +14,7 @@
 <form method="get" class="br-card mb-4"><div class="card-content row">
   <div class="col-md-3 mb-3">{{ select('situacao', 'Situação', [('', 'Todas')] + opcoes.situacoes, selecionado=f.get('situacao', ''), obrigatorio=False) }}</div>
   <div class="col-md-3 mb-3">{{ select('ccusto', 'Centro de custo', [('', 'Todos'), ('-', 'Sem centro')] + opcoes.centros, selecionado=f.get('ccusto', ''), obrigatorio=False) }}</div>
-  <div class="col-md-3 mb-3">{{ select('pessoa', 'Pessoa', [('', 'Todas')] + opcoes.pessoas, selecionado=f.get('pessoa', ''), obrigatorio=False) }}</div>
+  <div class="col-md-3 mb-3">{{ select('pessoa', 'Pessoa', [('', 'Todas'), ('-', 'Sem pessoa')] + opcoes.pessoas, selecionado=f.get('pessoa', ''), obrigatorio=False) }}</div>
   <div class="col-md-3 mb-3">{{ select('localizacao', 'Localização', [('', 'Todas')] + opcoes.localizacoes, selecionado=f.get('localizacao', ''), obrigatorio=False) }}</div>
   <div class="col-md-3 mb-3">{{ select('classificacao', 'Classificação', [('', 'Todas'), ('imoveis', 'Imóveis'), ('sem-imoveis', 'Sem imóveis')] + opcoes.classificacoes, selecionado=f.get('classificacao', ''), obrigatorio=False) }}</div>
   <div class="col-md-3 mb-3">{{ select('idade', 'Idade', [('', 'Todas')] + opcoes.idades, selecionado=f.get('idade', ''), obrigatorio=False) }}</div>

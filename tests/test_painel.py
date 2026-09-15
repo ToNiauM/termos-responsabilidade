@@ -29,6 +29,16 @@ def test_macro_grafico_renderiza_json_e_tabela(dados):
     assert 'href="/recorte?ccusto=CCI"' in html and "Ver dados" in html and "dsgov-grafico" in html
 
 
+def test_url_recorte_mantem_situacao_vazia(dados):
+    from app import app
+    import painel
+    with app.test_request_context():
+        assert painel.url_recorte({}, ccusto="CCI") == "/recorte?ccusto=CCI&situacao="
+        assert painel.url_recorte({"situacao": "ATIVO"}, ccusto="CCI") == "/recorte?situacao=ATIVO&ccusto=CCI"
+        assert painel.url_recorte_xlsx({}) == "/recorte/xlsx?situacao="
+        assert painel.url_recorte_xlsx({"situacao": "ATIVO"}) == "/recorte/xlsx?situacao=ATIVO"
+
+
 def test_cards_graficos_tipos_urls_e_omissao(dados):
     from tests.test_db import _semear_painel
     _semear_painel(dados)

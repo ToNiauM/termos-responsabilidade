@@ -820,11 +820,12 @@ _FAIXA_IDADE = (f"CASE WHEN {_DATA_ISO} IS NULL THEN 'semdata' WHEN {_IDADE} < 5
 _V = "coalesce(b.valor_atual, 0)"
 _FAIXA_VALOR = (f"CASE WHEN {_V} < 100 THEN 'ate100' WHEN {_V} < 500 THEN '100a500' WHEN {_V} < 1000 THEN '500a1000' "
                 f"WHEN {_V} < 5000 THEN '1000a5000' WHEN {_V} < 20000 THEN '5000a20000' ELSE 'mais20000' END")
-_IMOVEIS_SQL = "coalesce(b.classificacao, '') IN ('SEDE', 'TERRENOS')"
+_IMOVEIS_SQL = "coalesce(b.classificacao, '') IN " + str(IMOVEIS)
 
 
 def _where(f: dict) -> tuple[str, list]:
-    """WHERE só com os filtros presentes em f (chaves de FILTROS; vazio = sem filtro)."""
+    """WHERE só com os filtros presentes em f (chaves de FILTROS; vazio = sem filtro). "-" é a sentinela do
+    balde vazio (sem centro, sem pessoa, sem classificação, sem localização, sem data)."""
     cl, p = [], []
     if f.get("situacao"):
         cl.append("b.situacao = ?"); p.append(f["situacao"])
@@ -832,12 +833,18 @@ def _where(f: dict) -> tuple[str, list]:
         cl.append("l.ccustos IS NULL")
     elif f.get("ccusto"):
         cl.append("l.ccustos = ?"); p.append(f["ccusto"])
-    if f.get("pessoa"):
+    if f.get("pessoa") == "-":
+        cl.append("a.nome IS NULL")
+    elif f.get("pessoa"):
         cl.append("a.nome = ?"); p.append(f["pessoa"])
-    if f.get("localizacao"):
+    if f.get("localizacao") == "-":
+        cl.append("coalesce(b.localizacao, '') = ''")
+    elif f.get("localizacao"):
         cl.append("b.localizacao = ?"); p.append(f["localizacao"])
     c = f.get("classificacao")
-    if c == "imoveis":
+    if c == "-":
+        cl.append("coalesce(b.classificacao, '') = ''")
+    elif c == "imoveis":
         cl.append(_IMOVEIS_SQL)
     elif c == "sem-imoveis":
         cl.append(f"NOT {_IMOVEIS_SQL}")
@@ -855,7 +862,9 @@ def _where(f: dict) -> tuple[str, list]:
         cl.append(f"{_FAIXA_IDADE} = ?"); p.append(f["idade"])
     if f.get("faixa"):
         cl.append(f"{_FAIXA_VALOR} = ?"); p.append(f["faixa"])
-    if f.get("ano"):
+    if f.get("ano") == "-":
+        cl.append("coalesce(substr(b.data_entrada, 7, 4), '') = ''")
+    elif f.get("ano"):
         cl.append("substr(b.data_entrada, 7, 4) = ?"); p.append(f["ano"])
     return (" AND ".join(cl) or "1"), p
 
@@ -883,11 +892,13 @@ def dimensoes(conn, f: dict) -> dict:
         "situacao": rot(_agrupar(conn, "b.situacao", {k: v for k, v in f.items() if k != "situacao"}), str),
         "centro": rot(_agrupar(conn, "coalesce(l.ccustos, '-')", f),
                       lambda k: "sem centro" if k == "-" else f"{k} – {resp.get(k, '')}"),
-        "classificacao": rot(_agrupar(conn, "coalesce(b.classificacao, '')", f), lambda k: k or "sem classificação"),
-        "localizacao": rot(_agrupar(conn, "coalesce(b.localizacao, '')", f),
-                           lambda k: (k or "sem localização") + (f" ({mapa[k]})" if k in mapa else "")),
+        "classificacao": rot(_agrupar(conn, "CASE WHEN coalesce(b.classificacao, '') = '' THEN '-' ELSE b.classificacao END", f),
+                            lambda k: "sem classificação" if k == "-" else k),
+        "localizacao": rot(_agrupar(conn, "CASE WHEN coalesce(b.localizacao, '') = '' THEN '-' ELSE b.localizacao END", f),
+                           lambda k: ("sem localização" if k == "-" else k) + (f" ({mapa[k]})" if k in mapa else "")),
         "idade": fixas(FAIXAS_IDADE, _agrupar(conn, _FAIXA_IDADE, f)),
-        "ano": rot(_agrupar(conn, "coalesce(substr(b.data_entrada, 7, 4), '')", f, ordem="chave"), lambda k: k or "sem data"),
+        "ano": rot(_agrupar(conn, "CASE WHEN coalesce(substr(b.data_entrada, 7, 4), '') = '' THEN '-' ELSE substr(b.data_entrada, 7, 4) END",
+                           f, ordem="chave"), lambda k: "sem data" if k == "-" else k),
         "faixa": fixas(FAIXAS_VALOR, _agrupar(conn, _FAIXA_VALOR, f)),
         "pessoa": rot([x for x in _agrupar(conn, "a.nome", f) if x["chave"]], str),
     }
@@ -909,7 +920,7 @@ def painel(conn) -> dict:
         "pessoas": situacoes_pessoas(conn),
         "dimensoes": dimensoes(conn, {"situacao": "ATIVO"}),
     }
-    d["a_emitir_centros"] = sum(1 for c in d["centros"] if c["estado"] != "vigente")
+    d["a_emitir_centros"] = sum(1 for c in d["centros"] if c["estado"] != "vigente" and c["quantidade"])
     d["a_emitir_pessoas"] = sum(1 for p in d["pessoas"] if p["estado"] != "vigente" and p["quantidade"])
     return d
 

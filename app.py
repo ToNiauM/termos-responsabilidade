@@ -109,7 +109,7 @@ def recorte():
                    if f.get(k) and f.get(k) not in ("imoveis", "sem-imoveis"))
     nomes = {"idade": dict(db.FAIXAS_IDADE).get(f.get("idade")), "faixa": dict(db.FAIXAS_VALOR).get(f.get("faixa"))}
     termo_de = None
-    if f.get("pessoa"):
+    if f.get("pessoa") and f["pessoa"] != "-" and f["pessoa"] in db.pessoas(conn):
         termo_de = ("individual", f["pessoa"], db.situacao_termo(conn, "individual", f["pessoa"], db.bens_da_pessoa(conn, f["pessoa"])))
     elif f.get("ccusto") and f["ccusto"] != "-" and db.responsavel(conn, f["ccusto"]):
         termo_de = ("ccusto", f["ccusto"], db.situacao_termo(conn, "ccusto", f["ccusto"], db.bens_do_centro(conn, f["ccusto"])))
@@ -121,7 +121,7 @@ def recorte():
     }
     return render_template("recorte.html", f=f, r=r, cards=painel.cards_graficos(r["dimensoes"], f, omitir), termo_de=termo_de,
                            descricao=painel.descrever(f, nomes), opcoes=opcoes, moeda=painel.moeda,
-                           trilha=[("Recorte", None)])
+                           url_xlsx=painel.url_recorte_xlsx(f), trilha=[("Recorte", None)])
 
 
 @app.route("/recorte/xlsx")
@@ -256,9 +256,9 @@ def termo_docx(tipo, chave):
 def termo_registrar(tipo, chave):
     """Chamado pelo botão Copiar depois da cópia dar certo. Responde JSON."""
     conn = obter_conn()
-    _, _, bens, _ = _bens_do_termo(conn, tipo, chave)
     if not db.processo_vigente(conn, tipo):
         return {"erro": f"Cadastre um processo SEI vigente para {db.ROTULO_TIPO[tipo]}."}, 409
+    _, _, bens, _ = _bens_do_termo(conn, tipo, chave)
     t = db.registrar_emissao(conn, tipo, chave, bens)
     return {"id": t["id"], "emitido_em": t["emitido_em"]}
 

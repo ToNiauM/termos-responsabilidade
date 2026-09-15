@@ -2,7 +2,7 @@ import io
 from urllib.parse import unquote
 
 import pytest
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 
 import db
 from tests.conftest import semear
@@ -330,6 +330,7 @@ def test_painel_na_tela_inicial(cliente):
     assert b"/recorte?situacao=ATIVO&amp;ccusto=CCI" in r.data or b"/recorte?situacao=ATIVO&ccusto=CCI" in r.data
     assert b"/termo/ccusto/CCI" in r.data and b"sem termo" in r.data
     assert b"Nenhuma" in r.data       # última importação: nenhuma
+    assert b"sem centro nem pessoa" in r.data
 
 
 def test_listas_mostram_situacao_do_termo(cliente):
@@ -364,3 +365,8 @@ def test_recorte_tela_filtros_termo_e_xlsx(cliente):
     r = cliente.get("/recorte/xlsx?ccusto=CCI")
     assert r.status_code == 200 and r.headers["Content-Disposition"].endswith("recorte.xlsx")
     assert b"Recorte" in cliente.get("/").data       # menu
+    r = cliente.get("/recorte?situacao=")
+    assert b"ccusto=CCI&amp;situacao=" in r.data or b"ccusto=CCI&situacao=" in r.data   # drill-down mantém "todas"
+    assert b'href="/recorte/xlsx?situacao="' in r.data
+    ws = load_workbook(io.BytesIO(cliente.get("/recorte/xlsx?situacao=").data)).active
+    assert ws.max_row - 1 == 4     # 4 bens da semente (inclui 1003 BAIXADO); a tela mostra o mesmo total

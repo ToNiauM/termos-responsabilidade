@@ -568,6 +568,7 @@ def test_painel_cards(dados):
     assert p["sem_centro"] == 2 and p["sem_valor"] == 0 and p["ultima_importacao"] is None
     assert p["a_emitir_centros"] == 1 and p["a_emitir_pessoas"] == 1
     assert p["centros"][0]["ccustos"] == "CCI" and "dimensoes" in p
+    assert db.recorte(dados, {"situacao": "ATIVO", "ccusto": "-", "pessoa": "-"})["quantidade"] == p["sem_centro"]
 
 
 def test_recorte_filtros_e_drill_down(dados):
@@ -587,6 +588,18 @@ def test_recorte_filtros_e_drill_down(dados):
     assert db.recorte(dados, {})["quantidade"] == 7          # sem filtro = tudo (a rota põe ATIVO por padrão)
     r = db.recorte(dados, {}, limite=2)
     assert len(r["bens"]) == 2 and r["truncado"] and r["quantidade"] == 7
+
+
+def test_dimensoes_balde_vazio_tem_sentinela_e_filtra(dados):
+    semear(dados)
+    dados.execute("INSERT INTO bens VALUES (3001,'ATIVO','SEM NADA','','','','',1,1)")
+    d = db.dimensoes(dados, {"situacao": "ATIVO"})
+    assert any(x["chave"] == "-" and x["rotulo"] == "sem classificação" and x["quantidade"] == 1 for x in d["classificacao"])
+    assert any(x["chave"] == "-" and x["rotulo"] == "sem localização" for x in d["localizacao"])
+    assert any(x["chave"] == "-" and x["rotulo"] == "sem data" for x in d["ano"])
+    assert [b["numero"] for b in db.recorte(dados, {"classificacao": "-"})["bens"]] == [3001]
+    assert [b["numero"] for b in db.recorte(dados, {"localizacao": "-"})["bens"]] == [3001]
+    assert [b["numero"] for b in db.recorte(dados, {"ano": "-"})["bens"]] == [3001]
 
 
 def test_exportar_recorte_xlsx(dados, tmp_path):
