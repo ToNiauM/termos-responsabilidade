@@ -163,11 +163,12 @@ def _aba_do_export(wb):
     raise ImportacaoInvalida("Nenhuma aba com a coluna 'Número Bem'. Envie o export do sistema de patrimônio.")
 
 
-def importar_bens(conn: sqlite3.Connection, arquivo) -> dict:
+def importar_bens(conn: sqlite3.Connection, arquivo, nome_arquivo: str | None = None) -> dict:
     """Substitui a tabela `bens` pelo conteúdo do export. Tudo ou nada.
 
-    Devolve {"total", "ativos", "sem_centro"}. Levanta ImportacaoInvalida (e não altera nada)
-    se faltar coluna ou se algum bem atribuído a pessoa deixar de existir.
+    Devolve {"total", "ativos", "sem_centro", "importacao_id", "novos", "removidos", "movidos",
+    "situacao"}. Levanta ImportacaoInvalida (e não altera nada) se faltar coluna ou se algum bem
+    atribuído a pessoa deixar de existir.
     """
     try:
         wb = load_workbook(arquivo, read_only=True, data_only=True)
@@ -199,6 +200,9 @@ def importar_bens(conn: sqlite3.Connection, arquivo) -> dict:
     finally:
         wb.close()
 
+    antes = {r["numero"]: (r["situacao"], r["localizacao"], r["descricao"])
+             for r in conn.execute("SELECT numero, situacao, localizacao, descricao FROM bens")}
+
     try:
         conn.execute("DELETE FROM bens")
         conn.executemany("INSERT INTO bens VALUES (?,?,?,?,?,?,?,?,?)", linhas)
@@ -208,6 +212,16 @@ def importar_bens(conn: sqlite3.Connection, arquivo) -> dict:
             raise ImportacaoInvalida(
                 "O export não traz bens que estão atribuídos a pessoas: " + ", ".join(orfaos)
                 + ". Remova a atribuição na aba Pessoas ou use um export completo.")
+
+        mudancas = _mudancas(antes, linhas)
+        contagem = {t: sum(1 for m in mudancas if m[1] == t) for t in ("novo", "removido", "movido", "situacao")}
+        cur = conn.execute(
+            "INSERT INTO importacoes (importado_em, arquivo, total, ativos, novos, removidos, movidos, situacao) VALUES (?,?,?,?,?,?,?,?)",
+            (_agora(), nome_arquivo, len(linhas), sum(1 for l in linhas if l[1] == "ATIVO"),
+             contagem["novo"], contagem["removido"], contagem["movido"], contagem["situacao"]))
+        conn.executemany("INSERT INTO importacoes_mudancas VALUES (?,?,?,?,?,?)",
+                         [(cur.lastrowid, n, t, de, para, desc) for n, t, de, para, desc in mudancas])
+        importacao_id = cur.lastrowid
         conn.commit()
     except sqlite3.IntegrityError:
         conn.rollback()
@@ -218,7 +232,9 @@ def importar_bens(conn: sqlite3.Connection, arquivo) -> dict:
 
     total = conn.execute("SELECT count(*) FROM bens").fetchone()[0]
     ativos = conn.execute("SELECT count(*) FROM bens WHERE situacao='ATIVO'").fetchone()[0]
-    return {"total": total, "ativos": ativos, "sem_centro": localizacoes_sem_centro(conn)}
+    return {"total": total, "ativos": ativos, "sem_centro": localizacoes_sem_centro(conn),
+            "importacao_id": importacao_id, "novos": contagem["novo"], "removidos": contagem["removido"],
+            "movidos": contagem["movido"], "situacao": contagem["situacao"]}
 
 
 def localizacoes_sem_centro(conn: sqlite3.Connection) -> list[str]:
@@ -226,6 +242,48 @@ def localizacoes_sem_centro(conn: sqlite3.Connection) -> list[str]:
     return [r[0] for r in conn.execute(
         "SELECT DISTINCT localizacao FROM bens WHERE situacao='ATIVO' AND localizacao <> '' "
         "AND localizacao NOT IN (SELECT localizacao FROM localizacoes) ORDER BY localizacao")]
+
+
+def _mudancas(antes: dict, linhas: list[tuple]) -> list[tuple]:
+    """[(numero, tipo, de, para, descricao)] comparando a tabela anterior com o export.
+    linhas = tuplas na ordem de INSERT INTO bens (numero, situacao, descricao, complemento, classificacao, localizacao, ...)."""
+    depois = {l[0]: (l[1], l[5], l[2]) for l in linhas}
+    m = []
+    for n, (sit, loc, desc) in depois.items():
+        if n not in antes:
+            m.append((n, "novo", None, loc, desc))
+            continue
+        sit0, loc0, _ = antes[n]
+        if sit != sit0:
+            m.append((n, "situacao", sit0, sit, desc))
+        if loc != loc0:
+            m.append((n, "movido", loc0, loc, desc))
+    for n, (sit0, loc0, desc0) in antes.items():
+        if n not in depois:
+            m.append((n, "removido", loc0, None, desc0))
+    return sorted(m, key=lambda x: (x[0], x[1]))
+
+
+def importacoes(conn, limite: int = 20) -> list[dict]:
+    return _todos(conn, "SELECT * FROM importacoes ORDER BY importado_em DESC, id DESC LIMIT ?", limite)
+
+
+def importacao(conn, id: int) -> dict | None:
+    i = _um(conn, "SELECT * FROM importacoes WHERE id = ?", id)
+    if i:
+        i["mudancas"] = _todos(conn, "SELECT * FROM importacoes_mudancas WHERE importacao_id = ? ORDER BY tipo, numero", id)
+    return i
+
+
+def historico_do_bem(conn, numero: int) -> dict:
+    return {
+        "mudancas": _todos(conn, """
+            SELECT m.*, i.importado_em FROM importacoes_mudancas m JOIN importacoes i ON i.id = m.importacao_id
+            WHERE m.numero = ? ORDER BY i.importado_em DESC, m.tipo""", numero),
+        "termos": _todos(conn, """
+            SELECT t.id, t.tipo, t.chave, t.emitido_em, t.documento_sei FROM termos_emitidos_bens b
+            JOIN termos_emitidos t ON t.id = b.termo_id WHERE b.numero = ? ORDER BY t.emitido_em DESC""", numero),
+    }
 
 
 def _todos(conn, sql, *args) -> list[dict]:

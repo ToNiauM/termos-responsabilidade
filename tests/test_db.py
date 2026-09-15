@@ -111,6 +111,44 @@ def test_importar_numero_repetido_e_revertida(dados, tmp_path):
     assert dados.execute("SELECT count(*) FROM bens").fetchone()[0] == 4
 
 
+# ---------------------------------------------------------------- importações
+def test_importar_registra_mudancas(dados, tmp_path):
+    semear(dados)
+    arq = xlsx(tmp_path, [
+        [1001, "ATIVO", "CADEIRA", "GIRATÓRIA", "MÓVEIS", "02 - OUTRA SALA", "31/12/1996", 75.94, 64.54],   # movido
+        [1002, "ATIVO", "NOTEBOOK", "DELL", "EQUIPAMENTOS", "01 - SALA CCI", "06/12/2012", 3000, 1500],       # igual
+        [1003, "ATIVO", "MESA", "ANTIGA", "MÓVEIS", "03 - DEPÓSITO", "06/12/2012", 100, 10],                  # situação + movido
+        [5000, "ATIVO", "LUMINÁRIA", "", "MÓVEIS", "01 - SALA CCI", "01/01/2020", 10, 9],                     # novo; 1004 some
+    ])
+    r = db.importar_bens(dados, arq, nome_arquivo="export.xlsx")
+    assert (r["novos"], r["removidos"], r["movidos"], r["situacao"]) == (1, 1, 2, 1)
+    imp = db.importacao(dados, r["importacao_id"])
+    assert imp["arquivo"] == "export.xlsx" and imp["total"] == 4 and imp["novos"] == 1
+    tipos = sorted((m["numero"], m["tipo"], m["de"], m["para"]) for m in imp["mudancas"])
+    assert tipos == [(1001, "movido", "01 - SALA CCI", "02 - OUTRA SALA"), (1003, "movido", "01 - SALA CCI", "03 - DEPÓSITO"),
+                     (1003, "situacao", "BAIXADO", "ATIVO"), (1004, "removido", "99 - SEM MAPA", None), (5000, "novo", None, "01 - SALA CCI")]
+    assert [i["id"] for i in db.importacoes(dados)] == [r["importacao_id"]]
+    h = db.historico_do_bem(dados, 1003)
+    assert [m["tipo"] for m in h["mudancas"]] == ["movido", "situacao"] and h["mudancas"][0]["importado_em"] == imp["importado_em"]
+    assert h["termos"] == []
+
+
+def test_importar_com_falha_nao_registra_importacao(dados, tmp_path):
+    semear(dados)
+    arq = xlsx(tmp_path, [[1001, "ATIVO", "CADEIRA", "", "MÓVEIS", "01 - SALA CCI", "x", 1, 1]])   # some o 1002 (atribuído)
+    with pytest.raises(db.ImportacaoInvalida):
+        db.importar_bens(dados, arq)
+    assert db.importacoes(dados) == []
+
+
+def test_historico_do_bem_lista_termos(dados):
+    semear(dados)
+    db.incluir_processo(dados, "ccusto", "T", "1")
+    db.registrar_emissao(dados, "ccusto", "CCI", db.bens_do_centro(dados, "CCI"))
+    h = db.historico_do_bem(dados, 1001)
+    assert len(h["termos"]) == 1 and h["termos"][0]["chave"] == "CCI" and h["termos"][0]["tipo"] == "ccusto"
+
+
 def test_bens_do_centro_exclui_baixados_atribuidos_e_sem_mapa(dados):
     semear(dados)
     assert [b["numero"] for b in db.bens_do_centro(dados, "CCI")] == [1001]
