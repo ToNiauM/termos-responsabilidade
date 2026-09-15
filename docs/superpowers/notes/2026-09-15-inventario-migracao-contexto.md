@@ -70,3 +70,7 @@ linha `Task N: complete` estão prontas; briefs em `task-N-brief.md`, relatório
 Instrução: "Leia este arquivo e o ledger; use superpowers:subagent-driven-development para continuar o plano
 `docs/superpowers/plans/2026-09-15-inventario.md` a partir da primeira tarefa sem `complete`; ao final,
 revisão final, merge na main, push e `docker compose up -d --build`."
+
+## CONCLUÍDO (2026-09-15, noite)
+Módulo de inventário entregue: merge na `main` (b06fba6), push no GitHub, container reconstruído, 142 testes.
+Pendências do usuário: bucket R2 + `secrets/.env` com R2_* (fotos), teste real no celular/leitor, rodada de backup.
