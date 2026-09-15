@@ -18,4 +18,17 @@
       <dd>{% if bem.pessoa %}<a href="{{ url_for('termo', tipo='individual', chave=bem.pessoa) }}">{{ bem.pessoa }}</a>{% else %}— (responde o setor){% endif %}</dd></div>
   </dl>
 </div></div>
+<h2 class="text-up-01 mt-4 mb-2">Histórico</h2>
+<div class="row">
+  <div class="col-md-6 mb-3"><div class="br-card h-100"><div class="card-header"><div class="text-weight-semi-bold">Movimentações (importações)</div></div><div class="card-content">
+    {% for m in historico.mudancas %}
+    <div class="mb-2"><span class="text-gray-70">{{ m.importado_em[8:10] }}/{{ m.importado_em[5:7] }}/{{ m.importado_em[:4] }}</span> · <strong>{{ m.tipo }}</strong>{% if m.de or m.para %}: {{ m.de or '—' }} → {{ m.para or '—' }}{% endif %}</div>
+    {% else %}<p class="text-gray-70 mb-0">Nenhuma mudança registrada.</p>{% endfor %}
+  </div></div></div>
+  <div class="col-md-6 mb-3"><div class="br-card h-100"><div class="card-header"><div class="text-weight-semi-bold">Termos em que apareceu</div></div><div class="card-content">
+    {% for t in historico.termos %}
+    <div class="mb-2"><a href="{{ url_for('termo_emitido_tela', id=t.id) }}">{{ t.emitido_em[8:10] }}/{{ t.emitido_em[5:7] }}/{{ t.emitido_em[:4] }}</a> · {{ rotulos[t.tipo] }} · {{ t.chave }}{% if t.documento_sei %} · SEI {{ t.documento_sei }}{% endif %}</div>
+    {% else %}<p class="text-gray-70 mb-0">Nenhum termo registrado com este bem.</p>{% endfor %}
+  </div></div></div>
+</div>
 {% endblock %}

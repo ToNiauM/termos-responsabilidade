@@ -95,6 +95,23 @@ def test_upload_importa_e_lista_sem_centro(cliente):
     assert "2 bens importados (2 ativos)".encode() in r.data and b"77 - NOVA SALA" in r.data
 
 
+def test_upload_mostra_mudancas_e_detalhe(cliente, tmp_path):
+    from tests.test_db import xlsx
+    arq = xlsx(tmp_path, [
+        [1001, "ATIVO", "CADEIRA", "GIRATÓRIA", "MÓVEIS", "02 - OUTRA", "31/12/1996", 75.94, 64.54],
+        [1002, "ATIVO", "NOTEBOOK", "DELL", "EQUIPAMENTOS", "01 - SALA CCI", "06/12/2012", 3000, 1500],
+    ])
+    with open(arq, "rb") as f:
+        r = cliente.post("/upload", data={"arquivo": (f, "export.xlsx")}, content_type="multipart/form-data", follow_redirects=True)
+    assert b"2 bens importados" in r.data and b"1 movido" in r.data and b"2 removido" in r.data and b"export.xlsx" in r.data
+    import db
+    iid = db.importacoes(db.conectar())[0]["id"]
+    r = cliente.get(f"/importacoes/{iid}")
+    assert r.status_code == 200 and b"02 - OUTRA" in r.data and b"1004" in r.data and b"removido" in r.data
+    r = cliente.get("/bem?numero=1001")
+    assert b"02 - OUTRA" in r.data and b"movido" in r.data
+
+
 def test_upload_invalido_mostra_erro(cliente):
     r = cliente.post("/upload", data={"arquivo": (io.BytesIO(b"nada"), "x.txt")}, content_type="multipart/form-data",
                      follow_redirects=True)

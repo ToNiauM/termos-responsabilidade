@@ -75,7 +75,8 @@ def bem():
     if not ficha:
         flash(f"Bem {numero or '(vazio)'} não encontrado.", "error")
         return redirect(url_for("home"))
-    return render_template("bem.html", bem=ficha, trilha=[(f"Bem {numero}", None)])
+    return render_template("bem.html", bem=ficha, historico=db.historico_do_bem(obter_conn(), int(numero)), rotulos=db.ROTULO_TIPO,
+                           trilha=[(f"Bem {numero}", None)])
 
 
 @app.route("/pesquisa")
@@ -237,16 +238,23 @@ def upload():
         if not arquivo or not arquivo.filename.lower().endswith(".xlsx"):
             flash("Envie o export do sistema em .xlsx.", "error")
             return redirect(url_for("upload"))
-        resumo = db.importar_bens(obter_conn(), arquivo.stream)
-        flash(f"{resumo['total']} bens importados ({resumo['ativos']} ativos).", "success")
+        resumo = db.importar_bens(obter_conn(), arquivo.stream, nome_arquivo=arquivo.filename)
+        flash(f"{resumo['total']} bens importados ({resumo['ativos']} ativos): {resumo['novos']} novo(s), "
+              f"{resumo['removidos']} removido(s), {resumo['movidos']} movido(s), {resumo['situacao']} com situação alterada.", "success")
         return redirect(url_for("upload"))
     return render_template("upload.html", sem_centro=db.localizacoes_sem_centro(obter_conn()),
-                           trilha=[("Atualizar base", None)])
+                           importacoes=db.importacoes(obter_conn()), trilha=[("Atualizar base", None)])
 
 
 @app.route("/bens/exportar")
 def bens_exportar():
     return _baixar(db.exportar_bens(obter_conn(), io.BytesIO()), "bens.xlsx")
+
+
+@app.route("/importacoes/<int:id>")
+def importacao_tela(id):
+    i = db.importacao(obter_conn(), id) or abort(404)
+    return render_template("importacao.html", i=i, trilha=[("Atualizar base", url_for("upload")), (f"Importação de {i['importado_em'][:10]}", None)])
 
 
 # ---------------------------------------------------------------- termo de devolução

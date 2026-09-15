@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "_macros.html" import cabecalho_tabela %}
+{% block titulo %}Importação{% endblock %}
+{% block conteudo %}
+<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Importação de {{ i.importado_em[8:10] }}/{{ i.importado_em[5:7] }}/{{ i.importado_em[:4] }} {{ i.importado_em[11:16] }}</h1></div>
+<p class="text-gray-70">{{ i.arquivo or 'arquivo não informado' }} · {{ i.total }} bens ({{ i.ativos }} ativos)</p>
+<div class="row mb-4">
+  {% for rotulo, n in [('Novos', i.novos), ('Removidos', i.removidos), ('Movidos', i.movidos), ('Situação alterada', i.situacao)] %}
+  <div class="col-sm-6 col-md-3 mb-3"><div class="br-card h-100"><div class="card-content"><div class="text-up-04 text-weight-bold">{{ n }}</div><div class="text-down-01 text-gray-70">{{ rotulo }}</div></div></div></div>
+  {% endfor %}
+</div>
+{{ cabecalho_tabela('Mudanças', 'mud') }}
+  <thead><tr><th scope="col">Número</th><th scope="col">Descrição</th><th scope="col">Mudança</th><th scope="col">De</th><th scope="col">Para</th></tr></thead>
+  <tbody>
+  {% for m in i.mudancas %}
+  <tr><td><a href="{{ url_for('bem', numero=m.numero) }}">{{ m.numero }}</a></td><td>{{ m.descricao or '' }}</td>
+    <td><span class="br-tag {{ {'novo': 'bg-success text-pure-0', 'removido': 'bg-danger text-pure-0', 'movido': 'bg-info text-pure-0', 'situacao': 'bg-warning'}[m.tipo] }}"><span>{{ m.tipo }}</span></span></td>
+    <td>{{ m.de or '—' }}</td><td>{{ m.para or '—' }}</td></tr>
+  {% else %}<tr><td colspan="5">Nenhuma mudança nesta importação.</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% endblock %}

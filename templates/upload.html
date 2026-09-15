@@ -28,4 +28,18 @@
     <span class="message-body"> {{ sem_centro|join(' · ') }}. <a href="{{ url_for('cadastros', aba='localizacoes') }}">Mapear</a>.</span></div>
 </div>
 {% endif %}
+{% if importacoes %}
+{% from "_macros.html" import cabecalho_tabela %}
+<div class="mt-4">
+{{ cabecalho_tabela('Últimas importações', 'imp') }}
+  <thead><tr><th scope="col">Data</th><th scope="col">Arquivo</th><th scope="col" class="dsgov-numero">Total</th><th scope="col" class="dsgov-numero">Ativos</th><th scope="col" class="dsgov-numero">Novos</th><th scope="col" class="dsgov-numero">Removidos</th><th scope="col" class="dsgov-numero">Movidos</th><th scope="col" class="dsgov-numero">Situação</th></tr></thead>
+  <tbody>
+  {% for i in importacoes %}
+  <tr><td><a href="{{ url_for('importacao_tela', id=i.id) }}">{{ i.importado_em[8:10] }}/{{ i.importado_em[5:7] }}/{{ i.importado_em[:4] }} {{ i.importado_em[11:16] }}</a></td><td>{{ i.arquivo or '—' }}</td>
+    <td class="dsgov-numero">{{ i.total }}</td><td class="dsgov-numero">{{ i.ativos }}</td><td class="dsgov-numero">{{ i.novos }}</td><td class="dsgov-numero">{{ i.removidos }}</td><td class="dsgov-numero">{{ i.movidos }}</td><td class="dsgov-numero">{{ i.situacao }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+</div>
+{% endif %}
 {% endblock %}
