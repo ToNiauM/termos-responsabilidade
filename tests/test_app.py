@@ -353,6 +353,14 @@ def test_recorte_tela_filtros_termo_e_xlsx(cliente):
     assert b"/termo/individual/ANA" in r.data and b"NOTEBOOK" in r.data and b"CADEIRA" not in r.data
     r = cliente.get("/recorte?situacao=&valor_de=1.000,00&valor_ate=2000")
     assert b"NOTEBOOK" in r.data and b"CADEIRA" not in r.data and b"todas as situa" in r.data
+    r = cliente.get("/recorte?situacao=&valor_de=1.000&valor_ate=1.600")     # ponto de milhar
+    assert b"NOTEBOOK" in r.data and b"CADEIRA" not in r.data
+    r = cliente.get("/recorte?situacao=&valor_de=1000.5&valor_ate=1600")     # ponto decimal
+    assert b"NOTEBOOK" in r.data
+    r = cliente.get("/recorte?situacao=&valor_de=1.000.000")
+    assert b"NOTEBOOK" not in r.data and b"Nenhum bem" in r.data
+    r = cliente.get("/recorte?valor_de=abc", follow_redirects=True)
+    assert "Valor inválido".encode() in r.data
     r = cliente.get("/recorte/xlsx?ccusto=CCI")
     assert r.status_code == 200 and r.headers["Content-Disposition"].endswith("recorte.xlsx")
     assert b"Recorte" in cliente.get("/").data       # menu

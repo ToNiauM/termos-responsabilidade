@@ -1,5 +1,6 @@
 """Termos de Responsabilidade — CFC. Rotas Flask; dados em db.py; documentos em termos_html.py e nos geradores."""
 import io
+import re
 
 from flask import Flask, abort, flash, g, redirect, render_template, request, send_file, session, url_for
 
@@ -73,6 +74,20 @@ def home():
                            moeda=painel.moeda, url_recorte=painel.url_recorte, trilha=[])
 
 
+def _decimal(v: str) -> str:
+    """'1.000,50' → '1000.50'; '1.000' → '1000' (ponto de milhar); '1000.5' → '1000.5' (ponto decimal)."""
+    v = v.replace("R$", "").replace(" ", "")
+    if "," in v:
+        v = v.replace(".", "").replace(",", ".")
+    elif re.fullmatch(r"\d{1,3}(\.\d{3})+", v):
+        v = v.replace(".", "")
+    try:
+        float(v)
+    except ValueError:
+        raise db.ErroDeNegocio(f"Valor inválido: {v}")
+    return v
+
+
 def _filtros_recorte() -> dict:
     """Filtros da query string. situacao ausente = ATIVO; situacao vazia (campo enviado em branco) = todas.
     Valores em R$ aceitam vírgula decimal e ponto de milhar."""
@@ -81,12 +96,7 @@ def _filtros_recorte() -> dict:
         f["situacao"] = "ATIVO"
     for k in ("valor_de", "valor_ate"):
         if f[k]:
-            v = f[k].replace("R$", "").strip()
-            f[k] = v.replace(".", "").replace(",", ".") if "," in v else v
-            try:
-                float(f[k])
-            except ValueError:
-                raise db.ErroDeNegocio(f"Valor inválido: {v}")
+            f[k] = _decimal(f[k])
     return {k: v for k, v in f.items() if v}
 
 
