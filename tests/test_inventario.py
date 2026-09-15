@@ -149,3 +149,26 @@ def test_sobras(dados):
     inventario.encerrar_evento(dados, eid)
     with pytest.raises(db.ErroDeNegocio):
         inventario.definir_foto_sobra(dados, sid2, "http://x/2.webp")
+
+
+def test_relatorio_e_xlsx(dados, tmp_path):
+    eid = semear_inventario(dados)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    inventario.ler(dados, eid, "01 - SALA CCI", 2001, "Fulano")                     # divergente (é da SALA B)
+    inventario.atualizar_leitura(dados, eid, 1001, conservacao="Bom", quem_usa="Ciclana")
+    inventario.registrar_sobra(dados, eid, "02 - SALA B", "VENTILADOR", "ARNO", "sem plaqueta", "http://x/s.webp", "Beltrana")
+    r = inventario.relatorio(dados, eid)
+    assert [(x["numero"], x["situacao_inv"]) for x in r] == [(1001, "localizado"), (1002, "pendente"), (2001, "divergente"), (2002, "pendente"), (1004, "pendente")]
+    assert r[2]["local_sistema"] == "02 - SALA B" and r[2]["local_inventario"] == "01 - SALA CCI"
+    assert [x["numero"] for x in inventario.relatorio(dados, eid, localizacao="01 - SALA CCI")] == [1001, 1002, 2001]   # inclui o trazido
+    assert [x["numero"] for x in inventario.relatorio(dados, eid, situacao="pendente")] == [1002, 2002, 1004]
+    from openpyxl import load_workbook
+    wb = load_workbook(inventario.exportar_xlsx(dados, eid, tmp_path / "inv.xlsx"))
+    assert wb.sheetnames == ["Bens", "Sobras"]
+    linhas = list(wb["Bens"].iter_rows(values_only=True))
+    assert linhas[0][0].startswith("Inventário 2026") and linhas[1] == tuple(inventario.COLUNAS_XLSX)
+    assert linhas[2][:3] == (1001, "CADEIRA", "GIRATÓRIA") and linhas[2][6] == "Localizado" and linhas[2][7] == "Bom"
+    sobras = list(wb["Sobras"].iter_rows(values_only=True))
+    assert sobras[1][0] == "Sala" and sobras[2][:2] == ("02 - SALA B", "VENTILADOR") and sobras[2][6] == "http://x/s.webp"
+    so_cci = load_workbook(inventario.exportar_xlsx(dados, eid, tmp_path / "cci.xlsx", localizacao="01 - SALA CCI"))["Bens"]
+    assert so_cci.max_row == 2 + 3

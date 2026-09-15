@@ -213,3 +213,65 @@ def excluir_sobra(conn, evento_id: int, sobra_id: int) -> dict:
     conn.execute("DELETE FROM inventario_sobras WHERE id = ?", (sobra_id,))
     conn.commit()
     return s
+
+
+# ---------------------------------------------------------------- relatório e planilha do evento
+COLUNAS_XLSX = ["Patrimônio", "Descrição", "Complemento", "Classificação", "Local sistema", "Local inventário",
+                "Situação", "Conservação", "Quem usa", "Observação", "Integrante", "Data/hora", "Foto"]
+COLUNAS_SOBRAS = ["Sala", "Descrição", "Complemento", "Observação", "Integrante", "Data/hora", "Foto"]
+_CAMPOS_REL = """b.numero AS numero, b.descricao, b.complemento, b.classificacao, b.localizacao AS local_sistema,
+        r.localizacao AS local_inventario, r.lido_em, r.integrante, r.conservacao, r.quem_usa, r.observacao, r.foto_url"""
+
+
+def relatorio(conn, evento_id: int, localizacao: str | None = None, situacao: str | None = None) -> list[dict]:
+    """Uma linha por bem ativo das salas do escopo (ou da sala pedida), mais os lidos nela vindos de fora
+    do escopo. situacao filtra por localizado | divergente | pendente."""
+    filtro_sala = ""
+    params = [evento_id]
+    if localizacao:
+        filtro_sala = " AND (s.localizacao = ? OR r.localizacao = ?)"
+        params += [localizacao, localizacao]
+    params.append(evento_id)
+    if localizacao:
+        params.append(localizacao)
+    linhas = _todos(conn, f"""
+        SELECT {_CAMPOS_REL},
+          CASE WHEN r.id IS NULL THEN 'pendente' WHEN r.localizacao = b.localizacao THEN 'localizado' ELSE 'divergente' END AS situacao_inv
+        FROM inventario_salas s JOIN bens b ON b.localizacao = s.localizacao AND b.situacao = 'ATIVO'
+        LEFT JOIN inventario_leituras r ON r.evento_id = s.evento_id AND r.numero = b.numero
+        WHERE s.evento_id = ?{filtro_sala}
+        UNION ALL
+        SELECT {_CAMPOS_REL}, 'divergente' AS situacao_inv
+        FROM inventario_leituras r JOIN bens b ON b.numero = r.numero
+        WHERE r.evento_id = ? AND b.localizacao NOT IN (SELECT localizacao FROM inventario_salas WHERE evento_id = r.evento_id)
+          {"AND r.localizacao = ?" if localizacao else ""}
+        ORDER BY local_sistema, numero""", *params)
+    if situacao:
+        linhas = [x for x in linhas if x["situacao_inv"] == situacao]
+    return linhas
+
+
+def _data_br(iso):
+    return f"{iso[8:10]}/{iso[5:7]}/{iso[:4]} {iso[11:16]}" if iso else ""
+
+
+def exportar_xlsx(conn, evento_id: int, destino, localizacao: str | None = None):
+    from openpyxl import Workbook
+    e = evento(conn, evento_id)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Bens"
+    ws.append([f"{e['nome']} — gerado em {_data_br(_agora())} — {('sala ' + localizacao) if localizacao else 'todas as salas'}"])
+    ws.append(COLUNAS_XLSX)
+    for x in relatorio(conn, evento_id, localizacao):
+        ws.append([x["numero"], x["descricao"], x["complemento"], x["classificacao"], x["local_sistema"], x["local_inventario"],
+                   ROTULO_SITUACAO[x["situacao_inv"]], x["conservacao"], x["quem_usa"], x["observacao"], x["integrante"],
+                   _data_br(x["lido_em"]), x["foto_url"]])
+    ws2 = wb.create_sheet("Sobras")
+    ws2.append([f"{e['nome']} — sobras (bens sem cadastro)"])
+    ws2.append(COLUNAS_SOBRAS)
+    sql = "SELECT * FROM inventario_sobras WHERE evento_id = ?" + (" AND localizacao = ?" if localizacao else "") + " ORDER BY localizacao, id"
+    for s in _todos(conn, sql, *([evento_id, localizacao] if localizacao else [evento_id])):
+        ws2.append([s["localizacao"], s["descricao"], s["complemento"], s["observacao"], s["integrante"], _data_br(s["criado_em"]), s["foto_url"]])
+    wb.save(destino)
+    return destino
