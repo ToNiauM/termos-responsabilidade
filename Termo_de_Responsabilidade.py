@@ -16,7 +16,7 @@ def gerar_termo_centro(ccustos, responsavel, bens, destino, textos=None):
     documento = Document(str(config.caminho_timbrado()))
     t = textos or textos_mod.PADRAO
     campos = {k: responsavel.get(k) or "" for k in ("responsavel", "matricula", "funcao")}
-    campos.update(ccustos=ccustos, orgao_sigla=t["orgao_sigla"])
+    campos.update(textos_mod.campos_gerais(t), ccustos=ccustos)
     cabecalho = documento.add_paragraph()
     cabecalho_run = cabecalho.add_run(t["ccusto_titulo"].format_map(campos))
     cabecalho_run.font.bold = True

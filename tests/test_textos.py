@@ -61,3 +61,13 @@ def test_padrao_cobre_todos_os_grupos_e_marcadores():
     assert chaves == set(textos.PADRAO) == set(textos.MARCADORES) == set(textos.ROTULOS)
     for chave, valor in textos.PADRAO.items():
         textos.validar(chave, valor)  # o padrão tem de passar na própria validação
+
+
+def test_unidade_gestora_entra_como_marcador_em_todos_os_termos():
+    t = dict(textos.PADRAO, unidade_nome="Setor Novo", unidade_sigla="SN")
+    campos = textos.campos_gerais(t)
+    assert campos == {"orgao_sigla": "CFC", "unidade_nome": "Setor Novo", "unidade_sigla": "SN"}
+    for chave in ("individual_compromissos", "ccusto_paragrafos", "devolucao_abertura"):
+        assert "{unidade_sigla}" in textos.PADRAO[chave]
+        textos.validar(chave, "só a {unidade_nome} ({unidade_sigla})")
+    assert "Gersev" not in "".join(v for k, v in textos.PADRAO.items() if k != "unidade_sigla")

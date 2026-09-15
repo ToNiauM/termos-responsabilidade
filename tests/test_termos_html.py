@@ -23,7 +23,7 @@ def test_devolucao_com_data_e_assinaturas():
     html = th.corpo_devolucao("ANA SILVA", bens(), hoje=date(2026, 9, 14))
     assert "width:80%" in html and "TERMO DE DEVOLUÇÃO" in html
     assert "Brasília (DF), 14 de setembro de 2026" in html
-    assert "Supervisor de Patrimônio" in html
+    assert "BRUNO DE ARAUJO GOMES" in html and "Gerente de Serviços Administrativos" in html
 
 
 def test_documento_envelopa_com_titulo_e_escapa():
@@ -57,3 +57,12 @@ def test_devolucao_usa_cidade_e_recebedor_dos_textos():
 def test_escapa_texto_vindo_do_banco():
     t = dict(textos.PADRAO, individual_ciencia="<script>x</script>")
     assert "&lt;script&gt;" in th.corpo_individual("A", [], textos=t)
+
+
+def test_unidade_alterada_aparece_nos_tres_termos():
+    t = dict(textos.PADRAO, unidade_nome="Setor Novo", unidade_sigla="SN")
+    resp = {"ccustos": "CCI", "responsavel": "JAQUELINE", "matricula": "46", "funcao": "coordenadora"}
+    assert "Setor Novo (SN)" in th.corpo_individual("ANA", bens(), textos=t)
+    assert "Setor Novo (SN)" in th.corpo_ccusto("CCI", resp, bens(), textos=t)
+    assert "Setor Novo (SN)" in th.corpo_devolucao("ANA", bens(), hoje=date(2026, 9, 14), textos=t)
+    assert "Gersev" not in th.corpo_individual("ANA", bens(), textos=t)

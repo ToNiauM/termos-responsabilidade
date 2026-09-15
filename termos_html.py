@@ -61,7 +61,7 @@ def _abertura(texto: str, campos: dict) -> str:
 
 def corpo_individual(nome: str, bens: list[dict], textos: dict | None = None) -> str:
     t = textos or textos_mod.PADRAO
-    campos = {"nome": nome, "orgao_sigla": t["orgao_sigla"]}
+    campos = dict(textos_mod.campos_gerais(t), nome=nome)
     linhas = [[b["numero"], b["descricao"], b["complemento"], formatar_moeda(b["valor_atual"])] for b in bens]
     return (
         f"<h1>{esc(t['individual_titulo'].format_map(campos))}</h1>"
@@ -77,7 +77,7 @@ def corpo_individual(nome: str, bens: list[dict], textos: dict | None = None) ->
 def corpo_ccusto(ccustos: str, responsavel: dict, bens: list[dict], textos: dict | None = None) -> str:
     t = textos or textos_mod.PADRAO
     campos = {k: responsavel.get(k) or "" for k in ("responsavel", "matricula", "funcao")}
-    campos.update(ccustos=ccustos, orgao_sigla=t["orgao_sigla"])
+    campos.update(textos_mod.campos_gerais(t), ccustos=ccustos)
     linhas = [[b["numero"], b["descricao"], b["complemento"], b["localizacao"], formatar_moeda(b["valor_atual"])]
               for b in sorted(bens, key=lambda b: b["numero"])]
     assinatura = "<br>".join(esc(l.format_map(campos)) for l in textos_mod.linhas(t["ccusto_assinatura"]))
@@ -92,7 +92,7 @@ def corpo_ccusto(ccustos: str, responsavel: dict, bens: list[dict], textos: dict
 def corpo_devolucao(nome: str, bens: list[dict], hoje: date | None = None, textos: dict | None = None) -> str:
     t = textos or textos_mod.PADRAO
     hoje = hoje or date.today()
-    campos = {"nome": nome, "orgao_sigla": t["orgao_sigla"], "cidade": t["cidade"], "data": data_por_extenso(hoje)}
+    campos = dict(textos_mod.campos_gerais(t), nome=nome, cidade=t["cidade"], data=data_por_extenso(hoje))
     linhas = [[b["numero"], b["descricao"], b["complemento"], formatar_moeda(b["valor_atual"])] for b in bens]
     return (
         f"<h1>{esc(t['devolucao_titulo'].format_map(campos))}</h1>"

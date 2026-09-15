@@ -226,9 +226,10 @@ def test_textos_salvar_reflete_no_documento_e_restaurar(cliente):
     r = cliente.get("/textos")
     assert r.status_code == 200 and b"Compromissos" in r.data
     import textos
-    dados_form = dict(textos.PADRAO, individual_abertura="TESTE {nome}.", orgao_nome="Órgão X")
+    dados_form = dict(textos.PADRAO, individual_abertura="TESTE {nome}.", orgao_nome="Órgão X", unidade_sigla="SN")
     r = cliente.post("/textos", data=dados_form, follow_redirects=True)
     assert "Textos salvos".encode() in r.data and "Órgão X".encode() in r.data  # header usa orgao_nome
+    assert b'<div class="header-subtitle">SN</div>' in r.data  # e unidade_sigla no subtítulo
     doc = cliente.get("/termo/individual/ANA SILVA/documento").data.decode()
     assert "TESTE <b>ANA SILVA</b>." in doc
     r = cliente.post("/textos", data={"restaurar": "individual_abertura"}, follow_redirects=True)

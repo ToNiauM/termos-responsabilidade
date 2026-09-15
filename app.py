@@ -21,12 +21,13 @@ app.secret_key = "termos-cfc-local"  # sessão só guarda seleção de bens; pro
 app.register_blueprint(inventario_bp)
 app.template_filter("moeda")(painel.moeda)   # R$ 1.234,56 em todas as telas
 
-DSGOV_FIXO = {"SISTEMA": "Termos de Responsabilidade", "SUBTITULO": "Setor de Patrimônio"}
+DSGOV_FIXO = {"SISTEMA": "Termos de Responsabilidade"}
 
 
 @app.context_processor
 def contexto_dsgov():
-    dsgov = dict(DSGOV_FIXO, ORGAO=textos.obter(obter_conn())["orgao_nome"])
+    t = textos.obter(obter_conn())
+    dsgov = dict(DSGOV_FIXO, ORGAO=t["orgao_nome"], SUBTITULO=t["unidade_sigla"])
     return {"DSGOV": dsgov, "MENU": [
         ("Início", "fa-home", url_for("home")),
         ("Termo por centro de custo", "fa-building", url_for("centro_custos")),
