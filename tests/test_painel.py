@@ -40,6 +40,9 @@ def test_url_recorte_mantem_situacao_vazia(dados):
 
 
 def test_cards_graficos_tipos_urls_e_omissao(dados):
+    """Tipo do gráfico pela quantidade de itens da dimensão (regra do usuário): com a semente de
+    _semear_painel, sob ATIVO, situacao=2, centro=2, classificacao=3, localizacao=4, idade=5 e ano=5
+    itens (rosca); faixa=6 itens (barras horizontais)."""
     from tests.test_db import _semear_painel
     _semear_painel(dados)
     import db, painel
@@ -51,13 +54,16 @@ def test_cards_graficos_tipos_urls_e_omissao(dados):
         assert ids == ["g-situacao", "g-centro", "g-classificacao", "g-localizacao", "g-idade", "g-ano", "g-faixa", "g-pessoa"]
         por = {c["id"]: c for c in cards}
         assert por["g-situacao"]["opcoes"]["series"][0]["type"] == "pie"
-        assert por["g-centro"]["opcoes"]["series"][0]["type"] == "bar" and por["g-centro"]["opcoes"]["yAxis"]["type"] == "category"
-        assert por["g-idade"]["opcoes"]["xAxis"]["type"] == "category" and por["g-ano"]["opcoes"]["series"][0]["type"] == "line"
+        assert por["g-centro"]["opcoes"]["series"][0]["type"] == "pie"          # 2 itens (CCI, sem centro)
+        assert por["g-classificacao"]["opcoes"]["series"][0]["type"] == "pie"   # 3 itens
+        assert por["g-idade"]["opcoes"]["series"][0]["type"] == "pie"           # 5 itens (faixas fixas)
+        assert por["g-ano"]["opcoes"]["series"][0]["type"] == "pie"             # 5 itens
+        assert por["g-faixa"]["opcoes"]["series"][0]["type"] == "bar" and por["g-faixa"]["opcoes"]["yAxis"]["type"] == "category"  # 6 itens
         assert por["g-centro"]["opcoes"]["series"][0]["data"][0]["url"] == "/recorte?situacao=ATIVO&ccusto=-"
         assert por["g-centro"]["opcoes"]["series"][0]["data"][1]["url"] == "/recorte?situacao=ATIVO&ccusto=CCI"
         assert por["g-situacao"]["opcoes"]["series"][0]["data"][0]["url"] == "/recorte?situacao=ATIVO"
         assert por["g-classificacao"]["tabela"]["linhas"][-1][0]["valor"] == "SEDE"          # imóveis por último na tabela
-        assert "SEDE" not in [d["name"] for d in por["g-classificacao"]["opcoes"]["series"][0]["data"]]
+        assert "SEDE" in [d["name"] for d in por["g-classificacao"]["opcoes"]["series"][0]["data"]]  # mas no gráfico, como qualquer classe
         assert por["g-ano"]["opcoes"]["series"][0]["data"][-1]["url"] == "/recorte?situacao=ATIVO&ano=2024"
         assert por["g-faixa"]["tabela"]["linhas"][0][2]["valor"] == "R$ 64,54"
         cards = painel.cards_graficos(db.dimensoes(dados, {"situacao": "ATIVO", "ccusto": "CCI"}), {"situacao": "ATIVO", "ccusto": "CCI"}, omitir=("situacao", "ccusto"))
@@ -65,3 +71,20 @@ def test_cards_graficos_tipos_urls_e_omissao(dados):
         assert painel.descrever({"situacao": "ATIVO", "ccusto": "CCI", "entrada_de": "2020-01-01"}, {"ccusto": "CCI – JAQUELINE"}) == \
             "Bens ATIVO · centro de custo CCI – JAQUELINE · entrada a partir de 01/01/2020"
         assert painel.moeda(1234.5) == "R$ 1.234,50"
+
+
+def test_grafico_tipos_pela_quantidade_de_itens(dados):
+    """painel._grafico: até 5 rosca, 6-10 barras, 11-20 colunas, mais de 20 colunas com os 20 maiores."""
+    import painel
+    from app import app
+
+    def item(i):
+        return {"chave": str(i), "rotulo": str(i), "quantidade": i, "valor": 0}
+
+    with app.test_request_context():
+        op, sub, alto = painel._grafico([item(i) for i in range(25, 0, -1)], {"situacao": "ATIVO"}, "ano")
+        assert op["series"][0]["type"] == "bar" and op["xAxis"]["type"] == "category"
+        assert len(op["xAxis"]["data"]) == 20 and sub is not None and "20 maiores" in sub and alto
+
+        op, sub, alto = painel._grafico([item(i) for i in range(15, 0, -1)], {"situacao": "ATIVO"}, "ano")
+        assert op["series"][0]["type"] == "bar" and len(op["xAxis"]["data"]) == 15 and sub is None and alto

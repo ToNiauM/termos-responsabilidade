@@ -46,18 +46,18 @@ def _urls(itens, f, chave):
     return [url_recorte(f, **{chave: i["chave"]}) for i in itens]
 
 
-def _barras(id, titulo, itens, f, chave, rotulo_col):
+def _grafico(itens, f, chave):
+    """Tipo pelo número de itens (regra do usuário): ≤5 rosca, 6–10 barras, 11–20 colunas, >20 colunas dos 20 maiores."""
     top = itens[:TOP]
+    if len(itens) <= 5:
+        op = graficos.rosca([(i["rotulo"], i["quantidade"]) for i in itens], total=(sum(i["quantidade"] for i in itens), "bens"),
+                            urls={i["rotulo"]: u for i, u in zip(itens, _urls(itens, f, chave))})
+    elif len(itens) <= 10:
+        op = graficos.barras_horizontais([i["rotulo"] for i in itens], [i["quantidade"] for i in itens], "Bens", escala=True, urls=_urls(itens, f, chave))
+    else:
+        op = graficos.colunas([i["rotulo"] for i in top], {"Bens": [i["quantidade"] for i in top]}, rotulos=True, urls={"Bens": _urls(top, f, chave)})
     sub = f"{TOP} maiores no gráfico; todos na tabela" if len(itens) > TOP else None
-    op = graficos.barras_horizontais([i["rotulo"] for i in top], [i["quantidade"] for i in top], "Bens",
-                                     escala=True, urls=_urls(top, f, chave))
-    return _card(id, titulo, op, itens, f, chave, rotulo_col, alto=len(top) > 8, subtitulo=sub)
-
-
-def _colunas(id, titulo, itens, f, chave, rotulo_col):
-    op = graficos.colunas([i["rotulo"] for i in itens], {"Bens": [i["quantidade"] for i in itens]},
-                          rotulos=True, urls={"Bens": _urls(itens, f, chave)})
-    return _card(id, titulo, op, itens, f, chave, rotulo_col)
+    return op, sub, len(itens) > 10
 
 
 def cards_graficos(dim: dict, f: dict, omitir=()) -> list[dict]:
@@ -65,34 +65,39 @@ def cards_graficos(dim: dict, f: dict, omitir=()) -> list[dict]:
     cards = []
     if "situacao" not in omitir and dim["situacao"]:
         it = dim["situacao"]
-        op = graficos.rosca([(i["rotulo"], i["quantidade"]) for i in it], total=(sum(i["quantidade"] for i in it), "bens"),
-                            urls={i["rotulo"]: u for i, u in zip(it, _urls(it, f, "situacao"))})
-        cards.append(_card("g-situacao", "Bens por situação", op, it, f, "situacao", "Situação"))
+        op, sub, alto = _grafico(it, f, "situacao")
+        cards.append(_card("g-situacao", "Bens por situação", op, it, f, "situacao", "Situação", alto=alto, subtitulo=sub))
     if "ccusto" not in omitir:
-        cards.append(_barras("g-centro", "Bens por centro de custo", dim["centro"], f, "ccusto", "Centro de custo"))
+        it = dim["centro"]
+        op, sub, alto = _grafico(it, f, "ccusto")
+        cards.append(_card("g-centro", "Bens por centro de custo", op, it, f, "ccusto", "Centro de custo", alto=alto, subtitulo=sub))
     if "classificacao" not in omitir:
         it = dim["classificacao"]
         comuns = [i for i in it if i["chave"] not in db.IMOVEIS]
         imoveis = [i for i in it if i["chave"] in db.IMOVEIS]
-        fatias = [(i["rotulo"], i["quantidade"]) for i in comuns[:5]]
-        if len(comuns) > 5:
-            fatias.append(("Outras", sum(i["quantidade"] for i in comuns[5:])))
-        op = graficos.rosca(fatias, total=(sum(i["quantidade"] for i in comuns), "bens"),
-                            urls={i["rotulo"]: u for i, u in zip(comuns[:5], _urls(comuns[:5], f, "classificacao"))})
+        op, sub, alto = _grafico(it, f, "classificacao")   # imóveis entram no gráfico como qualquer classe (é contagem)
         cards.append(_card("g-classificacao", "Bens por classificação contábil", op, comuns + imoveis, f, "classificacao",
-                           "Classificação", subtitulo="Imóveis (SEDE, TERRENOS) só na tabela" if imoveis else None))
+                           "Classificação", alto=alto, subtitulo=sub))   # imóveis só ficam por último na tabela
     if "localizacao" not in omitir:
-        cards.append(_barras("g-localizacao", "Bens por localização", dim["localizacao"], f, "localizacao", "Localização"))
+        it = dim["localizacao"]
+        op, sub, alto = _grafico(it, f, "localizacao")
+        cards.append(_card("g-localizacao", "Bens por localização", op, it, f, "localizacao", "Localização", alto=alto, subtitulo=sub))
     if "idade" not in omitir:
-        cards.append(_colunas("g-idade", "Bens por idade (data de entrada)", dim["idade"], f, "idade", "Faixa"))
+        it = dim["idade"]
+        op, sub, alto = _grafico(it, f, "idade")
+        cards.append(_card("g-idade", "Bens por idade (data de entrada)", op, it, f, "idade", "Faixa", alto=alto, subtitulo=sub))
     if "ano" not in omitir and dim["ano"]:
         it = dim["ano"]
-        op = graficos.linha([i["rotulo"] for i in it], {"Bens": [i["quantidade"] for i in it]}, urls={"Bens": _urls(it, f, "ano")})
-        cards.append(_card("g-ano", "Bens por ano de entrada", op, it, f, "ano", "Ano"))
+        op, sub, alto = _grafico(it, f, "ano")
+        cards.append(_card("g-ano", "Bens por ano de entrada", op, it, f, "ano", "Ano", alto=alto, subtitulo=sub))
     if "faixa" not in omitir:
-        cards.append(_colunas("g-faixa", "Bens por faixa de valor", dim["faixa"], f, "faixa", "Faixa"))
+        it = dim["faixa"]
+        op, sub, alto = _grafico(it, f, "faixa")
+        cards.append(_card("g-faixa", "Bens por faixa de valor", op, it, f, "faixa", "Faixa", alto=alto, subtitulo=sub))
     if "pessoa" not in omitir and dim["pessoa"]:
-        cards.append(_barras("g-pessoa", "Bens atribuídos por pessoa", dim["pessoa"], f, "pessoa", "Pessoa"))
+        it = dim["pessoa"]
+        op, sub, alto = _grafico(it, f, "pessoa")
+        cards.append(_card("g-pessoa", "Bens atribuídos por pessoa", op, it, f, "pessoa", "Pessoa", alto=alto, subtitulo=sub))
     return cards
 
 
