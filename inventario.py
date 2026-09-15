@@ -184,6 +184,8 @@ def registrar_sobra(conn, evento_id, localizacao, descricao, complemento, observ
     descricao = _obrigatorio(descricao, "Descrição")
     observacao = _obrigatorio(observacao, "Observação")
     integrante = _obrigatorio(integrante, "Integrante")
+    if not conn.execute("SELECT 1 FROM inventario_integrantes WHERE evento_id = ? AND nome = ?", (evento_id, integrante)).fetchone():
+        raise ErroDeNegocio("Escolha o integrante da comissão antes de ler.")
     if exigir_foto and not _texto(foto_url):
         raise ErroDeNegocio("A sobra precisa de foto.")
     cur = conn.execute("""INSERT INTO inventario_sobras (evento_id, localizacao, descricao, complemento, observacao, foto_url, integrante, criado_em)
@@ -194,6 +196,10 @@ def registrar_sobra(conn, evento_id, localizacao, descricao, complemento, observ
 
 
 def definir_foto_sobra(conn, sobra_id: int, foto_url: str) -> None:
+    s = _um(conn, "SELECT evento_id FROM inventario_sobras WHERE id = ?", sobra_id)
+    if not s:
+        raise ErroDeNegocio("Sobra não encontrada.")
+    _evento_aberto_ou_erro(conn, s["evento_id"])
     conn.execute("UPDATE inventario_sobras SET foto_url = ? WHERE id = ?", (_texto(foto_url), sobra_id))
     conn.commit()
 

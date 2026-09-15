@@ -89,6 +89,17 @@ def test_ler_localizado_divergente_reler_e_erros(dados):
     assert (s["01 - SALA CCI"]["localizados"], s["01 - SALA CCI"]["pendentes"]) == (1, 1)
     assert (s["02 - SALA B"]["localizados"], s["02 - SALA B"]["divergentes"]) == (1, 0)
     assert s["01 - SALA CCI"]["divergentes"] == 0
+
+    inventario.ler(dados, eid, "02 - SALA B", 1003, "Fulano")                   # BAIXADO relido em outra sala
+    s = {x["localizacao"]: x for x in inventario.salas(dados, eid)}
+    assert s["02 - SALA B"]["divergentes"] == 0                                # BAIXADO não conta nem aqui
+
+    inventario.ler(dados, eid, "02 - SALA B", 1001, "Fulano")                  # controle: ATIVO de outra sala conta
+    s = {x["localizacao"]: x for x in inventario.salas(dados, eid)}
+    assert s["02 - SALA B"]["divergentes"] == 1
+    assert (s["01 - SALA CCI"]["localizados"], s["01 - SALA CCI"]["pendentes"]) == (0, 2)   # 1001 saiu da CCI
+    assert s["02 - SALA B"]["localizados"] == 1                                             # 2001 continua localizado aqui
+
     inventario.encerrar_evento(dados, eid)
     with pytest.raises(db.ErroDeNegocio):
         inventario.ler(dados, eid, "01 - SALA CCI", 1002, "Fulano")
@@ -124,6 +135,8 @@ def test_sobras(dados):
         inventario.registrar_sobra(dados, eid, "01 - SALA CCI", "VENTILADOR", "", "", "http://x/1.webp", "Fulano")
     with pytest.raises(db.ErroDeNegocio):
         inventario.registrar_sobra(dados, eid, "01 - SALA CCI", "VENTILADOR", "", "achado", "", "Fulano")
+    with pytest.raises(db.ErroDeNegocio):
+        inventario.registrar_sobra(dados, eid, "01 - SALA CCI", "VENTILADOR", "", "achado", "", "Ninguém", exigir_foto=False)
     sid = inventario.registrar_sobra(dados, eid, "01 - SALA CCI", "VENTILADOR", "", "achado", "", "Fulano", exigir_foto=False)
     inventario.definir_foto_sobra(dados, sid, "http://x/1.webp")
     s = inventario.bens_da_sala(dados, eid, "01 - SALA CCI")["sobras"]
@@ -132,3 +145,7 @@ def test_sobras(dados):
         inventario.excluir_sobra(dados, eid, 999)
     assert inventario.excluir_sobra(dados, eid, sid)["descricao"] == "VENTILADOR"
     assert inventario.resumo(dados, eid)["sobras"] == 0
+    sid2 = inventario.registrar_sobra(dados, eid, "01 - SALA CCI", "TABLET", "", "achado", "", "Fulano", exigir_foto=False)
+    inventario.encerrar_evento(dados, eid)
+    with pytest.raises(db.ErroDeNegocio):
+        inventario.definir_foto_sobra(dados, sid2, "http://x/2.webp")
