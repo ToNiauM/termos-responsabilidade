@@ -22,6 +22,15 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    **Início** é o painel: cards e gráficos por situação, centro, classificação, localização, idade, ano e
    faixa de valor, todos clicáveis. **Recorte** filtra bens por qualquer combinação, com os mesmos
    gráficos, o termo do centro/pessoa quando couber e *Exportar .xlsx*.
+   **Inventário** (menu próprio): abra um evento (nome, portaria, comissão; todas as salas com bens
+   ativos ou uma amostra), escolha o integrante e leia as plaquetas por sala com leitor de código de
+   barras, câmera do celular ou digitação. Bem lido na sala cadastrada = localizado; em outra sala =
+   divergente (o cadastro do SPW não muda); não lido = pendente; sem cadastro = sobra (com foto).
+   Bem baixado lido fica registrado (continua baixado). Conservação, quem usa, observação e foto por bem.
+   Relatório e `.xlsx` por evento. O evento fica aberto até ser encerrado; encerrar congela tudo.
+   Fotos vão para o bucket R2 configurado em `secrets/.env` (variáveis `R2_*`); sem ele, fotos ficam
+   desativadas. A planilha de cadastros ganha abas `inv_*` para exportar/importar inventários inteiros
+   (migração de outros sistemas).
 2. **Atualizar base**: envie o export do sistema de patrimônio (`.xlsx`). Só a tabela de bens muda.
    *Exportar bens (formato SPW)* devolve a mesma tabela em `.xlsx`, nas 9 colunas do export — backup reimportável.
 3. **Cadastros**: responsáveis por centro de custo (editar, inclusive a sigla — as localizações
@@ -92,3 +101,4 @@ O mesmo código roda em `https://patrimonio.sistemascfc.org`, num container nest
 | `Dockerfile`, `compose.yml` | site em patrimonio.sistemascfc.org |
 | `templates/`, `static/dsgov/` | telas DSGov 3.7.0 (offline) |
 | `painel.py`, `graficos.py` | cards de gráfico (ECharts embutido, tema DSGov) |
+| `inventario.py`, `fotos.py`, `app_inventario.py` | módulo de inventário (dados, fotos no R2, rotas) |
