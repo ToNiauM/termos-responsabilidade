@@ -88,6 +88,10 @@ sistema"), mais os lidos em S que pertencem a outra sala:
 | não localizado | bem ativo da sala sem leitura em E |
 | sobra | linha em `inventario_sobras` |
 
+Reler um bem no mesmo evento atualiza sala, data/hora e integrante da leitura; conservação, quem usa,
+observação e foto ficam (não se perde dado; a leitura anterior é mostrada na tela). Ao registrar sobra, o
+integrante também tem de estar na comissão do evento.
+
 Bem BAIXADO/DOADO/INSERVÍVEL lido: aceito e registrado (é informação útil), com aviso "bem não ativo";
 não entra na contagem da sala.
 
