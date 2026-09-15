@@ -86,6 +86,47 @@ CREATE TABLE IF NOT EXISTS importacoes_mudancas (
   de            TEXT, para TEXT,
   descricao     TEXT
 );
+CREATE TABLE IF NOT EXISTS inventario_eventos (
+  id           INTEGER PRIMARY KEY,
+  nome         TEXT NOT NULL,
+  descricao    TEXT,
+  aberto_em    TEXT NOT NULL,
+  encerrado_em TEXT
+);
+CREATE TABLE IF NOT EXISTS inventario_integrantes (
+  evento_id INTEGER NOT NULL REFERENCES inventario_eventos(id) ON DELETE CASCADE,
+  nome      TEXT NOT NULL,
+  PRIMARY KEY (evento_id, nome)
+);
+CREATE TABLE IF NOT EXISTS inventario_salas (
+  evento_id    INTEGER NOT NULL REFERENCES inventario_eventos(id) ON DELETE CASCADE,
+  localizacao  TEXT NOT NULL,
+  PRIMARY KEY (evento_id, localizacao)
+);
+CREATE TABLE IF NOT EXISTS inventario_leituras (
+  id          INTEGER PRIMARY KEY,
+  evento_id   INTEGER NOT NULL REFERENCES inventario_eventos(id) ON DELETE CASCADE,
+  numero      INTEGER NOT NULL,
+  localizacao TEXT NOT NULL,
+  lido_em     TEXT NOT NULL,
+  integrante  TEXT NOT NULL,
+  conservacao TEXT CHECK (conservacao IN ('Bom','Regular','Ruim','Inservível')),
+  quem_usa    TEXT,
+  observacao  TEXT,
+  foto_url    TEXT,
+  UNIQUE (evento_id, numero)
+);
+CREATE TABLE IF NOT EXISTS inventario_sobras (
+  id          INTEGER PRIMARY KEY,
+  evento_id   INTEGER NOT NULL REFERENCES inventario_eventos(id) ON DELETE CASCADE,
+  localizacao TEXT NOT NULL,
+  descricao   TEXT NOT NULL,
+  complemento TEXT,
+  observacao  TEXT NOT NULL,
+  foto_url    TEXT NOT NULL,
+  integrante  TEXT NOT NULL,
+  criado_em   TEXT NOT NULL
+);
 """
 
 
@@ -243,6 +284,12 @@ def localizacoes_sem_centro(conn: sqlite3.Connection) -> list[str]:
         "SELECT DISTINCT localizacao FROM bens WHERE situacao='ATIVO' AND localizacao <> '' "
         "AND localizacao NOT IN (SELECT localizacao FROM localizacoes) "
         "AND numero NOT IN (SELECT numero FROM atribuicoes) ORDER BY localizacao")]
+
+
+def localizacoes_ativas(conn) -> list[str]:
+    """Localizações distintas com bens ATIVO (as "salas" que um inventário pode conferir)."""
+    return [r[0] for r in conn.execute(
+        "SELECT DISTINCT localizacao FROM bens WHERE situacao = 'ATIVO' AND localizacao <> '' ORDER BY localizacao")]
 
 
 def _mudancas(antes: dict, linhas: list[tuple]) -> list[tuple]:
