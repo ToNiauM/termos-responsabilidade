@@ -7,6 +7,11 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
 ## Uso
 
 1. Abra `TermosCFC.exe`. A janela abre em `http://127.0.0.1:12345`.
+   **Pesquisa** (lupa no cabeçalho, em todas as telas): número do bem abre a ficha; texto procura em bens
+   (descrição, complemento, localização, centro, pessoa), pessoas e centros de custo. Várias palavras: todas
+   têm que bater (`computador GEX-LIC` = computadores do GEX-LIC; o "e" solto é ignorado). Texto simples
+   busca "contém"; com `*` o padrão é literal (`GEX*` começa com GEX, `*ITEC` termina com ITEC). Nos
+   resultados, centro ou pessoa têm *Ver bens* (lista filtrada) e *Termo*.
 2. **Atualizar base**: envie o export do sistema de patrimônio (`.xlsx`). Só a tabela de bens muda.
    *Exportar bens (formato SPW)* devolve a mesma tabela em `.xlsx`, nas 9 colunas do export — backup reimportável.
 3. **Cadastros**: responsáveis por centro de custo (editar, inclusive a sigla — as localizações

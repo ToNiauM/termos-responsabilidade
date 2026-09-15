@@ -77,6 +77,25 @@ def bem():
     return render_template("bem.html", bem=ficha, trilha=[(f"Bem {numero}", None)])
 
 
+@app.route("/pesquisa")
+def pesquisa():
+    """Busca rápida (cabeçalho). ?q= procura em centros, pessoas e bens; número existente abre a ficha.
+    ?ccusto= ou ?pessoa= listam só os bens daquele centro/pessoa (mesma regra dos termos)."""
+    conn, q = obter_conn(), request.args.get("q", "").strip()
+    if request.args.get("ccusto"):
+        chave = request.args["ccusto"]
+        return render_template("pesquisa.html", q=chave, filtro="ccusto", chave=chave, bens=db.bens_do_centro(conn, chave),
+                               trilha=[("Pesquisa", url_for("pesquisa", q=chave)), (f"Bens de {chave}", None)])
+    if request.args.get("pessoa"):
+        chave = request.args["pessoa"]
+        return render_template("pesquisa.html", q=chave, filtro="individual", chave=chave, bens=db.bens_da_pessoa(conn, chave),
+                               trilha=[("Pesquisa", url_for("pesquisa", q=chave)), (f"Bens de {chave}", None)])
+    if q.isdigit() and db.buscar_bem(conn, int(q)):
+        return redirect(url_for("bem", numero=q))
+    r = db.pesquisar(conn, q) if q else {"centros": [], "pessoas": [], "bens": [], "truncado": False}
+    return render_template("pesquisa.html", q=q, filtro=None, trilha=[("Pesquisa", None)], **r)
+
+
 # ---------------------------------------------------------------- termos
 def _bens_do_termo(conn, tipo, chave):
     """Devolve (titulo, corpo_html, bens, extra) do termo pedido; 404 se não existir."""

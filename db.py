@@ -236,6 +236,45 @@ def ficha_do_bem(conn, numero: int) -> dict | None:
     return {**bem, **setor, "pessoa": pessoa_do_bem(conn, numero)}
 
 
+def _padrao_like(termo: str) -> str:
+    """Texto simples busca "contém". Com * ou %, o padrão é literal (GEX* = começa com GEX)."""
+    termo = termo.replace("*", "%")
+    return termo if "%" in termo else f"%{termo}%"
+
+
+def _termos(q: str) -> list[str]:
+    """Palavras da pesquisa; o "e" solto é conector ("computador e GEX-LIC"), não termo."""
+    return [t for t in q.split() if t.lower() != "e"]
+
+
+def _clausula(campos: list[str], termos: list[str]) -> tuple[str, list]:
+    """Cada termo tem que bater em algum dos campos: (c1 LIKE ? OR c2 LIKE ?) AND (...)."""
+    grupo = "(" + " OR ".join(f"MAIUSC({c}) LIKE ?" for c in campos) + ")"
+    sql = " AND ".join([grupo] * len(termos)) or "1"
+    return sql, [_padrao_like(t).upper() for t in termos for _ in campos]
+
+
+def pesquisar(conn, q: str, limite: int = 200) -> dict:
+    """Busca rápida em centros de custo (sigla/responsável), pessoas (nome) e bens (descrição, complemento,
+    localização, centro, pessoa). Sem distinguir maiúsculas, inclusive acentuadas (MAIUSC = str.upper)."""
+    conn.create_function("MAIUSC", 1, lambda v: v.upper() if isinstance(v, str) else v)
+    termos = _termos(q)
+    sql, params = _clausula(["ccustos", "responsavel"], termos)
+    centros = _todos(conn, f"SELECT ccustos, responsavel FROM responsaveis WHERE {sql} ORDER BY ccustos", *params)
+    for c in centros:
+        c["quantidade"] = len(bens_do_centro(conn, c["ccustos"]))
+    sql, params = _clausula(["p.nome"], termos)
+    pessoas = _todos(conn, f"""
+        SELECT p.nome, count(a.numero) AS quantidade FROM pessoas p LEFT JOIN atribuicoes a ON a.nome = p.nome
+        WHERE {sql} GROUP BY p.nome ORDER BY p.nome""", *params)
+    sql, params = _clausula(["b.descricao", "b.complemento", "b.localizacao", "l.ccustos", "a.nome"], termos)
+    bens = _todos(conn, f"""
+        SELECT b.*, l.ccustos AS ccustos, a.nome AS pessoa FROM bens b
+        LEFT JOIN localizacoes l ON l.localizacao = b.localizacao LEFT JOIN atribuicoes a ON a.numero = b.numero
+        WHERE {sql} ORDER BY b.numero LIMIT ?""", *params, limite + 1)
+    return {"centros": centros, "pessoas": pessoas, "bens": bens[:limite], "truncado": len(bens) > limite}
+
+
 def localizacoes_mapeadas(conn) -> list[dict]:
     return _todos(conn, "SELECT localizacao, ccustos FROM localizacoes ORDER BY localizacao")
 

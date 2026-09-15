@@ -344,3 +344,52 @@ def test_exportar_bens_formato_spw_reimportavel(dados, tmp_path):
     assert ws.max_row == 5 and ws["A2"].value == 1001 and ws["F2"].value == "01 - SALA CCI"
     resumo = db.importar_bens(dados, arq)
     assert resumo["total"] == 4 and resumo["ativos"] == 3
+
+
+def test_pesquisar_texto_simples_e_contem(dados):
+    semear(dados)
+    r = db.pesquisar(dados, "cci")
+    assert [c["ccustos"] for c in r["centros"]] == ["CCI"] and r["centros"][0]["quantidade"] == 1  # 1001; 1002 é da ANA, 1003 baixado
+    assert [b["numero"] for b in r["bens"]] == [1001, 1002, 1003]  # pela localização "01 - SALA CCI"
+    assert r["pessoas"] == []
+    r = db.pesquisar(dados, "ana")
+    assert r["pessoas"] == [{"nome": "ANA SILVA", "quantidade": 1}] and r["centros"] == []
+    assert db.pesquisar(dados, "jaqueline")["centros"][0]["ccustos"] == "CCI"
+
+
+def test_pesquisar_acentos_e_pessoa_do_bem(dados):
+    semear(dados)
+    r = db.pesquisar(dados, "armário")
+    assert [b["numero"] for b in r["bens"]] == [1004]
+    assert db.pesquisar(dados, "notebook")["bens"][0]["pessoa"] == "ANA SILVA"
+    assert db.pesquisar(dados, "cadeira")["bens"][0]["pessoa"] is None
+
+
+def test_pesquisar_curingas_sao_literais(dados):
+    semear(dados)
+    dados.execute("INSERT INTO responsaveis (ccustos, responsavel) VALUES ('GEX-ITEC','X'), ('GEX-LIC','Y'), ('AGEX','Z')")
+    assert [c["ccustos"] for c in db.pesquisar(dados, "gex")["centros"]] == ["AGEX", "GEX-ITEC", "GEX-LIC"]
+    assert [c["ccustos"] for c in db.pesquisar(dados, "gex*")["centros"]] == ["GEX-ITEC", "GEX-LIC"]
+    assert [c["ccustos"] for c in db.pesquisar(dados, "%itec")["centros"]] == ["GEX-ITEC"]
+    assert [b["numero"] for b in db.pesquisar(dados, "note*ok")["bens"]] == [1002]
+    assert [b["numero"] for b in db.pesquisar(dados, "*book")["bens"]] == [1002]
+    assert db.pesquisar(dados, "book*")["bens"] == []
+
+
+def test_pesquisar_varias_palavras_todas_tem_que_bater(dados):
+    semear(dados)
+    assert [b["numero"] for b in db.pesquisar(dados, "notebook cci")["bens"]] == [1002]  # centro pela localização
+    assert [b["numero"] for b in db.pesquisar(dados, "cci ana")["bens"]] == [1002]  # pessoa
+    assert db.pesquisar(dados, "cadeira ana")["bens"] == []
+    assert [b["numero"] for b in db.pesquisar(dados, "mesa e cci")["bens"]] == [1003]  # "e" é conector
+    r = db.pesquisar(dados, "cci jaqueline")
+    assert [c["ccustos"] for c in r["centros"]] == ["CCI"] and r["bens"] == []  # nenhum bem casa "jaqueline"
+    assert db.pesquisar(dados, "cadeira")["bens"][0]["ccustos"] == "CCI"
+    assert db.pesquisar(dados, "armário")["bens"][0]["ccustos"] is None  # localização sem centro
+
+
+def test_pesquisar_limite(dados):
+    semear(dados)
+    r = db.pesquisar(dados, "sala", limite=2)
+    assert [b["numero"] for b in r["bens"]] == [1001, 1002] and r["truncado"] is True
+    assert db.pesquisar(dados, "sala")["truncado"] is False

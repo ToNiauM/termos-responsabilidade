@@ -207,3 +207,28 @@ def test_exportar_bens(cliente):
     r = cliente.get("/bens/exportar")
     assert r.status_code == 200 and r.headers["Content-Disposition"].endswith("bens.xlsx")
     assert b"Exportar bens" in cliente.get("/upload").data
+
+
+def test_pesquisa_numero_vai_para_ficha_e_texto_lista(cliente):
+    r = cliente.get("/pesquisa?q=1002")
+    assert r.status_code == 302 and r.headers["Location"].endswith("/bem?numero=1002")
+    r = cliente.get("/pesquisa?q=cci")
+    assert r.status_code == 200
+    assert b"JAQUELINE PORTELA" in r.data and b"CADEIRA" in r.data and b"/termo/ccusto/CCI" in r.data
+    assert b"/pesquisa?ccusto=CCI" in r.data
+    r = cliente.get("/pesquisa?q=ana")
+    assert b"ANA SILVA" in r.data and b"/pesquisa?pessoa=ANA" in r.data
+    r = cliente.get("/pesquisa?q=zzz")
+    assert "Nada encontrado".encode() in r.data
+    assert cliente.get("/pesquisa?q=9999").status_code == 200  # número inexistente cai na busca por texto
+
+
+def test_pesquisa_filtra_bens_de_centro_e_pessoa(cliente):
+    r = cliente.get("/pesquisa?ccusto=CCI")
+    assert b"CADEIRA" in r.data and b"NOTEBOOK" not in r.data and b"/termo/ccusto/CCI" in r.data
+    r = cliente.get("/pesquisa?pessoa=ANA SILVA")
+    assert b"NOTEBOOK" in r.data and b"CADEIRA" not in r.data and b"/termo/individual/ANA" in r.data
+
+
+def test_cabecalho_tem_campo_de_pesquisa(cliente):
+    assert b'action="/pesquisa"' in cliente.get("/").data

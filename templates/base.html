@@ -16,7 +16,7 @@
     <a class="br-item" href="#header-navigation" role="menuitem" accesskey="2">Ir para o menu <span aria-hidden="true">(2/3)</span></a>
     <a class="br-item" href="#footer" role="menuitem" accesskey="3">Ir para o rodapé <span aria-hidden="true">(3/3)</span></a>
   </nav>
-  <header class="br-header mb-4" data-no-search id="header" data-sticky="data-sticky">
+  <header class="br-header mb-4" id="header" data-sticky="data-sticky">
     <div class="container-lg">
       <div class="header-top">
         <div class="header-logo">
@@ -24,7 +24,11 @@
           <span class="br-divider vertical"></span>
           <div class="header-sign">{{ DSGOV.ORGAO }}</div>
         </div>
-        <div class="header-actions"></div>
+        <div class="header-actions">
+          <div class="header-search-trigger">
+            <button class="br-button circle" type="button" aria-label="Abrir pesquisa" data-toggle="search" data-target=".header-search"><i class="fas fa-search" aria-hidden="true"></i></button>
+          </div>
+        </div>
       </div>
       <div class="header-bottom">
         <div class="header-menu">
@@ -35,6 +39,14 @@
             <div class="header-title">{{ DSGOV.SISTEMA }}</div>
             <div class="header-subtitle">{{ DSGOV.SUBTITULO }}</div>
           </div>
+        </div>
+        <div class="header-search">
+          <form class="br-input has-icon" method="get" action="{{ url_for('pesquisa') }}">
+            <label for="pesquisa-q">Pesquisar</label>
+            <input id="pesquisa-q" name="q" type="text" placeholder="Número, descrição, nome ou centro de custo" value="{{ q or '' }}"/>
+            <button class="br-button circle small" type="submit" aria-label="Pesquisar"><i class="fas fa-search" aria-hidden="true"></i></button>
+          </form>
+          <button class="br-button circle search-close ml-1" type="button" aria-label="Fechar pesquisa" data-dismiss="search"><i class="fas fa-times" aria-hidden="true"></i></button>
         </div>
       </div>
     </div>

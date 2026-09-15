@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% from "_macros.html" import cabecalho_tabela %}
+{% block titulo %}{% if filtro %}Bens de {{ chave }}{% else %}Pesquisa{% endif %}{% endblock %}
+{% block conteudo %}
+{% set termo_url = url_for('termo', tipo=filtro, chave=chave) if filtro else None %}
+<div class="d-flex align-items-center mb-4">
+  <h1 class="mb-0">{% if filtro %}Bens de {{ chave }} ({{ bens|length }}){% else %}Pesquisa{% if q %}: “{{ q }}”{% endif %}{% endif %}</h1>
+  {% if filtro %}<a class="br-button primary ml-auto" href="{{ termo_url }}"><i class="fas fa-file-alt mr-1" aria-hidden="true"></i>{% if filtro == 'ccusto' %}Termo do centro de custo{% else %}Termo individual{% endif %}</a>{% endif %}
+</div>
+
+{% if not filtro and not q %}
+<p>Digite no campo de pesquisa um número de patrimônio, parte da descrição de um bem, o nome de uma pessoa ou a sigla de um centro de custo.</p>
+<p class="text-down-01">Várias palavras: todas precisam bater em algum campo do bem (descrição, complemento, localização, centro de custo, pessoa). <code>computador GEX-LIC</code> traz os computadores do GEX-LIC. Texto simples encontra o que <em>contém</em> o que foi digitado (GEX traz GEX-ITEC e AGEX). Com <code>*</code> o padrão é exato: <code>GEX*</code> só o que começa com GEX, <code>*ITEC</code> só o que termina com ITEC.</p>
+{% elif not filtro and not centros and not pessoas and not bens %}
+<div class="br-message info"><div class="icon"><i class="fas fa-info-circle fa-lg" aria-hidden="true"></i></div>
+  <div class="content" role="alert"><span class="message-title">Nada encontrado.</span><span class="message-body"> Tente outra palavra ou parte dela.</span></div></div>
+{% endif %}
+
+{% if centros %}
+<h2 class="text-up-01 mb-2">Centros de custo</h2>
+<div class="row mb-3">
+  {% for c in centros %}
+  <div class="col-sm-6 col-md-4 mb-3"><div class="br-card h-100"><div class="card-content">
+    <div class="text-weight-semi-bold text-up-01">{{ c.ccustos }}</div>
+    <div class="mb-2">{{ c.responsavel }} · {{ c.quantidade }} bem(ns) sob guarda</div>
+    <a class="br-button secondary small" href="{{ url_for('pesquisa', ccusto=c.ccustos) }}"><i class="fas fa-list mr-1" aria-hidden="true"></i>Ver bens</a>
+    <a class="br-button small" href="{{ url_for('termo', tipo='ccusto', chave=c.ccustos) }}"><i class="fas fa-file-alt mr-1" aria-hidden="true"></i>Termo</a>
+  </div></div></div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if pessoas %}
+<h2 class="text-up-01 mb-2">Pessoas</h2>
+<div class="row mb-3">
+  {% for p in pessoas %}
+  <div class="col-sm-6 col-md-4 mb-3"><div class="br-card h-100"><div class="card-content">
+    <div class="text-weight-semi-bold text-up-01">{{ p.nome }}</div>
+    <div class="mb-2">{{ p.quantidade }} bem(ns) atribuído(s)</div>
+    <a class="br-button secondary small" href="{{ url_for('pesquisa', pessoa=p.nome) }}"><i class="fas fa-list mr-1" aria-hidden="true"></i>Ver bens</a>
+    <a class="br-button small" href="{{ url_for('termo', tipo='individual', chave=p.nome) }}"><i class="fas fa-file-alt mr-1" aria-hidden="true"></i>Termo individual</a>
+  </div></div></div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if bens %}
+{% if not filtro %}<h2 class="text-up-01 mb-2">Bens</h2>{% endif %}
+{% if truncado %}
+<div class="br-message warning mb-3"><div class="icon"><i class="fas fa-exclamation-triangle fa-lg" aria-hidden="true"></i></div>
+  <div class="content" role="alert"><span class="message-title">Muitos resultados.</span><span class="message-body"> Só os {{ bens|length }} primeiros aparecem; refine a pesquisa.</span></div></div>
+{% endif %}
+{{ cabecalho_tabela('Bens encontrados', 'bens') }}
+  <thead><tr><th>Número</th><th>Descrição</th><th>Complemento</th><th>Localização</th><th>Situação</th>{% if not filtro %}<th>Centro</th><th>Pessoa</th>{% endif %}</tr></thead>
+  <tbody>
+  {% for b in bens %}
+  <tr>
+    <td><a href="{{ url_for('bem', numero=b.numero) }}">{{ b.numero }}</a></td>
+    <td>{{ b.descricao }}</td><td>{{ b.complemento or '' }}</td><td>{{ b.localizacao or '' }}</td><td>{{ b.situacao }}</td>
+    {% if not filtro %}<td>{{ b.ccustos or '' }}</td><td>{{ b.pessoa or '' }}</td>{% endif %}
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% elif filtro %}
+<div class="br-message warning"><div class="icon"><i class="fas fa-exclamation-triangle fa-lg" aria-hidden="true"></i></div>
+  <div class="content" role="alert"><span class="message-title">Nenhum bem.</span><span class="message-body"> {% if filtro == 'ccusto' %}Nenhum bem ativo nas localizações deste centro (bens atribuídos a pessoas não contam).{% else %}Nenhum bem atribuído a esta pessoa.{% endif %}</span></div></div>
+{% endif %}
+{% endblock %}

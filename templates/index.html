@@ -3,14 +3,14 @@
 {% block conteudo %}
 <div class="d-flex align-items-center mb-4"><h1 class="mb-0">Início</h1></div>
 <div class="br-card mb-4">
-  <div class="card-header"><div class="text-weight-semi-bold text-up-01">Consultar bem</div></div>
+  <div class="card-header"><div class="text-weight-semi-bold text-up-01">Pesquisar</div></div>
   <div class="card-content">
-    <form method="get" action="{{ url_for('bem') }}" class="d-flex align-items-end">
-      <div class="br-input mr-3">
-        <label for="numero">Número do patrimônio</label>
-        <input id="numero" name="numero" type="text" inputmode="numeric" placeholder="Ex.: 14359" required/>
+    <form method="get" action="{{ url_for('pesquisa') }}" class="d-flex align-items-end">
+      <div class="br-input mr-3 flex-fill">
+        <label for="q">Número do patrimônio, descrição, nome ou centro de custo</label>
+        <input id="q" name="q" type="text" placeholder="Ex.: 14359, computador, GEX* ou Antônio" required/>
       </div>
-      <button class="br-button primary" type="submit"><i class="fas fa-search mr-1" aria-hidden="true"></i>Consultar</button>
+      <button class="br-button primary" type="submit"><i class="fas fa-search mr-1" aria-hidden="true"></i>Pesquisar</button>
     </form>
   </div>
 </div>
