@@ -46,7 +46,8 @@ def _urls(itens, f, chave):
     return [url_recorte(f, **{chave: i["chave"]}) for i in itens]
 
 
-CURTOS = ("ano", "idade")   # rótulos realmente curtos (anos, faixas de idade): colunas servem; o resto → barras horizontais
+CURTOS = ("ano",)              # rótulos realmente curtos (anos): colunas servem; o resto → barras horizontais
+ORDINAIS = ("idade", "faixa")  # escalas ordenadas: sempre barras horizontais na ordem das faixas (rosca esconde a ordem)
 
 
 def _grafico(itens, f, chave):
@@ -56,7 +57,7 @@ def _grafico(itens, f, chave):
     recentes = chave == "ano"
     n = len(itens)
     top = itens[-TOP:] if recentes else itens[:TOP]
-    if n <= 5:
+    if n <= 5 and chave not in ORDINAIS:
         op = graficos.rosca([(i["rotulo"], i["quantidade"]) for i in itens], total=(sum(i["quantidade"] for i in itens), "bens"),
                             urls={i["rotulo"]: u for i, u in zip(itens, _urls(itens, f, chave))})
     elif chave in CURTOS:
@@ -64,7 +65,7 @@ def _grafico(itens, f, chave):
     else:
         op = graficos.barras_horizontais([i["rotulo"] for i in top], [i["quantidade"] for i in top], "Bens", escala=False, urls=_urls(top, f, chave))  # azul da marca em todas as barras (a escala clara ficava ilegível)
     sub = (f"{TOP} anos mais recentes no gráfico; todos na tabela" if recentes else f"{TOP} maiores no gráfico; todos na tabela") if n > TOP else None
-    barras = n > 5 and chave not in CURTOS
+    barras = (n > 5 or chave in ORDINAIS) and chave not in CURTOS
     colunas = n > 5 and chave in CURTOS
     if colunas and len(top) > 10:
         op["xAxis"]["axisLabel"] = {"interval": 0, "rotate": 45}   # 20 anos lado a lado não cabem na horizontal

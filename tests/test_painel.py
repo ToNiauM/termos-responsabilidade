@@ -56,7 +56,7 @@ def test_cards_graficos_tipos_urls_e_omissao(dados):
         assert por["g-situacao"]["opcoes"]["series"][0]["type"] == "pie"
         assert por["g-centro"]["opcoes"]["series"][0]["type"] == "pie"          # 2 itens (CCI, sem centro)
         assert por["g-classificacao"]["opcoes"]["series"][0]["type"] == "pie"   # 3 itens
-        assert por["g-idade"]["opcoes"]["series"][0]["type"] == "pie"           # 5 itens (faixas fixas)
+        assert por["g-idade"]["opcoes"]["yAxis"]["type"] == "category" and por["g-idade"]["opcoes"]["yAxis"]["data"][0] == "até 5 anos"   # ordinal → barras na ordem
         assert por["g-ano"]["opcoes"]["series"][0]["type"] == "pie"             # 5 itens
         assert por["g-faixa"]["opcoes"]["series"][0]["type"] == "bar" and por["g-faixa"]["opcoes"]["yAxis"]["type"] == "category"  # 6 itens, rótulo "R$ 1.000 a 5.000" → barras
         assert por["g-faixa"]["opcoes"]["yAxis"]["data"][0] == "até R$ 100"                                                    # faixas mantêm a ordem ordinal
