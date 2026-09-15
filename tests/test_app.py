@@ -58,7 +58,10 @@ def test_termo_sem_processo_vigente_nao_emite(cliente):
 
 
 def test_termo_com_processo_registra_ao_baixar_e_ao_copiar(cliente):
+    import db
     cliente.post("/cadastros/processos/incluir", data={"tipo": "ccusto", "descricao": "T", "numero_sei": "2222", "vigente": "1"})
+    assert cliente.get("/termo/ccusto/CCI/planilha").status_code == 200
+    assert db.termos_emitidos(db.conectar()) == []     # planilha não registra emissão
     r = cliente.get("/termo/ccusto/CCI")
     assert b'id="copiar"' in r.data and b"Nenhum termo registrado" in r.data
     assert cliente.get("/termo/ccusto/CCI/docx").status_code == 200
@@ -66,9 +69,7 @@ def test_termo_com_processo_registra_ao_baixar_e_ao_copiar(cliente):
     assert "Último termo registrado".encode() in r.data and b"Bens iguais aos de hoje" in r.data
     j = cliente.post("/termo/ccusto/CCI/registrar").get_json()
     assert j["id"] and j["emitido_em"][:4] == "2026"
-    assert cliente.get("/termo/ccusto/CCI/planilha").status_code == 200
-    import db
-    assert len(db.termos_emitidos(db.conectar())) == 1     # docx + registrar no mesmo dia = 1 registro; planilha não registra
+    assert len(db.termos_emitidos(db.conectar())) == 1     # docx + registrar no mesmo dia = 1 registro
 
 
 def test_termo_devolucao_registra_no_processo_de_devolucao(cliente):
