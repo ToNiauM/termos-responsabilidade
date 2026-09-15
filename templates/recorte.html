@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "_macros.html" import select, grafico, tag_termo, cabecalho_tabela %}
+{% block titulo %}Recorte{% endblock %}
+{% block conteudo %}
+<div class="d-flex align-items-center mb-3">
+  <h1 class="mb-0">Recorte</h1>
+  <div class="ml-auto">
+    {% if termo_de %}<a class="br-button primary" href="{{ url_for('termo', tipo=termo_de[0], chave=termo_de[1]) }}"><i class="fas fa-file-alt mr-1" aria-hidden="true"></i>Termo de {{ termo_de[1] }}</a> {{ tag_termo(termo_de[2]) }}{% endif %}
+    <a class="br-button secondary ml-2" href="{{ url_for('recorte_xlsx', **f) }}"><i class="fas fa-file-excel mr-1" aria-hidden="true"></i>Exportar .xlsx</a>
+  </div>
+</div>
+<p class="text-gray-70">{{ descricao }}</p>
+
+<form method="get" class="br-card mb-4"><div class="card-content row">
+  <div class="col-md-3 mb-3">{{ select('situacao', 'Situação', [('', 'Todas')] + opcoes.situacoes, selecionado=f.get('situacao', ''), obrigatorio=False) }}</div>
+  <div class="col-md-3 mb-3">{{ select('ccusto', 'Centro de custo', [('', 'Todos'), ('-', 'Sem centro')] + opcoes.centros, selecionado=f.get('ccusto', ''), obrigatorio=False) }}</div>
+  <div class="col-md-3 mb-3">{{ select('pessoa', 'Pessoa', [('', 'Todas')] + opcoes.pessoas, selecionado=f.get('pessoa', ''), obrigatorio=False) }}</div>
+  <div class="col-md-3 mb-3">{{ select('localizacao', 'Localização', [('', 'Todas')] + opcoes.localizacoes, selecionado=f.get('localizacao', ''), obrigatorio=False) }}</div>
+  <div class="col-md-3 mb-3">{{ select('classificacao', 'Classificação', [('', 'Todas'), ('imoveis', 'Imóveis'), ('sem-imoveis', 'Sem imóveis')] + opcoes.classificacoes, selecionado=f.get('classificacao', ''), obrigatorio=False) }}</div>
+  <div class="col-md-3 mb-3">{{ select('idade', 'Idade', [('', 'Todas')] + opcoes.idades, selecionado=f.get('idade', ''), obrigatorio=False) }}</div>
+  <div class="col-md-3 mb-3"><div class="br-input"><label for="valor_de">Valor de (R$)</label><input id="valor_de" name="valor_de" type="text" inputmode="decimal" value="{{ f.get('valor_de', '') }}"/></div></div>
+  <div class="col-md-3 mb-3"><div class="br-input"><label for="valor_ate">Valor até (R$)</label><input id="valor_ate" name="valor_ate" type="text" inputmode="decimal" value="{{ f.get('valor_ate', '') }}"/></div></div>
+  <div class="col-md-3 mb-3"><div class="br-input"><label for="entrada_de">Entrada de</label><input id="entrada_de" name="entrada_de" type="date" value="{{ f.get('entrada_de', '') }}"/></div></div>
+  <div class="col-md-3 mb-3"><div class="br-input"><label for="entrada_ate">Entrada até</label><input id="entrada_ate" name="entrada_ate" type="date" value="{{ f.get('entrada_ate', '') }}"/></div></div>
+  {% if f.get('ano') %}<input type="hidden" name="ano" value="{{ f.ano }}"/>{% endif %}
+  {% if f.get('faixa') %}<input type="hidden" name="faixa" value="{{ f.faixa }}"/>{% endif %}
+  <div class="col-md-6 mb-3 d-flex align-items-end">
+    <button class="br-button primary" type="submit"><i class="fas fa-filter mr-1" aria-hidden="true"></i>Aplicar</button>
+    <a class="br-button ml-2" href="{{ url_for('recorte') }}">Limpar</a>
+  </div>
+</div></form>
+
+<div class="row mb-2">
+  <div class="col-sm-6 col-md-3 mb-3"><div class="br-card h-100"><div class="card-content"><div class="text-up-03 text-weight-bold">{{ r.quantidade }}</div><div class="text-down-01 text-gray-70">bens no recorte</div></div></div></div>
+  <div class="col-sm-6 col-md-3 mb-3"><div class="br-card h-100"><div class="card-content"><div class="text-up-03 text-weight-bold">{{ moeda(r.valor_total) }}</div><div class="text-down-01 text-gray-70">valor atual</div></div></div></div>
+</div>
+
+<div class="row">{% for g in cards %}{{ grafico(g) }}{% endfor %}</div>
+
+{% if r.truncado %}
+<div class="br-message warning mb-3"><div class="icon"><i class="fas fa-exclamation-triangle fa-lg" aria-hidden="true"></i></div>
+  <div class="content" role="alert"><span class="message-title">Muitos bens.</span><span class="message-body"> A tabela mostra os {{ r.bens|length }} primeiros de {{ r.quantidade }}; refine o recorte ou exporte o .xlsx completo.</span></div></div>
+{% endif %}
+{{ cabecalho_tabela('Bens do recorte', 'bens') }}
+  <thead><tr><th scope="col">Número</th><th scope="col">Descrição</th><th scope="col">Complemento</th><th scope="col">Localização</th><th scope="col">Centro</th><th scope="col">Pessoa</th><th scope="col">Classificação</th><th scope="col">Entrada</th><th scope="col" class="dsgov-numero">Valor</th></tr></thead>
+  <tbody>
+  {% for b in r.bens %}
+  <tr><td><a href="{{ url_for('bem', numero=b.numero) }}">{{ b.numero }}</a></td><td>{{ b.descricao }}</td><td>{{ b.complemento or '' }}</td><td>{{ b.localizacao or '' }}</td><td>{{ b.ccustos or '' }}</td><td>{{ b.pessoa or '' }}</td><td>{{ b.classificacao or '' }}</td><td>{{ b.data_entrada or '' }}</td><td class="dsgov-numero">{{ moeda(b.valor_atual) }}</td></tr>
+  {% else %}<tr><td colspan="9">Nenhum bem neste recorte.</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='dsgov/vendor/echarts/echarts.min.js') }}"></script>
+<script src="{{ url_for('static', filename='dsgov/js/echarts-dsgov.js') }}"></script>
+{% endblock %}

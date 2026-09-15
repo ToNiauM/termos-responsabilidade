@@ -28,6 +28,7 @@ def contexto_dsgov():
         ("Termo individual", "fa-user-check", url_for("termos_individuais")),
         ("Termo de devolução", "fa-box-open", url_for("termo_devolucao")),
         ("Termos emitidos", "fa-history", url_for("termos_emitidos_tela")),
+        ("Recorte", "fa-filter", url_for("recorte")),
         ("Cadastros", "fa-address-book", url_for("cadastros", aba="responsaveis")),
         ("Textos", "fa-file-signature", url_for("textos_tela")),
         ("Atualizar base", "fa-upload", url_for("upload")),
@@ -72,9 +73,50 @@ def home():
                            moeda=painel.moeda, url_recorte=painel.url_recorte, trilha=[])
 
 
+def _filtros_recorte() -> dict:
+    """Filtros da query string. situacao ausente = ATIVO; situacao vazia (campo enviado em branco) = todas.
+    Valores em R$ aceitam vírgula decimal e ponto de milhar."""
+    f = {k: request.args.get(k, "").strip() for k in db.FILTROS}
+    if "situacao" not in request.args:
+        f["situacao"] = "ATIVO"
+    for k in ("valor_de", "valor_ate"):
+        if f[k]:
+            v = f[k].replace("R$", "").strip()
+            f[k] = v.replace(".", "").replace(",", ".") if "," in v else v
+            try:
+                float(f[k])
+            except ValueError:
+                raise db.ErroDeNegocio(f"Valor inválido: {v}")
+    return {k: v for k, v in f.items() if v}
+
+
 @app.route("/recorte")
 def recorte():
-    return redirect(url_for("home"))   # completada na Task 13
+    conn = obter_conn()
+    f = _filtros_recorte()
+    r = db.recorte(conn, f)
+    omitir = tuple(k for k in ("situacao", "ccusto", "classificacao", "localizacao", "idade", "ano", "faixa", "pessoa")
+                   if f.get(k) and f.get(k) not in ("imoveis", "sem-imoveis"))
+    nomes = {"idade": dict(db.FAIXAS_IDADE).get(f.get("idade")), "faixa": dict(db.FAIXAS_VALOR).get(f.get("faixa"))}
+    termo_de = None
+    if f.get("pessoa"):
+        termo_de = ("individual", f["pessoa"], db.situacao_termo(conn, "individual", f["pessoa"], db.bens_da_pessoa(conn, f["pessoa"])))
+    elif f.get("ccusto") and f["ccusto"] != "-" and db.responsavel(conn, f["ccusto"]):
+        termo_de = ("ccusto", f["ccusto"], db.situacao_termo(conn, "ccusto", f["ccusto"], db.bens_do_centro(conn, f["ccusto"])))
+    opcoes = {
+        "situacoes": [r[0] for r in conn.execute("SELECT DISTINCT situacao FROM bens ORDER BY 1")],
+        "classificacoes": [r[0] for r in conn.execute("SELECT DISTINCT classificacao FROM bens WHERE classificacao <> '' ORDER BY 1")],
+        "localizacoes": [r[0] for r in conn.execute("SELECT DISTINCT localizacao FROM bens WHERE localizacao <> '' ORDER BY 1")],
+        "centros": [c["ccustos"] for c in db.centros(conn)], "pessoas": db.pessoas(conn), "idades": db.FAIXAS_IDADE,
+    }
+    return render_template("recorte.html", f=f, r=r, cards=painel.cards_graficos(r["dimensoes"], f, omitir), termo_de=termo_de,
+                           descricao=painel.descrever(f, nomes), opcoes=opcoes, moeda=painel.moeda,
+                           trilha=[("Recorte", None)])
+
+
+@app.route("/recorte/xlsx")
+def recorte_xlsx():
+    return _baixar(db.exportar_recorte(obter_conn(), _filtros_recorte(), io.BytesIO()), "recorte.xlsx")
 
 
 @app.route("/bem")

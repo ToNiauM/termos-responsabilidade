@@ -340,3 +340,19 @@ def test_listas_mostram_situacao_do_termo(cliente):
     cliente.post("/cadastros/processos/incluir", data={"tipo": "ccusto", "descricao": "T", "numero_sei": "2", "vigente": "1"})
     cliente.get("/termo/ccusto/CCI/docx")
     assert b"vigente" in cliente.get("/centro-custos").data
+
+
+def test_recorte_tela_filtros_termo_e_xlsx(cliente):
+    r = cliente.get("/recorte")
+    assert r.status_code == 200 and b"Bens ATIVO" in r.data and b"1001" in r.data and b"1003" not in r.data
+    assert b'data-grafico="g-situacao"' not in r.data and b'data-grafico="g-centro"' in r.data
+    r = cliente.get("/recorte?situacao=ATIVO&ccusto=CCI")
+    assert b"centro de custo CCI" in r.data and b"/termo/ccusto/CCI" in r.data and b"sem termo" in r.data
+    assert b'data-grafico="g-centro"' not in r.data and b"/recorte?situacao=ATIVO&amp;ccusto=CCI&amp;faixa=" in r.data
+    r = cliente.get("/recorte?pessoa=ANA SILVA")
+    assert b"/termo/individual/ANA" in r.data and b"NOTEBOOK" in r.data and b"CADEIRA" not in r.data
+    r = cliente.get("/recorte?situacao=&valor_de=1.000,00&valor_ate=2000")
+    assert b"NOTEBOOK" in r.data and b"CADEIRA" not in r.data and b"todas as situa" in r.data
+    r = cliente.get("/recorte/xlsx?ccusto=CCI")
+    assert r.status_code == 200 and r.headers["Content-Disposition"].endswith("recorte.xlsx")
+    assert b"Recorte" in cliente.get("/").data       # menu
