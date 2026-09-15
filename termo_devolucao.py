@@ -26,6 +26,7 @@ def gerar_termo_devolucao(nome, bens, destino, textos=None):
         return None
     doc = Document(str(config.caminho_timbrado()))
     t = textos or textos_mod.PADRAO
+    nome = textos_mod.nome_proprio(nome)
     campos = dict(textos_mod.campos_gerais(t), nome=nome, cidade=t["cidade"], data=data_por_extenso(date.today()))
 
     # Título

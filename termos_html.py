@@ -53,14 +53,20 @@ def _p(texto: str, classe: str = "semrecuo") -> str:
     return f'<p class="{classe}">{esc(texto)}</p>'
 
 
-def _abertura(texto: str, campos: dict) -> str:
-    antes, nome, depois = textos_mod.com_nome(texto, campos)
+def _negrito(texto: str, campos: dict, marcador: str = "nome") -> str:
+    """Texto com marcadores substituídos e o nome (marcador) em negrito."""
+    antes, nome, depois = textos_mod.com_nome(texto, campos, marcador)
     meio = f"<b>{esc(nome)}</b>" if nome is not None else ""
-    return f'<p class="semrecuo">{esc(antes)}{meio}{esc(depois)}</p>'
+    return f"{esc(antes)}{meio}{esc(depois)}"
+
+
+def _abertura(texto: str, campos: dict) -> str:
+    return f'<p class="semrecuo">{_negrito(texto, campos)}</p>'
 
 
 def corpo_individual(nome: str, bens: list[dict], textos: dict | None = None) -> str:
     t = textos or textos_mod.PADRAO
+    nome = textos_mod.nome_proprio(nome)
     campos = dict(textos_mod.campos_gerais(t), nome=nome)
     linhas = [[b["numero"], b["descricao"], b["complemento"], formatar_moeda(b["valor_atual"])] for b in bens]
     return (
@@ -77,13 +83,13 @@ def corpo_individual(nome: str, bens: list[dict], textos: dict | None = None) ->
 def corpo_ccusto(ccustos: str, responsavel: dict, bens: list[dict], textos: dict | None = None) -> str:
     t = textos or textos_mod.PADRAO
     campos = {k: responsavel.get(k) or "" for k in ("responsavel", "matricula", "funcao")}
-    campos.update(textos_mod.campos_gerais(t), ccustos=ccustos)
+    campos.update(textos_mod.campos_gerais(t), ccustos=ccustos, responsavel=textos_mod.nome_proprio(campos["responsavel"]))
     linhas = [[b["numero"], b["descricao"], b["complemento"], b["localizacao"], formatar_moeda(b["valor_atual"])]
               for b in sorted(bens, key=lambda b: b["numero"])]
-    assinatura = "<br>".join(esc(l.format_map(campos)) for l in textos_mod.linhas(t["ccusto_assinatura"]))
+    assinatura = "<br>".join(_negrito(l, campos, "responsavel") for l in textos_mod.linhas(t["ccusto_assinatura"]))
     return (
         f"<h1>{esc(t['ccusto_titulo'].format_map(campos))}</h1>"
-        + "".join(f"<p>{esc(p.format_map(campos))}</p>" for p in textos_mod.paragrafos(t["ccusto_paragrafos"]))
+        + "".join(f"<p>{_negrito(p, campos, 'responsavel')}</p>" for p in textos_mod.paragrafos(t["ccusto_paragrafos"]))
         + tabela(["Número Bem", "Descrição", "Complemento", "Localização", "Valor Atual"], linhas, "100%", _total(bens), 4)
         + f'<p class="assinatura">{assinatura}</p>'
     )
@@ -92,6 +98,7 @@ def corpo_ccusto(ccustos: str, responsavel: dict, bens: list[dict], textos: dict
 def corpo_devolucao(nome: str, bens: list[dict], hoje: date | None = None, textos: dict | None = None) -> str:
     t = textos or textos_mod.PADRAO
     hoje = hoje or date.today()
+    nome = textos_mod.nome_proprio(nome)
     campos = dict(textos_mod.campos_gerais(t), nome=nome, cidade=t["cidade"], data=data_por_extenso(hoje))
     linhas = [[b["numero"], b["descricao"], b["complemento"], formatar_moeda(b["valor_atual"])] for b in bens]
     return (

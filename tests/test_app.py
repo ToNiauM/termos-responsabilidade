@@ -231,7 +231,7 @@ def test_textos_salvar_reflete_no_documento_e_restaurar(cliente):
     assert "Textos salvos".encode() in r.data and "Órgão X".encode() in r.data  # header usa orgao_nome
     assert b'<div class="header-subtitle">SN</div>' in r.data  # e unidade_sigla no subtítulo
     doc = cliente.get("/termo/individual/ANA SILVA/documento").data.decode()
-    assert "TESTE <b>ANA SILVA</b>." in doc
+    assert "TESTE <b>Ana Silva</b>." in doc
     r = cliente.post("/textos", data={"restaurar": "individual_abertura"}, follow_redirects=True)
     assert "Padrão restaurado".encode() in r.data
     doc = cliente.get("/termo/individual/ANA SILVA/documento").data.decode()

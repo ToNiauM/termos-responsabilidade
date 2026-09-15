@@ -71,3 +71,14 @@ def test_unidade_gestora_entra_como_marcador_em_todos_os_termos():
         assert "{unidade_sigla}" in textos.PADRAO[chave]
         textos.validar(chave, "só a {unidade_nome} ({unidade_sigla})")
     assert "Gersev" not in "".join(v for k, v in textos.PADRAO.items() if k != "unidade_sigla")
+
+
+def test_nome_proprio():
+    assert textos.nome_proprio("ANTÔNIO RODRIGUES DE SOUSA JÚNIOR") == "Antônio Rodrigues de Sousa Júnior"
+    assert textos.nome_proprio("MARIA DAS DORES E SILVA-LIMA") == "Maria das Dores e Silva-Lima"
+    assert textos.nome_proprio("Elys Tevania Alves de Souza") == "Elys Tevania Alves de Souza"
+    assert textos.nome_proprio("DE") == "De" and textos.nome_proprio(None) == ""
+
+
+def test_com_nome_com_outro_marcador():
+    assert textos.com_nome("Eu, {responsavel}, do {orgao_sigla}.", {"responsavel": "ANA", "orgao_sigla": "CFC"}, "responsavel") == ("Eu, ", "ANA", ", do CFC.")

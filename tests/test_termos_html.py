@@ -8,7 +8,7 @@ from tests.test_docx import bens
 def test_individual_tabela_80_por_cento_e_total():
     html = th.corpo_individual("ANA SILVA", bens())
     assert "width:80%" in html and "TERMO DE RESPONSABILIDADE" in html
-    assert "<b>ANA SILVA</b>" in html and "R$ 1.564,54" in html
+    assert "<b>Ana Silva</b>" in html and "ANA SILVA" not in html and "R$ 1.564,54" in html
     assert html.count("<tr") == 4  # cabeçalho + 2 + total
 
 
@@ -17,6 +17,7 @@ def test_ccusto_tabela_100_por_cento_e_texto_do_responsavel():
     html = th.corpo_ccusto("CCI", resp, bens())
     assert "width:100%" in html and "Termo de Responsabilidade - CCI" in html
     assert "matrícula n.º 46" in html and "Localização" in html
+    assert html.count("<b>Jaqueline</b>") == 2  # abertura e assinatura, em nome próprio
 
 
 def test_devolucao_com_data_e_assinaturas():
@@ -29,14 +30,14 @@ def test_devolucao_com_data_e_assinaturas():
 def test_documento_envelopa_com_titulo_e_escapa():
     html = th.documento("Termo", th.corpo_individual("A <B>", []))
     assert html.startswith("<!DOCTYPE html>") and "<title>Termo</title>" in html
-    assert "A &lt;B&gt;" in html
+    assert "A &lt;b&gt;" in html  # nome vai para nome próprio e é escapado
 
 
 def test_individual_com_texto_alterado_e_nome_em_negrito():
     t = dict(textos.PADRAO, individual_abertura="TESTE {nome} do {orgao_sigla}.",
              individual_compromissos="a\nb\nc", orgao_sigla="XYZ")
     html = th.corpo_individual("ANA SILVA", bens(), textos=t)
-    assert "TESTE <b>ANA SILVA</b> do XYZ." in html
+    assert "TESTE <b>Ana Silva</b> do XYZ." in html
     assert html.count("<p class=\"semrecuo\">a</p>") == 1 and "<p class=\"semrecuo\">c</p>" in html
 
 

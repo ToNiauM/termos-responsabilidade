@@ -32,7 +32,7 @@ def test_termo_centro_e_planilha(dados, tmp_path):
     destino = gerar_termo_centro("CCI", resp, bens(), tmp_path / "c.docx")
     tab = linhas(destino)
     assert len(tab) == 4 and tab[3].cells[4].text == "R$ 1.564,54"
-    assert "JAQUELINE" in Document(destino).paragraphs[-1].text
+    assert "Jaqueline" in Document(destino).paragraphs[-1].text
     xlsx = gerar_planilha_centro(bens(), tmp_path / "c.xlsx")
     ws = load_workbook(xlsx).active
     assert ws.max_row == 3 and ws["A1"].value == "numero"
@@ -56,7 +56,7 @@ def test_individual_com_textos_alterados(dados, tmp_path):
     destino = criar_termo_responsabilidade("ANA SILVA", bens(), tmp_path / "t.docx", textos=t)
     doc = Document(destino)
     abertura = next(p for p in doc.paragraphs if p.text.startswith("TESTE"))
-    assert [r.text for r in abertura.runs] == ["TESTE ", "ANA SILVA", " do XYZ."] and abertura.runs[1].bold
+    assert [r.text for r in abertura.runs] == ["TESTE ", "Ana Silva", " do XYZ."] and abertura.runs[1].bold
     corpo = texto(destino)
     assert "\na\n" in corpo and "\nc\n" in corpo and corpo.rstrip().endswith("Assinado via X")
 
@@ -69,7 +69,8 @@ def test_centro_com_paragrafos_e_assinatura_dos_textos(dados, tmp_path):
     destino = gerar_termo_centro("CCI", resp, bens(), tmp_path / "c.docx", textos=t)
     corpo = texto(destino)
     assert "Primeiro CCI.\nSegundo do XYZ." in corpo
-    assert Document(destino).paragraphs[-1].text == "JAQUELINE\nChefe"
+    assinatura = Document(destino).paragraphs[-1]
+    assert assinatura.text == "Jaqueline\nChefe" and assinatura.runs[0].text == "Jaqueline" and assinatura.runs[0].bold
 
 
 def test_devolucao_com_recebedor_e_cidade_dos_textos(dados, tmp_path):

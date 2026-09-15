@@ -23,6 +23,7 @@ def criar_termo_responsabilidade(nome, bens, destino, textos=None):
     """bens: lista de dicts com numero, descricao, complemento, valor_atual. Grava em destino."""
     t = textos or textos_mod.PADRAO
     doc = Document(str(config.caminho_timbrado()))
+    nome = textos_mod.nome_proprio(nome)
     campos = dict(textos_mod.campos_gerais(t), nome=nome)
 
     p = doc.add_heading(level=1)

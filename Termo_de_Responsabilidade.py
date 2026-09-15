@@ -11,12 +11,23 @@ def formatar_moeda(valor):
     return f"R$ {valor:,.2f}".replace(",", "v").replace(".", ",").replace("v", ".")
 
 
+def _runs_com_negrito(paragrafo, texto, campos):
+    """Texto com marcadores substituídos; o {responsavel} sai em negrito."""
+    antes, nome, depois = textos_mod.com_nome(texto, campos, "responsavel")
+    if antes:
+        paragrafo.add_run(antes)
+    if nome is not None:
+        paragrafo.add_run(nome).bold = True
+        if depois:
+            paragrafo.add_run(depois)
+
+
 def gerar_termo_centro(ccustos, responsavel, bens, destino, textos=None):
     """Um termo para um centro de custo. responsavel: dict de db.responsaveis; bens: dicts de db.bens."""
     documento = Document(str(config.caminho_timbrado()))
     t = textos or textos_mod.PADRAO
     campos = {k: responsavel.get(k) or "" for k in ("responsavel", "matricula", "funcao")}
-    campos.update(textos_mod.campos_gerais(t), ccustos=ccustos)
+    campos.update(textos_mod.campos_gerais(t), ccustos=ccustos, responsavel=textos_mod.nome_proprio(campos["responsavel"]))
     cabecalho = documento.add_paragraph()
     cabecalho_run = cabecalho.add_run(t["ccusto_titulo"].format_map(campos))
     cabecalho_run.font.bold = True
@@ -30,7 +41,7 @@ def gerar_termo_centro(ccustos, responsavel, bens, destino, textos=None):
         paragrafo = documento.add_paragraph()
         paragrafo.paragraph_format.first_line_indent = Inches(0.59)
         paragrafo.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        paragrafo.add_run(paragraph.format_map(campos))
+        _runs_com_negrito(paragrafo, paragraph, campos)
 
     tabela = documento.add_table(rows=1, cols=5)
     tabela.style = 'Table Grid'
@@ -81,7 +92,10 @@ def gerar_termo_centro(ccustos, responsavel, bens, destino, textos=None):
 
     documento.add_paragraph()
     paragrafo_assinatura = documento.add_paragraph()
-    paragrafo_assinatura.add_run("\n".join(l.format_map(campos) for l in textos_mod.linhas(t["ccusto_assinatura"])))
+    for i, linha in enumerate(textos_mod.linhas(t["ccusto_assinatura"])):
+        if i:
+            paragrafo_assinatura.add_run("\n")
+        _runs_com_negrito(paragrafo_assinatura, linha, campos)
     paragrafo_assinatura.alignment = WD_ALIGN_PARAGRAPH.CENTER
     for run in paragrafo_assinatura.runs:
         run.font.size = Pt(12)

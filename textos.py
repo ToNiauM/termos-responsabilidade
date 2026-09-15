@@ -173,9 +173,22 @@ def linhas(texto: str) -> list[str]:
     return [l.strip() for l in texto.splitlines() if l.strip()]
 
 
-def com_nome(texto: str, campos: dict) -> tuple[str, str | None, str]:
-    """Divide em (antes, nome, depois) para o nome sair em negrito; sem {nome}, devolve (texto, None, '')."""
-    antes, marcador, depois = texto.partition("{nome}")
-    if not marcador:
+def com_nome(texto: str, campos: dict, marcador: str = "nome") -> tuple[str, str | None, str]:
+    """Divide em (antes, nome, depois) para o nome sair em negrito; sem o marcador, devolve (texto, None, '')."""
+    antes, achou, depois = texto.partition("{" + marcador + "}")
+    if not achou:
         return antes.format_map(campos), None, ""
-    return antes.format_map(campos), str(campos.get("nome", "")), depois.format_map(campos)
+    return antes.format_map(campos), str(campos.get(marcador, "")), depois.format_map(campos)
+
+
+_PARTICULAS = {"de", "da", "do", "das", "dos", "e"}
+
+
+def nome_proprio(nome) -> str:
+    """'ANTÔNIO DE SOUSA JÚNIOR' -> 'Antônio de Sousa Júnior'. O banco guarda pessoas em caixa alta (é a chave);
+    nos documentos o nome sai assim."""
+    saida = []
+    for i, palavra in enumerate(str(nome or "").split()):
+        baixa = palavra.lower()
+        saida.append(baixa if i and baixa in _PARTICULAS else "-".join(p.capitalize() for p in baixa.split("-")))
+    return " ".join(saida)
