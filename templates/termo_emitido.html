@@ -11,7 +11,7 @@
     <div class="col-md-3"><dt>Emitido em</dt><dd>{{ t.emitido_em[8:10] }}/{{ t.emitido_em[5:7] }}/{{ t.emitido_em[:4] }} {{ t.emitido_em[11:16] }}</dd></div>
     <div class="col-md-3"><dt>Processo SEI</dt><dd>{{ t.numero_sei }}<br/><span class="text-gray-70">{{ t.processo }}</span></dd></div>
     <div class="col-md-2"><dt>Bens</dt><dd>{{ t.quantidade }}</dd></div>
-    <div class="col-md-2"><dt>Valor total</dt><dd>R$ {{ '%.2f'|format(t.valor_total) }}</dd></div>
+    <div class="col-md-2"><dt>Valor total</dt><dd>{{ (t.valor_total)|moeda }}</dd></div>
   </dl>
   <form method="post" action="{{ url_for('termo_emitido_documento', id=t.id) }}" class="d-flex align-items-end">
     <div class="br-input mr-2"><label for="documento_sei">Número do documento no SEI</label><input id="documento_sei" name="documento_sei" type="text" value="{{ t.documento_sei or '' }}"/></div>
@@ -22,7 +22,7 @@
   <thead><tr><th scope="col">Número</th><th scope="col">Descrição</th><th scope="col">Complemento</th><th scope="col">Localização</th><th scope="col" class="dsgov-numero">Valor</th></tr></thead>
   <tbody>
   {% for b in t.bens %}
-  <tr><td><a href="{{ url_for('bem', numero=b.numero) }}">{{ b.numero }}</a></td><td>{{ b.descricao }}</td><td>{{ b.complemento or '' }}</td><td>{{ b.localizacao or '' }}</td><td class="dsgov-numero">R$ {{ '%.2f'|format(b.valor_atual or 0) }}</td></tr>
+  <tr><td><a href="{{ url_for('bem', numero=b.numero) }}">{{ b.numero }}</a></td><td>{{ b.descricao }}</td><td>{{ b.complemento or '' }}</td><td>{{ b.localizacao or '' }}</td><td class="dsgov-numero">{{ (b.valor_atual or 0)|moeda }}</td></tr>
   {% endfor %}
   </tbody>
 </table></div>

@@ -19,6 +19,7 @@ app = Flask(__name__, template_folder=str(config.pasta_recursos() / "templates")
             static_folder=str(config.pasta_recursos() / "static"))
 app.secret_key = "termos-cfc-local"  # sessão só guarda seleção de bens; programa roda em 127.0.0.1
 app.register_blueprint(inventario_bp)
+app.template_filter("moeda")(painel.moeda)   # R$ 1.234,56 em todas as telas
 
 DSGOV_FIXO = {"SISTEMA": "Termos de Responsabilidade", "SUBTITULO": "Setor de Patrimônio"}
 

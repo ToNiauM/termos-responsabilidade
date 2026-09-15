@@ -13,7 +13,7 @@
   <tbody>
   {% for p in pessoas %}
   <tr>
-    <td>{{ p.nome }}</td><td class="dsgov-numero">{{ p.quantidade }}</td><td class="dsgov-numero">R$ {{ '%.2f'|format(p.valor) }}</td>
+    <td>{{ p.nome }}</td><td class="dsgov-numero">{{ p.quantidade }}</td><td class="dsgov-numero">{{ (p.valor)|moeda }}</td>
     <td>{% if p.ultimo %}{{ p.ultimo.emitido_em[8:10] }}/{{ p.ultimo.emitido_em[5:7] }}/{{ p.ultimo.emitido_em[:4] }}{% else %}—{% endif %}</td>
     <td>{{ tag_termo(p) }}</td>
     <td class="dsgov-acoes"><a class="br-button circle small" href="{{ url_for('termo', tipo='individual', chave=p.nome) }}" aria-label="Termo de {{ p.nome }}"><i class="fas fa-file-alt" aria-hidden="true"></i></a></td>

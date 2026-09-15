@@ -14,7 +14,7 @@
   {% for c in centros %}
   <tr>
     <td>{{ c.ccustos }}</td><td>{{ c.responsavel }}</td>
-    <td class="dsgov-numero">{{ c.quantidade }}</td><td class="dsgov-numero">R$ {{ '%.2f'|format(c.valor) }}</td>
+    <td class="dsgov-numero">{{ c.quantidade }}</td><td class="dsgov-numero">{{ (c.valor)|moeda }}</td>
     <td>{% if c.ultimo %}{{ c.ultimo.emitido_em[8:10] }}/{{ c.ultimo.emitido_em[5:7] }}/{{ c.ultimo.emitido_em[:4] }}{% else %}—{% endif %}</td>
     <td>{{ tag_termo(c) }}</td>
     <td class="dsgov-acoes"><a class="br-button circle small" href="{{ url_for('termo', tipo='ccusto', chave=c.ccustos) }}" aria-label="Termo de {{ c.ccustos }}"><i class="fas fa-file-alt" aria-hidden="true"></i></a></td>

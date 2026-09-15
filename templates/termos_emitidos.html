@@ -15,7 +15,7 @@
   <tr>
     <td><a href="{{ url_for('termo_emitido_tela', id=t.id) }}">{{ t.emitido_em[8:10] }}/{{ t.emitido_em[5:7] }}/{{ t.emitido_em[:4] }} {{ t.emitido_em[11:16] }}</a></td>
     <td>{{ rotulos[t.tipo] }}</td><td>{{ t.chave }}</td>
-    <td class="dsgov-numero">{{ t.quantidade }}</td><td class="dsgov-numero">R$ {{ '%.2f'|format(t.valor_total) }}</td>
+    <td class="dsgov-numero">{{ t.quantidade }}</td><td class="dsgov-numero">{{ (t.valor_total)|moeda }}</td>
     <td>{{ t.numero_sei }} · {{ t.processo }}</td><td>{{ t.documento_sei or '—' }}</td>
   </tr>
   {% else %}

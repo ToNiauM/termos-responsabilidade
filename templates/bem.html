@@ -11,7 +11,7 @@
     <div class="col-md-6"><dt>Complemento</dt><dd>{{ bem.complemento or '—' }}</dd></div>
     <div class="col-md-6"><dt>Situação</dt><dd>{{ bem.situacao }}</dd></div>
     <div class="col-md-6"><dt>Localização</dt><dd>{{ bem.localizacao or '—' }}</dd></div>
-    <div class="col-md-6"><dt>Valor atual</dt><dd>R$ {{ '%.2f'|format(bem.valor_atual or 0) }}</dd></div>
+    <div class="col-md-6"><dt>Valor atual</dt><dd>{{ (bem.valor_atual or 0)|moeda }}</dd></div>
     <div class="col-md-6"><dt>Centro de custo</dt>
       <dd>{% if bem.ccustos %}<a href="{{ url_for('termo', tipo='ccusto', chave=bem.ccustos) }}">{{ bem.ccustos }}</a> — {{ bem.responsavel }}{% else %}sem mapeamento{% endif %}</dd></div>
     <div class="col-md-6"><dt>Responsável individual</dt>

@@ -16,11 +16,11 @@
     <thead><tr><th scope="col">Patrimônio</th><th scope="col">Descrição</th><th scope="col">Complemento</th><th scope="col" class="dsgov-numero">Valor atual</th><th scope="col" class="dsgov-acoes">Ações</th></tr></thead>
     <tbody>
     {% for b in bens %}
-    <tr><td>{{ b.numero }}</td><td>{{ b.descricao }}</td><td>{{ b.complemento }}</td><td class="dsgov-numero">R$ {{ '%.2f'|format(b.valor_atual or 0) }}</td>
+    <tr><td>{{ b.numero }}</td><td>{{ b.descricao }}</td><td>{{ b.complemento }}</td><td class="dsgov-numero">{{ (b.valor_atual or 0)|moeda }}</td>
       <td class="dsgov-acoes"><form method="post" class="d-inline"><input type="hidden" name="nome" value="{{ nome or '' }}"/><input type="hidden" name="remover" value="{{ b.numero }}"/>
         <button class="br-button circle small" type="submit" aria-label="Remover {{ b.numero }}"><i class="fas fa-trash" aria-hidden="true"></i></button></form></td></tr>
     {% endfor %}
-    <tr><td colspan="3" class="text-weight-bold">TOTAL</td><td class="dsgov-numero text-weight-bold">R$ {{ '%.2f'|format(total) }}</td><td></td></tr>
+    <tr><td colspan="3" class="text-weight-bold">TOTAL</td><td class="dsgov-numero text-weight-bold">{{ (total)|moeda }}</td><td></td></tr>
     </tbody>
   </table>
 </div>
