@@ -5,7 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 TERMOS_DADOS=/app/dados
 WORKDIR /app
 
 # Só o que o servidor precisa: pywebview e pyinstaller são do desktop.
-RUN pip install --no-cache-dir flask openpyxl python-docx waitress
+RUN pip install --no-cache-dir flask openpyxl python-docx waitress Pillow boto3
 
 COPY . .
 
