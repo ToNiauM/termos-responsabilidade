@@ -39,3 +39,11 @@ fluxo brainstorming → spec → plano → subagent-driven-development, como nas
    (por bem? obrigatórias?), exportação (quais colunas), quem opera (celular com câmera? leitor USB?).
 2. Spec em `docs/superpowers/specs/2026-09-15-inventario-design.md`; plano em `docs/superpowers/plans/`.
 3. Rodada de backup (0h e 12h, `.backup` + rclone → R2; WAL) continua pendente e por último.
+
+## Respostas do usuário (2026-09-15)
+- Quem lê: membro da comissão de inventário nomeada, ou responsável pela atividade de patrimônio.
+- Com quê: leitor de código de barras USB/Bluetooth ligado ao notebook ou ao celular (age como teclado),
+  OU a câmera do celular lendo a plaqueta.
+- UX: o teclado virtual do celular NÃO pode aparecer a cada leitura — campo com `inputmode="none"` e foco
+  mantido; botão "Câmera" abre leitura por câmera na página (biblioteca JS embutida, offline); botão
+  "Digitar" para plaqueta ilegível (só aí o teclado aparece).
