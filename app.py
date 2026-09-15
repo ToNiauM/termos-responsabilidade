@@ -26,6 +26,7 @@ def contexto_dsgov():
         ("Termo por centro de custo", "fa-building", url_for("centro_custos")),
         ("Termo individual", "fa-user-check", url_for("termos_individuais")),
         ("Termo de devolução", "fa-box-open", url_for("termo_devolucao")),
+        ("Termos emitidos", "fa-history", url_for("termos_emitidos_tela")),
         ("Cadastros", "fa-address-book", url_for("cadastros", aba="responsaveis")),
         ("Textos", "fa-file-signature", url_for("textos_tela")),
         ("Atualizar base", "fa-upload", url_for("upload")),
@@ -213,7 +214,18 @@ def termo_emitido_tela(id):
 
 @app.route("/termos-emitidos")
 def termos_emitidos_tela():
-    return redirect(url_for("home"))   # completada na Task 5
+    tipo, chave = request.args.get("tipo") or None, request.args.get("chave", "").strip() or None
+    return render_template("termos_emitidos.html", termos=db.termos_emitidos(obter_conn(), tipo, chave),
+                           tipo=tipo, chave=chave, rotulos=db.ROTULO_TIPO, trilha=[("Termos emitidos", None)])
+
+
+@app.route("/termos-emitidos/<int:id>/documento", methods=["POST"])
+def termo_emitido_documento(id):
+    conn = obter_conn()
+    db.termo_emitido(conn, id) or abort(404)
+    db.salvar_documento_sei(conn, id, request.form.get("documento_sei", ""))
+    flash("Documento SEI salvo.", "success")
+    return redirect(url_for("termo_emitido_tela", id=id))
 
 
 # ---------------------------------------------------------------- atualizar base

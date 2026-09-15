@@ -286,3 +286,20 @@ def test_cadastro_de_processos_sei(cliente):
     assert b"vigente" in r.data
     r = cliente.post("/cadastros/processos/excluir", data={"id": pid}, follow_redirects=True)
     assert "exclu".encode() in r.data and b"Termos 2026" not in r.data
+
+
+def test_termos_emitidos_lista_detalhe_e_documento_sei(cliente):
+    cliente.post("/cadastros/processos/incluir", data={"tipo": "ccusto", "descricao": "T", "numero_sei": "2222", "vigente": "1"})
+    cliente.get("/termo/ccusto/CCI/docx")
+    r = cliente.get("/termos-emitidos")
+    assert r.status_code == 200 and b"CCI" in r.data and b"2222" in r.data
+    assert b"CCI" not in cliente.get("/termos-emitidos?tipo=individual").data.split(b"<tbody>")[1]
+    assert b"CCI" in cliente.get("/termos-emitidos?chave=cc").data
+    import db
+    tid = db.termos_emitidos(db.conectar())[0]["id"]
+    r = cliente.get(f"/termos-emitidos/{tid}")
+    assert b"CADEIRA" in r.data and b"1001" in r.data and b'name="documento_sei"' in r.data
+    r = cliente.post(f"/termos-emitidos/{tid}/documento", data={"documento_sei": "0459999"}, follow_redirects=True)
+    assert b"0459999" in r.data
+    assert cliente.get("/termos-emitidos/999").status_code == 404
+    assert b"Termos emitidos" in cliente.get("/").data    # menu
