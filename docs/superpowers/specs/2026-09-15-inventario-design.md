@@ -285,7 +285,7 @@ geração e filtro. Nome do arquivo: `inventario_<id>_<sala ou tudo>.xlsx`.
 ## 9. Planilha de cadastros: abas de inventário (migração de inventários antigos)
 
 A exportação em Cadastros → *Exportar cadastros* passa a gerar, além das 4 abas atuais, cinco abas
-opcionais com o **estado inteiro** das tabelas de inventário, no formato do banco (uma coluna por
+opcionais (só quando existe ao menos um evento) com o **estado inteiro** das tabelas de inventário, no formato do banco (uma coluna por
 campo, cabeçalho = nome da coluna):
 
 | aba | colunas |
