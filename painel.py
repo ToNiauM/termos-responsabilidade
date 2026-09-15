@@ -36,70 +36,84 @@ def _tabela(itens, f, chave, rotulo_col):
         [{"valor": i["rotulo"], "url": url_recorte(f, **{chave: i["chave"]})}, i["quantidade"], moeda(i["valor"])] for i in itens])
 
 
-def _card(id, titulo, opcoes, itens, f, chave, rotulo_col, alto=False, subtitulo=None):
+def _card(id, titulo, opcoes, itens, f, chave, rotulo_col, alto=False, subtitulo=None, col=None):
     resumo = f"{titulo}: " + ", ".join(f"{i['rotulo']} {i['quantidade']}" for i in itens[:6])
     return {"id": id, "titulo": titulo, "subtitulo": subtitulo, "opcoes": opcoes, "resumo": resumo,
-            "alto": alto, "col": None, "tabela": _tabela(itens, f, chave, rotulo_col)}
+            "alto": alto == "alto", "altura": alto, "col": col, "tabela": _tabela(itens, f, chave, rotulo_col)}
 
 
 def _urls(itens, f, chave):
     return [url_recorte(f, **{chave: i["chave"]}) for i in itens]
 
 
+CURTOS = ("ano", "faixa", "idade")   # rótulos curtos: colunas servem; os demais têm nomes longos → barras horizontais
+
+
 def _grafico(itens, f, chave):
-    """Tipo pelo número de itens (regra do usuário): ≤5 rosca, 6–10 barras, 11–20 colunas, >20 colunas dos 20 maiores.
-    'ano' vem em ordem cronológica, então o corte é "20 mais recentes", não "20 maiores"."""
+    """Tipo pela natureza e quantidade dos itens: ≤5 rosca; rótulos curtos → colunas; rótulos longos → barras
+    horizontais (nome à esquerda, maior para menor). Acima de 20, os 20 maiores no gráfico e todos na tabela;
+    'ano' vem em ordem cronológica, então o corte é "20 mais recentes". Devolve (opções, subtítulo, altura, col)."""
     recentes = chave == "ano"
+    n = len(itens)
     top = itens[-TOP:] if recentes else itens[:TOP]
-    if len(itens) <= 5:
+    if n <= 5:
         op = graficos.rosca([(i["rotulo"], i["quantidade"]) for i in itens], total=(sum(i["quantidade"] for i in itens), "bens"),
                             urls={i["rotulo"]: u for i, u in zip(itens, _urls(itens, f, chave))})
-    elif len(itens) <= 10:
-        op = graficos.barras_horizontais([i["rotulo"] for i in itens], [i["quantidade"] for i in itens], "Bens", escala=True, urls=_urls(itens, f, chave))
-    else:
+    elif chave in CURTOS:
         op = graficos.colunas([i["rotulo"] for i in top], {"Bens": [i["quantidade"] for i in top]}, rotulos=True, urls={"Bens": _urls(top, f, chave)})
-    sub = (f"{TOP} anos mais recentes no gráfico; todos na tabela" if recentes else f"{TOP} maiores no gráfico; todos na tabela") if len(itens) > TOP else None
-    return op, sub, len(itens) > 10
+    else:
+        op = graficos.barras_horizontais([i["rotulo"] for i in top], [i["quantidade"] for i in top], "Bens", escala=True, urls=_urls(top, f, chave))
+    sub = (f"{TOP} anos mais recentes no gráfico; todos na tabela" if recentes else f"{TOP} maiores no gráfico; todos na tabela") if n > TOP else None
+    barras = n > 5 and chave not in CURTOS
+    altura = "extra" if barras and len(top) > 15 else ("alto" if len(top) > 8 else None)
+    col = "col-12" if barras and len(top) > 10 else None
+    return op, sub, altura, col
+
+
+def _sub(universo, sub):
+    return " · ".join(x for x in (universo, sub) if x)
 
 
 def cards_graficos(dim: dict, f: dict, omitir=()) -> list[dict]:
     """Um card por dimensão, na ordem da spec. omitir = filtros já fixados num único valor."""
     cards = []
+    sit = f.get("situacao")
+    universo = "Bens ativos" if sit == "ATIVO" else (f"Bens {sit}" if sit else "Todas as situações")
     if "situacao" not in omitir and dim["situacao"]:
         it = dim["situacao"]
-        op, sub, alto = _grafico(it, f, "situacao")
-        cards.append(_card("g-situacao", "Bens por situação", op, it, f, "situacao", "Situação", alto=alto, subtitulo=sub))
+        op, sub, alto, col = _grafico(it, f, "situacao")
+        cards.append(_card("g-situacao", "Bens por situação", op, it, f, "situacao", "Situação", alto=alto, subtitulo=_sub("Todos os bens", sub), col=col))
     if "ccusto" not in omitir:
         it = dim["centro"]
-        op, sub, alto = _grafico(it, f, "ccusto")
-        cards.append(_card("g-centro", "Bens por centro de custo", op, it, f, "ccusto", "Centro de custo", alto=alto, subtitulo=sub))
+        op, sub, alto, col = _grafico(it, f, "ccusto")
+        cards.append(_card("g-centro", "Bens por centro de custo", op, it, f, "ccusto", "Centro de custo", alto=alto, subtitulo=_sub(universo, sub), col=col))
     if "classificacao" not in omitir:
         it = dim["classificacao"]
         comuns = [i for i in it if i["chave"] not in db.IMOVEIS]
         imoveis = [i for i in it if i["chave"] in db.IMOVEIS]
-        op, sub, alto = _grafico(it, f, "classificacao")   # imóveis entram no gráfico como qualquer classe (é contagem)
+        op, sub, alto, col = _grafico(it, f, "classificacao")   # imóveis entram no gráfico como qualquer classe (é contagem)
         cards.append(_card("g-classificacao", "Bens por classificação contábil", op, comuns + imoveis, f, "classificacao",
-                           "Classificação", alto=alto, subtitulo=sub))   # imóveis só ficam por último na tabela
+                           "Classificação", alto=alto, subtitulo=_sub(universo, sub), col=col))   # imóveis só ficam por último na tabela
     if "localizacao" not in omitir:
         it = dim["localizacao"]
-        op, sub, alto = _grafico(it, f, "localizacao")
-        cards.append(_card("g-localizacao", "Bens por localização", op, it, f, "localizacao", "Localização", alto=alto, subtitulo=sub))
+        op, sub, alto, col = _grafico(it, f, "localizacao")
+        cards.append(_card("g-localizacao", "Bens por localização", op, it, f, "localizacao", "Localização", alto=alto, subtitulo=_sub(universo, sub), col=col))
     if "idade" not in omitir:
         it = dim["idade"]
-        op, sub, alto = _grafico(it, f, "idade")
-        cards.append(_card("g-idade", "Bens por idade (data de entrada)", op, it, f, "idade", "Faixa", alto=alto, subtitulo=sub))
+        op, sub, alto, col = _grafico(it, f, "idade")
+        cards.append(_card("g-idade", "Bens por idade (data de entrada)", op, it, f, "idade", "Faixa", alto=alto, subtitulo=_sub(universo, sub), col=col))
     if "ano" not in omitir and dim["ano"]:
         it = dim["ano"]
-        op, sub, alto = _grafico(it, f, "ano")
-        cards.append(_card("g-ano", "Bens por ano de entrada", op, it, f, "ano", "Ano", alto=alto, subtitulo=sub))
+        op, sub, alto, col = _grafico(it, f, "ano")
+        cards.append(_card("g-ano", "Bens por ano de entrada", op, it, f, "ano", "Ano", alto=alto, subtitulo=_sub(universo, sub), col=col))
     if "faixa" not in omitir:
         it = dim["faixa"]
-        op, sub, alto = _grafico(it, f, "faixa")
-        cards.append(_card("g-faixa", "Bens por faixa de valor", op, it, f, "faixa", "Faixa", alto=alto, subtitulo=sub))
+        op, sub, alto, col = _grafico(it, f, "faixa")
+        cards.append(_card("g-faixa", "Bens por faixa de valor", op, it, f, "faixa", "Faixa", alto=alto, subtitulo=_sub(universo, sub), col=col))
     if "pessoa" not in omitir and dim["pessoa"]:
         it = dim["pessoa"]
-        op, sub, alto = _grafico(it, f, "pessoa")
-        cards.append(_card("g-pessoa", "Bens atribuídos por pessoa", op, it, f, "pessoa", "Pessoa", alto=alto, subtitulo=sub))
+        op, sub, alto, col = _grafico(it, f, "pessoa")
+        cards.append(_card("g-pessoa", "Bens atribuídos por pessoa", op, it, f, "pessoa", "Pessoa", alto=alto, subtitulo=_sub(universo, sub), col=col))
     return cards
 
 

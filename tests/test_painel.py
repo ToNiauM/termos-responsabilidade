@@ -58,7 +58,8 @@ def test_cards_graficos_tipos_urls_e_omissao(dados):
         assert por["g-classificacao"]["opcoes"]["series"][0]["type"] == "pie"   # 3 itens
         assert por["g-idade"]["opcoes"]["series"][0]["type"] == "pie"           # 5 itens (faixas fixas)
         assert por["g-ano"]["opcoes"]["series"][0]["type"] == "pie"             # 5 itens
-        assert por["g-faixa"]["opcoes"]["series"][0]["type"] == "bar" and por["g-faixa"]["opcoes"]["yAxis"]["type"] == "category"  # 6 itens
+        assert por["g-faixa"]["opcoes"]["series"][0]["type"] == "bar" and por["g-faixa"]["opcoes"]["xAxis"]["type"] == "category"  # 6 itens, rótulo curto → colunas
+        assert por["g-situacao"]["subtitulo"] == "Todos os bens" and por["g-centro"]["subtitulo"] == "Bens ativos"
         assert por["g-centro"]["opcoes"]["series"][0]["data"][0]["url"] == "/recorte?situacao=ATIVO&ccusto=-"
         assert por["g-centro"]["opcoes"]["series"][0]["data"][1]["url"] == "/recorte?situacao=ATIVO&ccusto=CCI"
         assert por["g-situacao"]["opcoes"]["series"][0]["data"][0]["url"] == "/recorte?situacao=ATIVO"
@@ -82,15 +83,17 @@ def test_grafico_tipos_pela_quantidade_de_itens(dados):
         return {"chave": str(i), "rotulo": str(i), "quantidade": i, "valor": 0}
 
     with app.test_request_context():
-        op, sub, alto = painel._grafico([item(i) for i in range(25, 0, -1)], {"situacao": "ATIVO"}, "pessoa")
-        assert op["series"][0]["type"] == "bar" and op["xAxis"]["type"] == "category"
-        assert len(op["xAxis"]["data"]) == 20 and sub is not None and "20 maiores" in sub and alto
-        assert op["xAxis"]["data"][0] == "25"                       # os 20 maiores: começa pelo maior
+        op, sub, altura, col = painel._grafico([item(i) for i in range(25, 0, -1)], {"situacao": "ATIVO"}, "pessoa")
+        assert op["series"][0]["type"] == "bar" and op["yAxis"]["type"] == "category"   # rótulo longo → barras horizontais
+        assert len(op["yAxis"]["data"]) == 20 and sub is not None and "20 maiores" in sub and altura == "extra" and col == "col-12"
+        assert op["yAxis"]["data"][0] == "25"                       # os 20 maiores: começa pelo maior
+        op, sub, altura, col = painel._grafico([item(i) for i in range(8, 0, -1)], {"situacao": "ATIVO"}, "ccusto")
+        assert op["yAxis"]["type"] == "category" and altura is None and col is None
 
         anos = [{"chave": str(a), "rotulo": str(a), "quantidade": 1, "valor": 0} for a in range(1990, 2016)]  # 26 anos, cronológico
-        op, sub, alto = painel._grafico(anos, {"situacao": "ATIVO"}, "ano")
+        op, sub, altura, col = painel._grafico(anos, {"situacao": "ATIVO"}, "ano")
         assert op["xAxis"]["data"] == [str(a) for a in range(1996, 2016)] and "mais recentes" in sub   # corte = 20 mais recentes
         assert op["series"][0]["data"][-1]["url"].endswith("ano=2015")
 
-        op, sub, alto = painel._grafico([item(i) for i in range(15, 0, -1)], {"situacao": "ATIVO"}, "ano")
-        assert op["series"][0]["type"] == "bar" and len(op["xAxis"]["data"]) == 15 and sub is None and alto
+        op, sub, altura, col = painel._grafico([item(i) for i in range(15, 0, -1)], {"situacao": "ATIVO"}, "ano")
+        assert op["series"][0]["type"] == "bar" and len(op["xAxis"]["data"]) == 15 and sub is None and altura == "alto" and col is None

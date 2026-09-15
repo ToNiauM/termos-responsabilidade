@@ -9,6 +9,7 @@
 /* Gráficos ECharts: altura fixa, largura do card. */
 .dsgov-grafico { width: 100%; height: 280px; }
 .dsgov-grafico-alto { width: 100%; height: 400px; }
+.dsgov-grafico-extra { width: 100%; height: 640px; }   /* barras horizontais com até 20 itens */
 
 /* A coluna de conteúdo é item flex: sem min-width 0, uma tabela larga estoura a página em vez de rolar
    dentro do .responsive do br-table. Fase 28/Plano 28-08 — a regra nasceu cobrindo `container-lg`
@@ -167,3 +168,7 @@ a.dsgov-kpi:hover { box-shadow: var(--surface-shadow-md); }
 /* Inventário: miniatura da foto e área do leitor por câmera. */
 .dsgov-miniatura { width: 56px; height: 56px; object-fit: cover; border-radius: 4px; }
 .dsgov-leitor { max-width: 480px; }
+
+/* KPI: número principal sem quebra; detalhe (valor/segunda medida) em linha própria. */
+.dsgov-kpi .valor { font-size: var(--font-size-scale-up-03); font-weight: var(--font-weight-bold); line-height: 1.15; white-space: nowrap; }
+.dsgov-kpi .detalhe { font-size: var(--font-size-scale-up-01); font-weight: var(--font-weight-medium); white-space: nowrap; }

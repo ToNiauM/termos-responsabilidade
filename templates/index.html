@@ -23,29 +23,29 @@
 
 <div class="row mb-2">
   {% set kpis = [
-    (p.ativos, 'bens ativos', url_recorte(f)),
-    (moeda(p.valor_sem_imoveis), 'valor dos ativos (sem imóveis)', url_recorte(f, classificacao='sem-imoveis')),
-    (p.imoveis ~ ' · ' ~ moeda(p.valor_imoveis), 'imóveis (SEDE, TERRENOS)', url_recorte(f, classificacao='imoveis')),
-    (p.sem_centro, 'ativos sem centro nem pessoa', url_recorte(f, ccusto='-', pessoa='-')),
-    (p.a_emitir_centros ~ ' centro(s) · ' ~ p.a_emitir_pessoas ~ ' pessoa(s)', 'termos a emitir ou reemitir', url_for('centro_custos')),
+    (p.ativos, None, 'bens ativos', url_recorte(f)),
+    (moeda(p.valor_sem_imoveis), None, 'valor dos ativos (sem imóveis)', url_recorte(f, classificacao='sem-imoveis')),
+    (p.imoveis, moeda(p.valor_imoveis), 'imóveis (SEDE, TERRENOS)', url_recorte(f, classificacao='imoveis')),
+    (p.sem_centro, None, 'ativos sem centro nem pessoa', url_recorte(f, ccusto='-', pessoa='-')),
+    (p.a_emitir_centros ~ ' centro(s)', p.a_emitir_pessoas ~ ' pessoa(s)', 'termos a emitir ou reemitir', url_for('centro_custos')),
   ] %}
-  {% for valor, legenda, url in kpis %}
-  <div class="col-sm-6 col-md-4 col-lg mb-3"><a class="br-card h-100 dsgov-kpi" href="{{ url }}"><div class="card-content">
-    <div class="text-up-03 text-weight-bold">{{ valor }}</div><div class="text-down-01 text-gray-70">{{ legenda }}</div>
+  {% for valor, detalhe, legenda, url in kpis %}
+  <div class="col-sm-6 col-lg-4 mb-3"><a class="br-card h-100 dsgov-kpi" href="{{ url }}"><div class="card-content">
+    <div class="valor">{{ valor }}</div>{% if detalhe %}<div class="detalhe">{{ detalhe }}</div>{% endif %}<div class="text-down-01 text-gray-70">{{ legenda }}</div>
   </div></a></div>
   {% endfor %}
-  <div class="col-sm-6 col-md-4 col-lg mb-3">
+  <div class="col-sm-6 col-lg-4 mb-3">
     {% if p.ultima_importacao %}<a class="br-card h-100 dsgov-kpi" href="{{ url_for('importacao_tela', id=p.ultima_importacao.id) }}"><div class="card-content">
-      <div class="text-up-03 text-weight-bold">{{ p.ultima_importacao.importado_em[8:10] }}/{{ p.ultima_importacao.importado_em[5:7] }}</div>
+      <div class="valor">{{ p.ultima_importacao.importado_em[8:10] }}/{{ p.ultima_importacao.importado_em[5:7] }}</div>
       <div class="text-down-01 text-gray-70">última importação · {{ p.ultima_importacao.novos }} novos, {{ p.ultima_importacao.removidos }} removidos</div>
     </div></a>
-    {% else %}<div class="br-card h-100"><div class="card-content"><div class="text-up-03 text-weight-bold">—</div><div class="text-down-01 text-gray-70">Nenhuma importação registrada</div></div></div>{% endif %}
+    {% else %}<div class="br-card h-100"><div class="card-content"><div class="valor">—</div><div class="text-down-01 text-gray-70">Nenhuma importação registrada</div></div></div>{% endif %}
   </div>
-  <div class="col-sm-6 col-md-4 col-lg mb-3">
+  <div class="col-sm-6 col-lg-4 mb-3">
     {% if inventario_aberto %}<a class="br-card h-100 dsgov-kpi" href="{{ url_for('inventario.evento_tela', id=inventario_aberto.id) }}"><div class="card-content">
-      <div class="text-up-03 text-weight-bold">{{ inventario_aberto.resumo.pct_bens }}%</div>
+      <div class="valor">{{ inventario_aberto.resumo.pct_bens }}%</div>
       <div class="text-down-01 text-gray-70">Inventário em andamento · {{ inventario_aberto.resumo.divergentes }} divergentes</div></div></a>
-    {% else %}<a class="br-card h-100 dsgov-kpi" href="{{ url_for('inventario.eventos_tela') }}"><div class="card-content"><div class="text-up-03 text-weight-bold">—</div><div class="text-down-01 text-gray-70">Nenhum inventário aberto</div></div></a>{% endif %}
+    {% else %}<a class="br-card h-100 dsgov-kpi" href="{{ url_for('inventario.eventos_tela') }}"><div class="card-content"><div class="valor">—</div><div class="text-down-01 text-gray-70">Nenhum inventário aberto</div></div></a>{% endif %}
   </div>
 </div>
 

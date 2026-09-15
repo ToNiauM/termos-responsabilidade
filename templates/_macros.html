@@ -88,7 +88,7 @@
     </div>
     <div class="card-content">
       <script type="application/json" id="{{ g.id }}">{{ g.opcoes|tojson }}</script>
-      <div class="{% if g.alto %}dsgov-grafico-alto{% else %}dsgov-grafico{% endif %}" data-grafico="{{ g.id }}" role="img" aria-label="{{ g.resumo }}"></div>
+      <div class="{% if g.altura == 'extra' %}dsgov-grafico-extra{% elif g.alto %}dsgov-grafico-alto{% else %}dsgov-grafico{% endif %}" data-grafico="{{ g.id }}" role="img" aria-label="{{ g.resumo }}"></div>
       {% if g.tabela %}
       <div class="br-accordion mt-2" id="acc-{{ g.id }}">
         <div class="item">
