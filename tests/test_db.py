@@ -90,6 +90,14 @@ def test_localizacoes_sem_centro(dados):
     assert db.localizacoes_sem_centro(dados) == ["99 - SEM MAPA"]
 
 
+def test_localizacoes_sem_centro_ignora_bens_atribuidos(dados):
+    semear(dados)
+    dados.execute("INSERT INTO bens VALUES (2003,'ATIVO','TABLET','','EQUIPAMENTOS','TERMOS INDIVIDUAIS','01/02/2023',900,800)")
+    assert db.localizacoes_sem_centro(dados) == ["99 - SEM MAPA", "TERMOS INDIVIDUAIS"]
+    dados.execute("INSERT INTO atribuicoes VALUES ('ANA SILVA', 2003)")
+    assert db.localizacoes_sem_centro(dados) == ["99 - SEM MAPA"]
+
+
 def test_importar_arquivo_invalido_levanta_importacao_invalida(dados, tmp_path):
     semear(dados)
     arq = tmp_path / "x.xlsx"
@@ -525,3 +533,66 @@ def test_renomear_leva_historico_junto(dados):
     db.renomear_pessoa(dados, "ANA SILVA", "ANA SOUZA")
     assert db.ultimo_termo(dados, "ccusto", "GEX") and db.ultimo_termo(dados, "ccusto", "CCI") is None
     assert db.ultimo_termo(dados, "individual", "ANA SOUZA") and db.ultimo_termo(dados, "individual", "ANA SILVA") is None
+
+
+# ---------------------------------------------------------------- painel e recorte
+def _semear_painel(conn):
+    semear(conn)
+    conn.execute("INSERT INTO bens VALUES (2001,'ATIVO','SEDE','','SEDE','','01/01/1990',1,60000000)")
+    conn.execute("INSERT INTO bens VALUES (2002,'ATIVO','MICRO','HP','EQUIPAMENTOS','01 - SALA CCI','15/06/2024',4000,3500)")
+    conn.execute("INSERT INTO bens VALUES (2003,'ATIVO','TABLET','','EQUIPAMENTOS','TERMOS INDIVIDUAIS','01/02/2023',900,800)")
+    conn.execute("INSERT INTO atribuicoes VALUES ('ANA SILVA', 2003)")
+    conn.commit()
+
+
+def test_dimensoes_sobre_ativos(dados):
+    _semear_painel(dados)
+    d = db.dimensoes(dados, {"situacao": "ATIVO"})
+    assert {x["chave"]: x["quantidade"] for x in d["situacao"]} == {"ATIVO": 6, "BAIXADO": 1}   # situação ignora o próprio filtro
+    centro = {x["chave"]: (x["quantidade"], x["rotulo"]) for x in d["centro"]}
+    assert centro["CCI"] == (3, "CCI – JAQUELINE PORTELA") and centro["-"] == (3, "sem centro")
+    assert {x["chave"]: x["quantidade"] for x in d["classificacao"]} == {"MÓVEIS": 2, "EQUIPAMENTOS": 3, "SEDE": 1}
+    assert [x["chave"] for x in d["idade"]] == ["ate5", "5a10", "10a20", "mais20", "semdata"]
+    assert {x["chave"]: x["quantidade"] for x in d["idade"] if x["quantidade"]} == {"ate5": 2, "10a20": 2, "mais20": 2}
+    assert [x["chave"] for x in d["ano"]] == ["1990", "1996", "2012", "2023", "2024"]
+    assert {x["chave"]: x["quantidade"] for x in d["faixa"] if x["quantidade"]} == {"ate100": 1, "100a500": 1, "500a1000": 1, "1000a5000": 2, "mais20000": 1}
+    assert d["pessoa"] == [{"chave": "ANA SILVA", "rotulo": "ANA SILVA", "quantidade": 2, "valor": 2300.0}]
+    assert any(x["chave"] == "01 - SALA CCI" and "(CCI)" in x["rotulo"] and x["quantidade"] == 3 for x in d["localizacao"])
+
+
+def test_painel_cards(dados):
+    _semear_painel(dados)
+    p = db.painel(dados)
+    assert p["ativos"] == 6 and p["imoveis"] == 1 and p["valor_imoveis"] == 60000000
+    assert round(p["valor_sem_imoveis"], 2) == 64.54 + 1500 + 250.5 + 3500 + 800
+    assert p["sem_centro"] == 2 and p["sem_valor"] == 0 and p["ultima_importacao"] is None
+    assert p["a_emitir_centros"] == 1 and p["a_emitir_pessoas"] == 1
+    assert p["centros"][0]["ccustos"] == "CCI" and "dimensoes" in p
+
+
+def test_recorte_filtros_e_drill_down(dados):
+    _semear_painel(dados)
+    r = db.recorte(dados, {"situacao": "ATIVO", "ccusto": "CCI"})
+    assert [b["numero"] for b in r["bens"]] == [1001, 1002, 2002] and r["quantidade"] == 3 and r["bens"][1]["pessoa"] == "ANA SILVA"
+    assert [b["numero"] for b in db.recorte(dados, {"situacao": "ATIVO", "ccusto": "CCI", "faixa": "1000a5000"})["bens"]] == [1002, 2002]
+    assert [b["numero"] for b in db.recorte(dados, {"ccusto": "-"})["bens"]] == [1004, 2001, 2003]
+    assert [b["numero"] for b in db.recorte(dados, {"classificacao": "imoveis"})["bens"]] == [2001]
+    assert 2001 not in [b["numero"] for b in db.recorte(dados, {"classificacao": "sem-imoveis"})["bens"]]
+    assert [b["numero"] for b in db.recorte(dados, {"valor_de": "1000", "valor_ate": "2000"})["bens"]] == [1002]
+    assert [b["numero"] for b in db.recorte(dados, {"entrada_de": "2012-01-01", "entrada_ate": "2012-12-31"})["bens"]] == [1002, 1003, 1004]
+    assert [b["numero"] for b in db.recorte(dados, {"ano": "2024"})["bens"]] == [2002]
+    assert [b["numero"] for b in db.recorte(dados, {"idade": "mais20"})["bens"]] == [1001, 2001]
+    assert [b["numero"] for b in db.recorte(dados, {"pessoa": "ANA SILVA"})["bens"]] == [1002, 2003]
+    assert [b["numero"] for b in db.recorte(dados, {"localizacao": "99 - SEM MAPA"})["bens"]] == [1004]
+    assert db.recorte(dados, {})["quantidade"] == 7          # sem filtro = tudo (a rota põe ATIVO por padrão)
+    r = db.recorte(dados, {}, limite=2)
+    assert len(r["bens"]) == 2 and r["truncado"] and r["quantidade"] == 7
+
+
+def test_exportar_recorte_xlsx(dados, tmp_path):
+    _semear_painel(dados)
+    from openpyxl import load_workbook
+    ws = load_workbook(db.exportar_recorte(dados, {"ccusto": "CCI"}, tmp_path / "r.xlsx")).active
+    linhas = list(ws.iter_rows(values_only=True))
+    assert linhas[0][:3] == ("Número", "Descrição", "Complemento") and len(linhas) == 5   # cabeçalho + 4 bens (inclui 1003 BAIXADO)
+    assert linhas[1][5] == "CCI"

@@ -238,10 +238,11 @@ def importar_bens(conn: sqlite3.Connection, arquivo, nome_arquivo: str | None = 
 
 
 def localizacoes_sem_centro(conn: sqlite3.Connection) -> list[str]:
-    """Localizações de bens ATIVOS que não têm centro de custo mapeado."""
+    """Localizações de bens ATIVOS que não têm centro de custo mapeado (ignora bens atribuídos a pessoa)."""
     return [r[0] for r in conn.execute(
         "SELECT DISTINCT localizacao FROM bens WHERE situacao='ATIVO' AND localizacao <> '' "
-        "AND localizacao NOT IN (SELECT localizacao FROM localizacoes) ORDER BY localizacao")]
+        "AND localizacao NOT IN (SELECT localizacao FROM localizacoes) "
+        "AND numero NOT IN (SELECT numero FROM atribuicoes) ORDER BY localizacao")]
 
 
 def _mudancas(antes: dict, linhas: list[tuple]) -> list[tuple]:
@@ -799,6 +800,140 @@ def importar_cadastros(conn, arquivo) -> dict:
         raise
     return {"responsaveis": len(responsaveis), "localizacoes": len(localizacoes), "pessoas": len(nomes),
             "atribuicoes": len(atribuicoes), "sem_centro": localizacoes_sem_centro(conn)}
+
+
+# ---------------------------------------------------------------- painel e recorte
+IMOVEIS = ("SEDE", "TERRENOS")
+FAIXAS_IDADE = [("ate5", "até 5 anos"), ("5a10", "5 a 10 anos"), ("10a20", "10 a 20 anos"),
+                ("mais20", "mais de 20 anos"), ("semdata", "sem data")]
+FAIXAS_VALOR = [("ate100", "até R$ 100"), ("100a500", "R$ 100 a 500"), ("500a1000", "R$ 500 a 1.000"),
+                ("1000a5000", "R$ 1.000 a 5.000"), ("5000a20000", "R$ 5.000 a 20.000"), ("mais20000", "acima de R$ 20.000")]
+FILTROS = ("situacao", "ccusto", "pessoa", "localizacao", "classificacao", "valor_de", "valor_ate",
+           "entrada_de", "entrada_ate", "idade", "faixa", "ano")
+_DE = ("FROM bens b LEFT JOIN localizacoes l ON l.localizacao = b.localizacao "
+       "LEFT JOIN atribuicoes a ON a.numero = b.numero")
+_DATA_ISO = ("CASE WHEN b.data_entrada LIKE '__/__/____' THEN substr(b.data_entrada,7,4)||'-'||"
+             "substr(b.data_entrada,4,2)||'-'||substr(b.data_entrada,1,2) END")
+_IDADE = f"(julianday('now') - julianday({_DATA_ISO})) / 365.25"
+_FAIXA_IDADE = (f"CASE WHEN {_DATA_ISO} IS NULL THEN 'semdata' WHEN {_IDADE} < 5 THEN 'ate5' "
+                f"WHEN {_IDADE} < 10 THEN '5a10' WHEN {_IDADE} < 20 THEN '10a20' ELSE 'mais20' END")
+_V = "coalesce(b.valor_atual, 0)"
+_FAIXA_VALOR = (f"CASE WHEN {_V} < 100 THEN 'ate100' WHEN {_V} < 500 THEN '100a500' WHEN {_V} < 1000 THEN '500a1000' "
+                f"WHEN {_V} < 5000 THEN '1000a5000' WHEN {_V} < 20000 THEN '5000a20000' ELSE 'mais20000' END")
+_IMOVEIS_SQL = "coalesce(b.classificacao, '') IN ('SEDE', 'TERRENOS')"
+
+
+def _where(f: dict) -> tuple[str, list]:
+    """WHERE só com os filtros presentes em f (chaves de FILTROS; vazio = sem filtro)."""
+    cl, p = [], []
+    if f.get("situacao"):
+        cl.append("b.situacao = ?"); p.append(f["situacao"])
+    if f.get("ccusto") == "-":
+        cl.append("l.ccustos IS NULL")
+    elif f.get("ccusto"):
+        cl.append("l.ccustos = ?"); p.append(f["ccusto"])
+    if f.get("pessoa"):
+        cl.append("a.nome = ?"); p.append(f["pessoa"])
+    if f.get("localizacao"):
+        cl.append("b.localizacao = ?"); p.append(f["localizacao"])
+    c = f.get("classificacao")
+    if c == "imoveis":
+        cl.append(_IMOVEIS_SQL)
+    elif c == "sem-imoveis":
+        cl.append(f"NOT {_IMOVEIS_SQL}")
+    elif c:
+        cl.append("b.classificacao = ?"); p.append(c)
+    if f.get("valor_de"):
+        cl.append(f"{_V} >= ?"); p.append(float(f["valor_de"]))
+    if f.get("valor_ate"):
+        cl.append(f"{_V} <= ?"); p.append(float(f["valor_ate"]))
+    if f.get("entrada_de"):
+        cl.append(f"{_DATA_ISO} >= ?"); p.append(f["entrada_de"])
+    if f.get("entrada_ate"):
+        cl.append(f"{_DATA_ISO} <= ?"); p.append(f["entrada_ate"])
+    if f.get("idade"):
+        cl.append(f"{_FAIXA_IDADE} = ?"); p.append(f["idade"])
+    if f.get("faixa"):
+        cl.append(f"{_FAIXA_VALOR} = ?"); p.append(f["faixa"])
+    if f.get("ano"):
+        cl.append("substr(b.data_entrada, 7, 4) = ?"); p.append(f["ano"])
+    return (" AND ".join(cl) or "1"), p
+
+
+def _agrupar(conn, chave: str, f: dict, ordem: str = "quantidade DESC, chave") -> list[dict]:
+    where, p = _where(f)
+    return _todos(conn, f"SELECT {chave} AS chave, count(*) AS quantidade, coalesce(sum(b.valor_atual), 0) AS valor "
+                        f"{_DE} WHERE {where} GROUP BY chave ORDER BY {ordem}", *p)
+
+
+def dimensoes(conn, f: dict) -> dict:
+    """Agrupamentos do conjunto filtrado por f. Item: {chave, rotulo, quantidade, valor}.
+    'situacao' ignora o filtro de situação (mostra a composição inteira)."""
+    resp = {c["ccustos"]: c["responsavel"] for c in centros(conn)}
+    mapa = {l["localizacao"]: l["ccustos"] for l in localizacoes_mapeadas(conn)}
+
+    def rot(lista, fn):
+        return [{**x, "rotulo": fn(x["chave"])} for x in lista]
+
+    def fixas(faixas, lista):
+        por = {x["chave"]: x for x in lista}
+        return [{**por.get(k, {"chave": k, "quantidade": 0, "valor": 0}), "rotulo": r} for k, r in faixas]
+
+    return {
+        "situacao": rot(_agrupar(conn, "b.situacao", {k: v for k, v in f.items() if k != "situacao"}), str),
+        "centro": rot(_agrupar(conn, "coalesce(l.ccustos, '-')", f),
+                      lambda k: "sem centro" if k == "-" else f"{k} – {resp.get(k, '')}"),
+        "classificacao": rot(_agrupar(conn, "coalesce(b.classificacao, '')", f), lambda k: k or "sem classificação"),
+        "localizacao": rot(_agrupar(conn, "coalesce(b.localizacao, '')", f),
+                           lambda k: (k or "sem localização") + (f" ({mapa[k]})" if k in mapa else "")),
+        "idade": fixas(FAIXAS_IDADE, _agrupar(conn, _FAIXA_IDADE, f)),
+        "ano": rot(_agrupar(conn, "coalesce(substr(b.data_entrada, 7, 4), '')", f, ordem="chave"), lambda k: k or "sem data"),
+        "faixa": fixas(FAIXAS_VALOR, _agrupar(conn, _FAIXA_VALOR, f)),
+        "pessoa": rot([x for x in _agrupar(conn, "a.nome", f) if x["chave"]], str),
+    }
+
+
+def painel(conn) -> dict:
+    def um(sql, *p):
+        return conn.execute(sql, p).fetchone()[0]
+    ativo = "b.situacao = 'ATIVO'"
+    d = {
+        "ativos": um(f"SELECT count(*) {_DE} WHERE {ativo}"),
+        "valor_sem_imoveis": um(f"SELECT coalesce(sum(b.valor_atual), 0) {_DE} WHERE {ativo} AND NOT {_IMOVEIS_SQL}"),
+        "imoveis": um(f"SELECT count(*) {_DE} WHERE {ativo} AND {_IMOVEIS_SQL}"),
+        "valor_imoveis": um(f"SELECT coalesce(sum(b.valor_atual), 0) {_DE} WHERE {ativo} AND {_IMOVEIS_SQL}"),
+        "sem_centro": um(f"SELECT count(*) {_DE} WHERE {ativo} AND l.ccustos IS NULL AND a.nome IS NULL"),
+        "sem_valor": um(f"SELECT count(*) FROM bens b WHERE {ativo} AND {_V} = 0"),
+        "ultima_importacao": (importacoes(conn, 1) or [None])[0],
+        "centros": situacoes_centros(conn),
+        "pessoas": situacoes_pessoas(conn),
+        "dimensoes": dimensoes(conn, {"situacao": "ATIVO"}),
+    }
+    d["a_emitir_centros"] = sum(1 for c in d["centros"] if c["estado"] != "vigente")
+    d["a_emitir_pessoas"] = sum(1 for p in d["pessoas"] if p["estado"] != "vigente" and p["quantidade"])
+    return d
+
+
+def recorte(conn, f: dict, limite: int | None = 1000) -> dict:
+    where, p = _where(f)
+    sql = f"SELECT b.*, l.ccustos AS ccustos, a.nome AS pessoa {_DE} WHERE {where} ORDER BY b.numero"
+    bens = _todos(conn, sql + (f" LIMIT {limite + 1}" if limite else ""), *p)
+    tot = conn.execute(f"SELECT count(*), coalesce(sum(b.valor_atual), 0) {_DE} WHERE {where}", p).fetchone()
+    return {"bens": bens[:limite] if limite else bens, "truncado": bool(limite) and len(bens) > limite,
+            "quantidade": tot[0], "valor_total": tot[1], "dimensoes": dimensoes(conn, f)}
+
+
+def exportar_recorte(conn, f: dict, destino):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "recorte"
+    ws.append(["Número", "Descrição", "Complemento", "Classificação", "Localização", "Centro de custo", "Pessoa",
+               "Situação", "Data entrada", "Valor compra", "Valor atual"])
+    for b in recorte(conn, f, limite=None)["bens"]:
+        ws.append([b["numero"], b["descricao"], b["complemento"], b["classificacao"], b["localizacao"], b["ccustos"],
+                   b["pessoa"], b["situacao"], b["data_entrada"], b["valor_compra"], b["valor_atual"]])
+    wb.save(destino)
+    return destino
 
 
 def exportar_bens(conn, destino: Path) -> Path:
