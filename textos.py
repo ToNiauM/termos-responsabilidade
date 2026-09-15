@@ -9,11 +9,12 @@ aplicadas ao CFC, autarquia federal, no que couber):
   inventário analítico de cada unidade.
 - IN SEDAP n.º 205/1988: item 7.11 (carga do bem mediante Termo de Responsabilidade), item 8 (inventário)
   e item 10 (responsabilidade e indenização por desaparecimento ou dano, por dolo ou culpa).
-- Decreto n.º 9.373/2018: cessão, transferência e desfazimento de bens móveis (só pela área de patrimônio).
+- Decreto n.º 12.785/2025 (revogou o 9.373/2018 e o 10.340/2020): circularidade, cessão, transferência e
+  desfazimento de bens móveis, só pela área de patrimônio.
 - Código Civil, arts. 186 e 927: reparação do dano causado por ato ilícito, doloso ou culposo.
 - Rito interno de ressarcimento: apuração com contraditório e ampla defesa, deliberação da CAD e
   homologação pelo Plenário (Manual de Gestão Patrimonial do CFC).
-A unidade gestora do patrimônio é a Gerência de Serviços Administrativos (Gersev).
+A unidade gestora do patrimônio (Gersev) entra nos dizeres pelos marcadores {unidade_nome} e {unidade_sigla}.
 """
 import string
 
@@ -24,6 +25,8 @@ PADRAO = {
     "orgao_nome": "Conselho Federal de Contabilidade",
     "orgao_sigla": "CFC",
     "cidade": "Brasília (DF)",
+    "unidade_nome": "Gerência de Serviços Administrativos",
+    "unidade_sigla": "Gersev",
     "assinatura_eletronica": "Assinado eletronicamente via SEI",
     "recebedor_nome": "Bruno de Araujo Gomes",
     "recebedor_cargo": "Gerente de Serviços Administrativos",
@@ -33,39 +36,41 @@ PADRAO = {
     "individual_compromissos_intro": "Comprometo-me a:",
     "individual_compromissos": "\n".join([
         "1) zelar pela guarda, conservação e uso adequado do(s) bem(ns), empregando-o(s) exclusivamente nas atividades institucionais do {orgao_sigla} e mantendo íntegra e legível a plaqueta de identificação patrimonial;",
-        "2) não ceder, emprestar, remover para outro local ou unidade, nem dar qualquer destinação ao(s) bem(ns) sem prévia autorização da Gerência de Serviços Administrativos (Gersev), a quem cabe formalizar as movimentações por Termo de Transferência no SEI e a destinação dos bens inservíveis, na forma do Decreto n.º 9.373/2018;",
-        "3) comunicar imediatamente à Gersev, por escrito, qualquer dano, defeito, inutilização, extravio, furto ou roubo, registrando boletim de ocorrência policial nos casos de furto, roubo ou extravio e encaminhando-o à Gersev com o relato dos fatos;",
+        "2) não ceder, emprestar, remover para outro local ou unidade, nem dar qualquer destinação ao(s) bem(ns) sem prévia autorização da {unidade_nome} ({unidade_sigla}), a quem cabe formalizar as movimentações por Termo de Transferência no SEI e a destinação dos bens inservíveis, na forma do Decreto n.º 12.785/2025;",
+        "3) comunicar imediatamente à {unidade_sigla}, por escrito, qualquer dano, defeito, inutilização, extravio, furto ou roubo, registrando boletim de ocorrência policial nos casos de furto, roubo ou extravio e encaminhando-o à {unidade_sigla} com o relato dos fatos;",
         "4) responder pelo desaparecimento do(s) bem(ns) e pelo dano que, por dolo ou culpa, lhe(s) causar, ressarcindo o {orgao_sigla} do prejuízo apurado em procedimento próprio, assegurados o contraditório e a ampla defesa, após deliberação da Câmara de Assuntos Administrativos (CAD) e homologação pelo Plenário do {orgao_sigla}, conforme o Manual de Gestão Patrimonial do {orgao_sigla}, o item 10 da IN SEDAP n.º 205/1988 e os arts. 186 e 927 do Código Civil;",
-        "5) apresentar o(s) bem(ns) e prestar as informações solicitadas pela Gersev ou pela comissão de inventário sempre que requisitado, em especial no inventário anual (Lei n.º 4.320/1964, art. 96; IN SEDAP n.º 205/1988, item 8); e",
-        "6) devolver o(s) bem(ns) e seus acessórios à Gersev, mediante Termo de Devolução, ao término do vínculo com o {orgao_sigla}, em caso de afastamento prolongado, mudança de lotação ou de função, substituição do equipamento ou sempre que solicitado, em condições compatíveis com o uso regular.",
+        "5) apresentar o(s) bem(ns) e prestar as informações solicitadas pela {unidade_sigla} ou pela comissão de inventário sempre que requisitado, em especial no inventário anual (Lei n.º 4.320/1964, art. 96; IN SEDAP n.º 205/1988, item 8); e",
+        "6) devolver o(s) bem(ns) e seus acessórios à {unidade_sigla}, mediante Termo de Devolução, ao término do vínculo com o {orgao_sigla}, em caso de afastamento prolongado, mudança de lotação ou de função, substituição do equipamento ou sempre que solicitado, em condições compatíveis com o uso regular.",
     ]),
     "individual_ciencia": "Declaro estar ciente de que este termo constitui a carga patrimonial do(s) bem(ns) em meu nome (IN SEDAP n.º 205/1988, item 7.11), de que a responsabilidade aqui assumida permanece até a formalização da devolução ou transferência por termo próprio e de que o descumprimento das obrigações acima me sujeita às medidas administrativas e civis cabíveis, sem prejuízo de outras previstas em lei.",
     # termo por centro de custo
     "ccusto_titulo": "Termo de Responsabilidade - {ccustos}",
     "ccusto_paragrafos": "\n\n".join([
         "Pelo presente termo, eu, {responsavel}, matrícula n.º {matricula}, {funcao} do(a) {ccustos} do {orgao_sigla}, declaro que os bens patrimoniais abaixo discriminados se encontram nas localizações indicadas, sob minha guarda e responsabilidade, na condição de agente responsável pela guarda e administração a que se refere o art. 94 da Lei n.º 4.320/1964, na forma do item 7.11 da Instrução Normativa SEDAP n.º 205/1988 e do Manual de Gestão Patrimonial do {orgao_sigla}.",
-        "Comprometo-me a zelar pela guarda, conservação e uso adequado dos bens, empregando-os exclusivamente nas atividades institucionais do {orgao_sigla}; a manter íntegras e legíveis as plaquetas de identificação patrimonial; a orientar os colaboradores lotados na unidade quanto ao uso correto dos bens; e a comunicar à Gerência de Serviços Administrativos (Gersev), por escrito, toda alteração ou irregularidade, em especial dano, inutilização, extravio, furto, roubo, bem sem plaqueta ou bem não relacionado neste termo.",
-        "Nenhum bem será cedido, emprestado, removido para outra unidade ou localização, nem receberá qualquer destinação sem prévia autorização da Gersev. As movimentações entre unidades administrativas serão formalizadas pela Gersev por Termo de Transferência no SEI, apensado a processo específico, até a emissão de novo termo atualizado. Os bens sem uso na unidade serão devolvidos à Gersev para reaproveitamento ou desfazimento, na forma do Decreto n.º 9.373/2018.",
+        "Comprometo-me a zelar pela guarda, conservação e uso adequado dos bens, empregando-os exclusivamente nas atividades institucionais do {orgao_sigla}; a manter íntegras e legíveis as plaquetas de identificação patrimonial; a orientar os colaboradores lotados na unidade quanto ao uso correto dos bens; e a comunicar à {unidade_nome} ({unidade_sigla}), por escrito, toda alteração ou irregularidade, em especial dano, inutilização, extravio, furto, roubo, bem sem plaqueta ou bem não relacionado neste termo.",
+        "Nenhum bem será cedido, emprestado, removido para outra unidade ou localização, nem receberá qualquer destinação sem prévia autorização da {unidade_sigla}. As movimentações entre unidades administrativas serão formalizadas pela {unidade_sigla} por Termo de Transferência no SEI, apensado a processo específico, até a emissão de novo termo atualizado. Os bens sem uso na unidade serão devolvidos à {unidade_sigla} para reaproveitamento ou desfazimento, na forma do Decreto n.º 12.785/2025.",
         "Em caso de extravio ou dano a bem sob minha responsabilidade, decorrente de dolo ou culpa, comprometo-me a ressarcir o {orgao_sigla} do prejuízo apurado em procedimento próprio, assegurados o contraditório e a ampla defesa, após deliberação da Câmara de Assuntos Administrativos (CAD) e homologação pelo Plenário do {orgao_sigla}, conforme o Manual de Gestão Patrimonial do {orgao_sigla}, o item 10 da IN SEDAP n.º 205/1988 e os arts. 186 e 927 do Código Civil.",
         "Observações:",
-        "Em caso de furto, roubo ou extravio, o responsável registrará boletim de ocorrência policial e o encaminhará à Gersev, com o relato dos fatos, para a instauração do procedimento de apuração.",
-        "Os bens e as informações a eles relativas serão apresentados à Gersev e à comissão de inventário sempre que solicitados, em especial no inventário anual (Lei n.º 4.320/1964, art. 96; IN SEDAP n.º 205/1988, item 8).",
-        "Ao final do mandato, da função ou da designação, ou na mudança de lotação, o responsável apresentará os bens à Gersev para conferência e transferência da carga ao sucessor, permanecendo responsável por eles até a formalização do novo termo.",
+        "Em caso de furto, roubo ou extravio, o responsável registrará boletim de ocorrência policial e o encaminhará à {unidade_sigla}, com o relato dos fatos, para a instauração do procedimento de apuração.",
+        "Os bens e as informações a eles relativas serão apresentados à {unidade_sigla} e à comissão de inventário sempre que solicitados, em especial no inventário anual (Lei n.º 4.320/1964, art. 96; IN SEDAP n.º 205/1988, item 8).",
+        "Ao final do mandato, da função ou da designação, ou na mudança de lotação, o responsável apresentará os bens à {unidade_sigla} para conferência e transferência da carga ao sucessor, permanecendo responsável por eles até a formalização do novo termo.",
     ]),
     "ccusto_assinatura": "{responsavel}\n{funcao} do(a) {ccustos} do {orgao_sigla}",
     # termo de devolução
     "devolucao_titulo": "TERMO DE DEVOLUÇÃO",
-    "devolucao_abertura": "Pelo presente termo, eu, {nome}, declaro que devolvo à Gerência de Serviços Administrativos (Gersev) do {orgao_sigla} o(s) bem(ns) patrimonial(is) abaixo discriminado(s), com seus acessórios, que se encontrava(m) sob minha guarda e responsabilidade, ficando desonerado(a) da respectiva carga patrimonial a partir do recebimento atestado abaixo:",
+    "devolucao_abertura": "Pelo presente termo, eu, {nome}, declaro que devolvo à {unidade_nome} ({unidade_sigla}) do {orgao_sigla} o(s) bem(ns) patrimonial(is) abaixo discriminado(s), com seus acessórios, que se encontrava(m) sob minha guarda e responsabilidade, ficando desonerado(a) da respectiva carga patrimonial a partir do recebimento atestado abaixo:",
     "devolucao_data": "{cidade}, {data}",
     "devolucao_recebimento": "Atesto o recebimento do(s) bem(ns) acima especificado(s), conferido(s) quanto à identificação patrimonial e ao estado de conservação, para fins de baixa da carga do(a) responsável e atualização dos registros patrimoniais do {orgao_sigla}.",
 }
 
 _GERAIS = set()
-_INDIVIDUAL = {"nome", "orgao_sigla"}
-_CCUSTO = {"responsavel", "matricula", "funcao", "ccustos", "orgao_sigla"}
-_DEVOLUCAO = {"nome", "orgao_sigla", "cidade", "data"}
+_UNIDADE = {"orgao_sigla", "unidade_nome", "unidade_sigla"}
+_INDIVIDUAL = {"nome"} | _UNIDADE
+_CCUSTO = {"responsavel", "matricula", "funcao", "ccustos"} | _UNIDADE
+_DEVOLUCAO = {"nome", "cidade", "data"} | _UNIDADE
 MARCADORES = {
-    "orgao_nome": _GERAIS, "orgao_sigla": _GERAIS, "cidade": _GERAIS, "assinatura_eletronica": _GERAIS,
+    "orgao_nome": _GERAIS, "orgao_sigla": _GERAIS, "cidade": _GERAIS, "unidade_nome": _GERAIS, "unidade_sigla": _GERAIS,
+    "assinatura_eletronica": _GERAIS,
     "recebedor_nome": _GERAIS, "recebedor_cargo": _GERAIS,
     "individual_titulo": _INDIVIDUAL, "individual_abertura": _INDIVIDUAL, "individual_compromissos_intro": _INDIVIDUAL,
     "individual_compromissos": _INDIVIDUAL, "individual_ciencia": _INDIVIDUAL,
@@ -76,7 +81,8 @@ MARCADORES = {
 
 # Ordem e agrupamento da tela Textos.
 GRUPOS = [
-    ("Gerais", ["orgao_nome", "orgao_sigla", "cidade", "assinatura_eletronica", "recebedor_nome", "recebedor_cargo"]),
+    ("Gerais", ["orgao_nome", "orgao_sigla", "unidade_nome", "unidade_sigla", "cidade", "assinatura_eletronica",
+                "recebedor_nome", "recebedor_cargo"]),
     ("Termo individual", ["individual_titulo", "individual_abertura", "individual_compromissos_intro",
                           "individual_compromissos", "individual_ciencia"]),
     ("Termo por centro de custo", ["ccusto_titulo", "ccusto_paragrafos", "ccusto_assinatura"]),
@@ -86,7 +92,8 @@ GRUPOS = [
 TEXTAREA = {"individual_abertura", "individual_compromissos", "individual_ciencia", "ccusto_paragrafos",
             "ccusto_assinatura", "devolucao_abertura", "devolucao_recebimento"}
 ROTULOS = {
-    "orgao_nome": "Nome do órgão", "orgao_sigla": "Sigla do órgão", "cidade": "Cidade (data do termo)",
+    "orgao_nome": "Nome do órgão", "orgao_sigla": "Sigla do órgão", "unidade_nome": "Unidade gestora do patrimônio — nome",
+    "unidade_sigla": "Unidade gestora do patrimônio — sigla (também no cabeçalho do sistema)", "cidade": "Cidade (data do termo)",
     "assinatura_eletronica": "Texto da assinatura eletrônica", "recebedor_nome": "Quem recebe a devolução — nome",
     "recebedor_cargo": "Quem recebe a devolução — cargo",
     "individual_titulo": "Título", "individual_abertura": "Abertura", "individual_compromissos_intro": "Introdução dos compromissos",
@@ -143,6 +150,11 @@ def salvar(conn, chave: str, valor: str) -> None:
 def restaurar(conn, chave: str) -> None:
     conn.execute("DELETE FROM textos WHERE chave = ?", (chave,))
     conn.commit()
+
+
+def campos_gerais(t: dict) -> dict:
+    """Marcadores que existem em todos os blocos: siglas do órgão e da unidade gestora."""
+    return {k: t[k] for k in ("orgao_sigla", "unidade_nome", "unidade_sigla")}
 
 
 def paragrafos(texto: str) -> list[str]:
