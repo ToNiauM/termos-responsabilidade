@@ -1,5 +1,4 @@
 """Macro grafico e helper graficos.py."""
-import json
 
 from flask import render_template_string
 

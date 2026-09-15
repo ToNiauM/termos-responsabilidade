@@ -160,11 +160,6 @@
   #main-navigation.active .menu-scrim { display: none; }
 }
 
-/* Gráficos ECharts: altura fixa pela classe, nunca por style inline. */
-.dsgov-grafico { width: 100%; height: 280px; }
-.dsgov-grafico-alto { width: 100%; height: 400px; }
-
 /* Card-indicador clicável do painel. */
 a.dsgov-kpi { display: block; color: inherit; text-decoration: none; }
 a.dsgov-kpi:hover { box-shadow: var(--surface-shadow-md); }
-.dsgov-kpi .card-content { min-height: 96px; }
