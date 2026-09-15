@@ -96,4 +96,5 @@ def test_grafico_tipos_pela_quantidade_de_itens(dados):
         assert op["series"][0]["data"][-1]["url"].endswith("ano=2015")
 
         op, sub, altura, col = painel._grafico([item(i) for i in range(15, 0, -1)], {"situacao": "ATIVO"}, "ano")
-        assert op["series"][0]["type"] == "bar" and len(op["xAxis"]["data"]) == 15 and sub is None and altura == "alto" and col is None
+        assert op["series"][0]["type"] == "bar" and len(op["xAxis"]["data"]) == 15 and sub is None and altura == "alto" and col == "col-12"
+        assert op["xAxis"]["axisLabel"]["rotate"] == 45                 # muitas colunas: rótulos inclinados

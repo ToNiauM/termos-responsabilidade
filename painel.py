@@ -65,8 +65,11 @@ def _grafico(itens, f, chave):
         op = graficos.barras_horizontais([i["rotulo"] for i in top], [i["quantidade"] for i in top], "Bens", escala=False, urls=_urls(top, f, chave))  # azul da marca em todas as barras (a escala clara ficava ilegível)
     sub = (f"{TOP} anos mais recentes no gráfico; todos na tabela" if recentes else f"{TOP} maiores no gráfico; todos na tabela") if n > TOP else None
     barras = n > 5 and chave not in CURTOS
+    colunas = n > 5 and chave in CURTOS
+    if colunas and len(top) > 10:
+        op["xAxis"]["axisLabel"] = {"interval": 0, "rotate": 45}   # 20 anos lado a lado não cabem na horizontal
     altura = "extra" if barras and len(top) > 15 else ("alto" if len(top) > 8 else None)
-    col = "col-12" if barras and len(top) > 10 else None
+    col = "col-12" if (barras or colunas) and len(top) > 10 else None
     return op, sub, altura, col
 
 
