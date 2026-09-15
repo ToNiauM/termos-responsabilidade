@@ -47,3 +47,16 @@ fluxo brainstorming → spec → plano → subagent-driven-development, como nas
 - UX: o teclado virtual do celular NÃO pode aparecer a cada leitura — campo com `inputmode="none"` e foco
   mantido; botão "Câmera" abre leitura por câmera na página (biblioteca JS embutida, offline); botão
   "Digitar" para plaqueta ilegível (só aí o teclado aparece).
+
+## Decisões de desenho (2026-09-15, aprovadas em conversa)
+- Evento = campanha de inventário: escopo = todas as salas com bens ativos, ou subconjunto (amostragem).
+  Abrir outro evento reinicia o dever de conferir. Um evento aberto por vez.
+- Divergente = "local sistema" (bens.localizacao, do SPW) ≠ "local inventário" (sala onde foi lido).
+  `bens` NÃO muda por aqui; correção é no SPW e aparece na próxima importação como "movido".
+- Fotos: bucket R2 como hoje (boto3, env R2_* via secrets/.env), WebP q85 até 1920×1080 (Pillow).
+- Sobras (bem sem cadastro): tabela própria `inventario_sobras`, nunca em `bens`; foto obrigatória.
+- Exportação: só .xlsx (aba Bens + aba Sobras). Sem PDF.
+- Leitura grava direto (sem staging/auto-flush). Integrante escolhido por sessão (sem login).
+- Versão COMPLETA (com câmera e fotos) nesta rodada. Módulo separado: `inventario.py` (dados) +
+  blueprint `app_inventario.py` (rotas) + templates `inventario_*.html`.
+- Spec: docs/superpowers/specs/2026-09-15-inventario-design.md
