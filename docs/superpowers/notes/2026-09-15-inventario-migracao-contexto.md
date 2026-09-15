@@ -63,3 +63,10 @@ fluxo brainstorming → spec → plano → subagent-driven-development, como nas
 - Ajustes finais do usuário (2026-09-15): SEM "concluir sala" (evento fica aberto até encerrar; progresso = % de
   bens localizados); bem baixado lido fica registrado e consultável, continua baixado; um evento aberto por vez;
   código em arquivos próprios; bibliotecas embutidas. Plano: docs/superpowers/plans/2026-09-15-inventario.md.
+
+## Retomada da execução (se a conversa for limpa no meio)
+Estado vivo: branch `inventario`; ledger em `.superpowers/sdd/2026-09-15-inventario/progress.md` (tarefas com
+linha `Task N: complete` estão prontas; briefs em `task-N-brief.md`, relatórios em `task-N-report.md`).
+Instrução: "Leia este arquivo e o ledger; use superpowers:subagent-driven-development para continuar o plano
+`docs/superpowers/plans/2026-09-15-inventario.md` a partir da primeira tarefa sem `complete`; ao final,
+revisão final, merge na main, push e `docker compose up -d --build`."
