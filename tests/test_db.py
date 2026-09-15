@@ -428,3 +428,62 @@ def test_processos_validacao_e_exclusao(dados):
     assert db.processo_vigente(dados, "ccusto") is None
     db.excluir_processo(dados, i)
     assert db.processos(dados) == []
+
+
+# ---------------------------------------------------------------- termos emitidos
+def test_registrar_emissao_exige_processo_e_grava_foto(dados):
+    semear(dados)
+    bens = db.bens_do_centro(dados, "CCI")
+    with pytest.raises(db.ErroDeNegocio):
+        db.registrar_emissao(dados, "ccusto", "CCI", bens)
+    db.incluir_processo(dados, "ccusto", "Termos 2026", "2222")
+    t = db.registrar_emissao(dados, "ccusto", "CCI", bens)
+    assert t["quantidade"] == 1 and t["valor_total"] == 64.54 and t["numero_sei"] == "2222"
+    assert [b["numero"] for b in t["bens"]] == [1001] and t["bens"][0]["descricao"] == "CADEIRA"
+    assert db.ultimo_termo(dados, "ccusto", "CCI")["id"] == t["id"]
+    assert db.termos_emitidos(dados)[0]["id"] == t["id"]
+    assert db.termos_emitidos(dados, tipo="individual") == []
+    assert db.termos_emitidos(dados, chave="cc")[0]["id"] == t["id"]
+    db.salvar_documento_sei(dados, t["id"], " 0451234 ")
+    assert db.termo_emitido(dados, t["id"])["documento_sei"] == "0451234"
+
+
+def test_registrar_emissao_mesmo_dia_mesma_lista_nao_duplica(dados):
+    semear(dados)
+    db.incluir_processo(dados, "ccusto", "Termos 2026", "2222")
+    a = db.registrar_emissao(dados, "ccusto", "CCI", db.bens_do_centro(dados, "CCI"))
+    b = db.registrar_emissao(dados, "ccusto", "CCI", db.bens_do_centro(dados, "CCI"))
+    assert a["id"] == b["id"] and len(db.termos_emitidos(dados)) == 1
+    dados.execute("INSERT INTO bens VALUES (1005,'ATIVO','LUMINÁRIA','','MÓVEIS','01 - SALA CCI','01/01/2020',10,9)")
+    c = db.registrar_emissao(dados, "ccusto", "CCI", db.bens_do_centro(dados, "CCI"))
+    assert c["id"] != a["id"] and c["quantidade"] == 2
+
+
+def test_situacao_termo(dados):
+    semear(dados)
+    bens = db.bens_do_centro(dados, "CCI")
+    assert db.situacao_termo(dados, "ccusto", "CCI", bens)["estado"] == "sem_termo"
+    db.incluir_processo(dados, "ccusto", "Termos 2026", "2222")
+    db.registrar_emissao(dados, "ccusto", "CCI", bens)
+    assert db.situacao_termo(dados, "ccusto", "CCI", db.bens_do_centro(dados, "CCI"))["estado"] == "vigente"
+    dados.execute("INSERT INTO bens VALUES (1005,'ATIVO','LUMINÁRIA','','MÓVEIS','01 - SALA CCI','01/01/2020',10,9)")
+    dados.execute("UPDATE bens SET situacao = 'BAIXADO' WHERE numero = 1001")
+    s = db.situacao_termo(dados, "ccusto", "CCI", db.bens_do_centro(dados, "CCI"))
+    assert (s["estado"], s["entraram"], s["sairam"]) == ("desatualizado", 1, 1)
+    centros = db.situacoes_centros(dados)
+    assert centros[0]["ccustos"] == "CCI" and centros[0]["estado"] == "desatualizado" and centros[0]["quantidade"] == 1
+    pessoas = db.situacoes_pessoas(dados)
+    assert pessoas == [{"nome": "ANA SILVA", "quantidade": 1, "valor": 1500.0, "estado": "sem_termo",
+                        "ultimo": None, "entraram": 0, "sairam": 0}]
+
+
+def test_renomear_leva_historico_junto(dados):
+    semear(dados)
+    db.incluir_processo(dados, "ccusto", "T", "1")
+    db.incluir_processo(dados, "individual", "I", "2")
+    db.registrar_emissao(dados, "ccusto", "CCI", db.bens_do_centro(dados, "CCI"))
+    db.registrar_emissao(dados, "individual", "ANA SILVA", db.bens_da_pessoa(dados, "ANA SILVA"))
+    db.renomear_centro(dados, "CCI", "GEX")
+    db.renomear_pessoa(dados, "ANA SILVA", "ANA SOUZA")
+    assert db.ultimo_termo(dados, "ccusto", "GEX") and db.ultimo_termo(dados, "ccusto", "CCI") is None
+    assert db.ultimo_termo(dados, "individual", "ANA SOUZA") and db.ultimo_termo(dados, "individual", "ANA SILVA") is None

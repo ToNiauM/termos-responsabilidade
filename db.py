@@ -395,6 +395,7 @@ def renomear_centro(conn, antigo: str, novo: str) -> None:
     if not responsavel(conn, antigo):
         raise ErroDeNegocio(f"Centro de custo {antigo} não encontrado.")
     conn.execute("UPDATE responsaveis SET ccustos = ? WHERE ccustos = ?", (novo, antigo))  # cascateia
+    conn.execute("UPDATE termos_emitidos SET chave = ? WHERE tipo = 'ccusto' AND chave = ?", (novo, antigo))
     conn.commit()
 
 
@@ -444,6 +445,7 @@ def renomear_pessoa(conn, antigo: str, novo: str) -> str:
     if novo in pessoas(conn):
         raise ErroDeNegocio(f"Já existe uma pessoa chamada {novo}.")
     conn.execute("UPDATE pessoas SET nome = ? WHERE nome = ?", (novo, antigo))  # cascateia em atribuicoes
+    conn.execute("UPDATE termos_emitidos SET chave = ? WHERE tipo IN ('individual','devolucao') AND chave = ?", (novo, antigo))
     conn.commit()
     return novo
 
@@ -516,6 +518,99 @@ def excluir_processo(conn, id: int) -> None:
         raise ErroDeNegocio("Este processo tem termos registrados; encerre-o em vez de excluir.")
     conn.execute("DELETE FROM processos_sei WHERE id = ?", (id,))
     conn.commit()
+
+
+# ---------------------------------------------------------------- termos emitidos (foto)
+def _numeros_do_termo(conn, termo_id: int) -> list[int]:
+    return [r[0] for r in conn.execute("SELECT numero FROM termos_emitidos_bens WHERE termo_id = ? ORDER BY numero", (termo_id,))]
+
+
+def ultimo_termo(conn, tipo: str, chave: str) -> dict | None:
+    return _um(conn, """
+        SELECT t.*, p.descricao AS processo, p.numero_sei FROM termos_emitidos t JOIN processos_sei p ON p.id = t.processo_id
+        WHERE t.tipo = ? AND t.chave = ? ORDER BY t.emitido_em DESC, t.id DESC LIMIT 1""", tipo, chave)
+
+
+def registrar_emissao(conn, tipo: str, chave: str, bens: list) -> dict:
+    """Foto do termo. Sem processo vigente do tipo → ErroDeNegocio. No mesmo dia, com a mesma lista de
+    bens, só atualiza a hora do registro existente."""
+    proc = processo_vigente(conn, tipo)
+    if not proc:
+        raise ErroDeNegocio(f"Cadastre um processo SEI vigente para {ROTULO_TIPO[tipo]} em Cadastros → Processos SEI.")
+    agora = _agora()
+    numeros = sorted(int(b["numero"]) for b in bens)
+    ultimo = ultimo_termo(conn, tipo, chave)
+    if ultimo and ultimo["emitido_em"][:10] == agora[:10] and _numeros_do_termo(conn, ultimo["id"]) == numeros:
+        conn.execute("UPDATE termos_emitidos SET emitido_em = ? WHERE id = ?", (agora, ultimo["id"]))
+        conn.commit()
+        return termo_emitido(conn, ultimo["id"])
+    cur = conn.execute(
+        "INSERT INTO termos_emitidos (tipo, chave, processo_id, emitido_em, quantidade, valor_total) VALUES (?,?,?,?,?,?)",
+        (tipo, chave, proc["id"], agora, len(bens), sum(b["valor_atual"] or 0 for b in bens)))
+    conn.executemany("INSERT INTO termos_emitidos_bens VALUES (?,?,?,?,?,?)", [
+        (cur.lastrowid, b["numero"], b["descricao"], b["complemento"], b["localizacao"], b["valor_atual"]) for b in bens])
+    conn.commit()
+    return termo_emitido(conn, cur.lastrowid)
+
+
+def termos_emitidos(conn, tipo: str | None = None, chave: str | None = None, limite: int = 200) -> list[dict]:
+    sql = """SELECT t.*, p.descricao AS processo, p.numero_sei FROM termos_emitidos t
+             JOIN processos_sei p ON p.id = t.processo_id WHERE 1"""
+    params: list = []
+    if tipo:
+        sql += " AND t.tipo = ?"
+        params.append(tipo)
+    if chave:
+        sql += " AND MAIUSC(t.chave) LIKE ?"
+        params.append(f"%{chave.upper()}%")
+    conn.create_function("MAIUSC", 1, lambda v: v.upper() if isinstance(v, str) else v)
+    return _todos(conn, sql + " ORDER BY t.emitido_em DESC, t.id DESC LIMIT ?", *params, limite)
+
+
+def termo_emitido(conn, id: int) -> dict | None:
+    t = _um(conn, """
+        SELECT t.*, p.descricao AS processo, p.numero_sei FROM termos_emitidos t
+        JOIN processos_sei p ON p.id = t.processo_id WHERE t.id = ?""", id)
+    if not t:
+        return None
+    t["bens"] = _todos(conn, "SELECT * FROM termos_emitidos_bens WHERE termo_id = ? ORDER BY numero", id)
+    return t
+
+
+def salvar_documento_sei(conn, id: int, documento: str) -> None:
+    conn.execute("UPDATE termos_emitidos SET documento_sei = ? WHERE id = ?", (_texto(documento) or None, id))
+    conn.commit()
+
+
+def situacao_termo(conn, tipo: str, chave: str, bens_atuais: list) -> dict:
+    """Compara a foto do último termo com os bens de hoje. Só entrada/saída conta."""
+    ultimo = ultimo_termo(conn, tipo, chave)
+    if not ultimo:
+        return {"estado": "sem_termo", "ultimo": None, "entraram": 0, "sairam": 0}
+    foto = set(_numeros_do_termo(conn, ultimo["id"]))
+    atuais = {int(b["numero"]) for b in bens_atuais}
+    entraram, sairam = len(atuais - foto), len(foto - atuais)
+    return {"estado": "desatualizado" if entraram or sairam else "vigente",
+            "ultimo": ultimo, "entraram": entraram, "sairam": sairam}
+
+
+def situacoes_centros(conn) -> list[dict]:
+    """Cada centro com quantidade/valor dos bens sob guarda e a situação do termo."""
+    out = []
+    for c in centros(conn):
+        bens = bens_do_centro(conn, c["ccustos"])
+        out.append({**c, "quantidade": len(bens), "valor": sum(b["valor_atual"] or 0 for b in bens),
+                    **situacao_termo(conn, "ccusto", c["ccustos"], bens)})
+    return out
+
+
+def situacoes_pessoas(conn) -> list[dict]:
+    out = []
+    for nome in pessoas(conn):
+        bens = bens_da_pessoa(conn, nome)
+        out.append({"nome": nome, "quantidade": len(bens), "valor": sum(b["valor_atual"] or 0 for b in bens),
+                    **situacao_termo(conn, "individual", nome, bens)})
+    return out
 
 
 CADASTROS = {
