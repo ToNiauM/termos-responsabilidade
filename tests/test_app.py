@@ -366,7 +366,15 @@ def test_listas_mostram_situacao_do_termo(cliente):
     assert b"ANA SILVA" in r.data and b"sem termo" in r.data and b"/termo/individual/ANA" in r.data
     cliente.post("/cadastros/processos/incluir", data={"tipo": "ccusto", "descricao": "T", "numero_sei": "2", "vigente": "1"})
     cliente.get("/termo/ccusto/CCI/docx")
-    assert b"vigente" in cliente.get("/centro-custos").data
+    r = cliente.get("/centro-custos")
+    assert b"vigente" in r.data and b"sem doc./bloco" in r.data
+    import db
+    tid = db.termos_emitidos(db.conectar())[0]["id"]
+    cliente.post(f"/termos-emitidos/{tid}/documento", data={"documento_sei": "1", "bloco_sei": "2"})
+    assert "não enviado".encode() in cliente.get("/centro-custos").data
+    cliente.post(f"/termos-emitidos/{tid}/email")
+    r = cliente.get("/centro-custos")
+    assert b"enviado " in r.data and f"/termos-emitidos/{tid}".encode() in r.data
 
 
 def test_recorte_tela_filtros_termo_e_xlsx(cliente):

@@ -78,6 +78,14 @@
 {% else %}<span class="br-tag bg-gray-20"><span>sem termo</span></span>{% endif %}
 {% endmacro %}
 
+{% macro tag_email(s) %}
+{# s = dict de db.situacao_termo; sinaliza o pedido de assinatura do último termo e leva ao registro #}
+{% if not s.ultimo %}—
+{% elif s.ultimo.email_enviado_em %}<a href="{{ url_for('termo_emitido_tela', id=s.ultimo.id) }}" class="br-tag bg-success text-pure-0"><span>enviado {{ s.ultimo.email_enviado_em[8:10] }}/{{ s.ultimo.email_enviado_em[5:7] }}</span></a>
+{% elif s.ultimo.documento_sei and s.ultimo.bloco_sei %}<a href="{{ url_for('termo_emitido_tela', id=s.ultimo.id) }}" class="br-tag bg-warning"><span>não enviado</span></a>
+{% else %}<a href="{{ url_for('termo_emitido_tela', id=s.ultimo.id) }}" class="br-tag bg-gray-20"><span>sem doc./bloco</span></a>{% endif %}
+{% endmacro %}
+
 {% macro grafico(g) %}
 {# g = {id, titulo, subtitulo, opcoes (dict ECharts), resumo (aria-label), alto (bool), col, tabela (graficos.tabela_dados)} #}
 <div class="{{ g.col or 'col-sm-12 col-md-6' }} mb-3">
