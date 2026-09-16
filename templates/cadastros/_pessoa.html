@@ -1,0 +1,21 @@
+<h1>{{ nome }}</h1>
+<p class="text-gray-70">{{ bens_pessoa|length }} bem(ns) sob responsabilidade individual.</p>
+<div class="d-flex flex-wrap mb-4">
+  <a class="br-button secondary mr-2" href="{{ link('pessoas_editar', nome=nome) }}"><i class="fas fa-pen mr-1" aria-hidden="true"></i>Editar nome</a>
+  <a class="br-button mr-2" href="{{ pagina_url(nome='') }}">Voltar à lista de pessoas</a>
+  <a class="br-button" href="{{ url_for('termo', tipo='individual', chave=nome) }}"><i class="fas fa-file-alt mr-1" aria-hidden="true"></i>Ver termo individual</a>
+</div>
+<div class="br-card mb-4"><div class="card-content">
+  <h2 class="text-up-01">Atribuir um patrimônio</h2>
+  <p>Consulte o número para conferir o bem e seu responsável atual antes de confirmar a atribuição.</p>
+  <form method="post" action="{{ url_for('pessoas_atribuir') }}" class="row align-items-end">
+    {{ ocultos(origem) }}<input type="hidden" name="nome" value="{{ nome }}"/>
+    <div class="col-md-6 mb-2"><div class="br-input"><label for="numero-patrimonio">Número do patrimônio</label><input id="numero-patrimonio" name="numero" type="text" inputmode="numeric" required/></div></div>
+    <div class="col-md-6 mb-2"><button class="br-button primary" type="submit"><i class="fas fa-search mr-1" aria-hidden="true"></i>Consultar patrimônio</button></div>
+  </form>
+</div></div>
+<div class="br-table"><div class="table-header"><div class="top-bar"><div class="table-title">Bens atribuídos</div></div></div>
+<table><caption class="sr-only">Bens de {{ nome }}</caption><thead><tr><th scope="col">Patrimônio</th><th scope="col">Descrição</th><th scope="col">Complemento</th><th scope="col" class="dsgov-numero">Valor atual</th><th scope="col" class="dsgov-acoes">Ações</th></tr></thead>
+<tbody>{% for b in bens_pessoa %}<tr><td><a href="{{ url_for('bem', numero=b.numero) }}">{{ b.numero }}</a></td><td>{{ b.descricao }}</td><td>{{ b.complemento }}</td><td class="dsgov-numero">{{ (b.valor_atual or 0)|moeda }}</td><td class="dsgov-acoes">{{ acao('pessoas_desatribuir', 'Remover vínculo', origem, {'nome': nome, 'numero': b.numero}) }}</td></tr>{% else %}<tr><td colspan="5">Nenhum bem atribuído. Consulte um patrimônio acima para começar.</td></tr>{% endfor %}</tbody>
+</table></div>
+<p class="mt-4">{{ acao('pessoas_excluir', 'Excluir pessoa', origem, {'nome': nome}) }}</p>

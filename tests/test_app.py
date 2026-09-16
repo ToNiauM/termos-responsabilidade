@@ -5,7 +5,7 @@ import pytest
 from openpyxl import Workbook, load_workbook
 
 import db
-from tests.conftest import semear
+from tests.conftest import semear, confirmar_revisao
 from tests.test_db import CABECALHO
 
 
@@ -133,7 +133,7 @@ def test_cadastro_responsaveis_editar_renomear_excluir(cliente):
     assert b"sob guarda" in r.data
     r = cliente.post("/cadastros/responsaveis/excluir", data={"ccustos": "DECOM"}, follow_redirects=True)
     assert b"Confirmar exclus" in r.data
-    r = cliente.post("/cadastros/responsaveis/excluir", data={"ccustos": "DECOM", "confirmar": "1"}, follow_redirects=True)
+    r = confirmar_revisao(cliente, r, "/cadastros/responsaveis/excluir")
     assert b">DECOM<" not in r.data
 
 
@@ -151,6 +151,8 @@ def test_cadastro_localizacoes_mover(cliente):
     r = cliente.post("/cadastros/localizacoes/mover", data={"localizacoes": ["01 - SALA CCI", "99 - SEM MAPA"], "ccustos_destino": "PRES"},
                      follow_redirects=True)
     assert b"2 localiza" in r.data
+    assert b"PRES" not in cliente.get("/bem?numero=1001").data
+    r = confirmar_revisao(cliente, r, "/cadastros/localizacoes/mover")
     assert b"PRES" in cliente.get("/bem?numero=1001").data
     r = cliente.post("/cadastros/localizacoes/mover", data={"ccustos_destino": "PRES"}, follow_redirects=True)
     assert b"ao menos uma" in r.data
@@ -169,7 +171,8 @@ def test_cadastro_localizacoes(cliente):
     assert b"99 - SEM MAPA" in r.data
     r = cliente.post("/cadastros/localizacoes/incluir", data={"localizacao": "99 - SEM MAPA", "ccustos": "CCI"}, follow_redirects=True)
     assert r.data.count(b"99 - SEM MAPA") >= 1 and b"pendente" not in r.data.lower()
-    cliente.post("/cadastros/localizacoes/excluir", data={"localizacao": "99 - SEM MAPA"})
+    r = cliente.post("/cadastros/localizacoes/excluir", data={"localizacao": "99 - SEM MAPA"})
+    confirmar_revisao(cliente, r, "/cadastros/localizacoes/excluir")
     assert b"99 - SEM MAPA" in cliente.get("/cadastros/localizacoes").data
 
 
@@ -179,16 +182,16 @@ def test_cadastro_pessoas_atribuir_com_confirmacao(cliente):
     assert b"BRUNO LIMA" in r.data
     r = cliente.post("/cadastros/pessoas/atribuir", data={"nome": "BRUNO LIMA", "numero": "1002"}, follow_redirects=True)
     assert b"ANA SILVA" in r.data and b"confirmar" in r.data  # pede confirmação
-    r = cliente.post("/cadastros/pessoas/atribuir", data={"nome": "BRUNO LIMA", "numero": "1002", "confirmar": "1002"},
-                     follow_redirects=True)
+    r = confirmar_revisao(cliente, r, "/cadastros/pessoas/atribuir")
     assert b"NOTEBOOK" in r.data
     r = cliente.post("/cadastros/pessoas/desatribuir", data={"nome": "BRUNO LIMA", "numero": "1002"}, follow_redirects=True)
+    r = confirmar_revisao(cliente, r, "/cadastros/pessoas/desatribuir")
     assert b"NOTEBOOK" not in r.data
     r = cliente.post("/cadastros/pessoas/atribuir", data={"nome": "BRUNO LIMA", "numero": "9999"}, follow_redirects=True)
     assert "não encontrado".encode() in r.data
     r = cliente.post("/cadastros/pessoas/excluir", data={"nome": "BRUNO LIMA"}, follow_redirects=True)
-    assert b"confirmar" in r.data
-    cliente.post("/cadastros/pessoas/excluir", data={"nome": "BRUNO LIMA", "confirmar": "1"})
+    assert b"Confirmar" in r.data
+    confirmar_revisao(cliente, r, "/cadastros/pessoas/excluir")
     assert b"BRUNO LIMA" not in cliente.get("/cadastros/pessoas").data
 
 
@@ -308,10 +311,13 @@ def test_cadastro_de_processos_sei(cliente):
     import db
     pid = db.processos(db.conectar())[0]["id"]
     r = cliente.post("/cadastros/processos/encerrar", data={"id": pid}, follow_redirects=True)
+    r = confirmar_revisao(cliente, r, "/cadastros/processos/encerrar")
     assert b"encerrado" in r.data
     r = cliente.post("/cadastros/processos/vigente", data={"id": pid}, follow_redirects=True)
+    r = confirmar_revisao(cliente, r, "/cadastros/processos/vigente")
     assert b"vigente" in r.data
     r = cliente.post("/cadastros/processos/excluir", data={"id": pid}, follow_redirects=True)
+    r = confirmar_revisao(cliente, r, "/cadastros/processos/excluir")
     assert "exclu".encode() in r.data and b"Termos 2026" not in r.data
 
 

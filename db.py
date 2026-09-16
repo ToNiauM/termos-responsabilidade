@@ -347,6 +347,86 @@ def centros(conn) -> list[dict]:
     return _todos(conn, "SELECT * FROM responsaveis ORDER BY ccustos")
 
 
+def listar_cadastros(conn, aba, filtros):
+    """Busca no conjunto completo, ordenação permitida e paginação no servidor."""
+    import unicodedata
+
+    def normalizar(valor):
+        return "".join(c for c in unicodedata.normalize("NFD", str(valor or "").casefold())
+                       if not unicodedata.combining(c))
+
+    conn.create_function("cadastro_busca", 1, normalizar, deterministic=True)
+    fontes = {
+        "responsaveis": ("SELECT *, ccustos AS chave FROM responsaveis", ["ccustos", "responsavel", "funcao"]),
+        "pessoas": ("""SELECT p.nome, p.nome AS chave, COUNT(a.numero) AS quantidade
+                        FROM pessoas p LEFT JOIN atribuicoes a ON a.nome = p.nome GROUP BY p.nome""",
+                    ["nome", "quantidade"]),
+        "localizacoes": ("""SELECT localizacao, ccustos, localizacao AS chave FROM localizacoes
+            UNION ALL SELECT DISTINCT b.localizacao, '', b.localizacao FROM bens b
+            WHERE b.situacao = 'ATIVO' AND b.localizacao <> ''
+            AND b.localizacao NOT IN (SELECT localizacao FROM localizacoes)
+            AND b.numero NOT IN (SELECT numero FROM atribuicoes)""",
+                         ["localizacao", "ccustos"]),
+        "processos": ("SELECT *, CAST(id AS TEXT) AS chave FROM processos_sei",
+                      ["numero_sei", "descricao", "tipo", "vigente", "criado_em"]),
+    }
+    fonte, colunas = fontes[aba]
+    busca_colunas = [c for c in colunas if c not in ("quantidade", "vigente", "criado_em")]
+    where, params = [], []
+    for palavra in filtros.get("q", "").split():
+        where.append("(" + " OR ".join(f"instr(cadastro_busca({c}), ?) > 0" for c in busca_colunas) + ")")
+        params.extend([normalizar(palavra)] * len(busca_colunas))
+    if aba == "localizacoes":
+        if filtros.get("centro"):
+            where.append("ccustos = ?")
+            params.append(filtros["centro"])
+        if filtros.get("situacao") in ("sem_centro", "vinculadas"):
+            where.append("ccustos = ''" if filtros["situacao"] == "sem_centro" else "ccustos <> ''")
+    if aba == "processos":
+        if filtros.get("tipo") in TIPOS_TERMO:
+            where.append("tipo = ?")
+            params.append(filtros["tipo"])
+        if filtros.get("situacao") in ("vigente", "encerrado"):
+            where.append("vigente = ?")
+            params.append(int(filtros["situacao"] == "vigente"))
+    base = f"FROM ({fonte}) AS cadastro" + (" WHERE " + " AND ".join(where) if where else "")
+    total = conn.execute("SELECT COUNT(*) " + base, params).fetchone()[0]
+    ordem = filtros.get("ordem") if filtros.get("ordem") in colunas else colunas[0]
+    direcao = "DESC" if filtros.get("direcao") == "desc" else "ASC"
+    try:
+        tamanho = int(filtros.get("por_pagina", 20))
+    except (TypeError, ValueError):
+        tamanho = 20
+    tamanho = tamanho if tamanho in (10, 20, 50) else 20
+    paginas = max(1, (total + tamanho - 1) // tamanho)
+    try:
+        pagina = max(1, min(int(filtros.get("pagina", 1)), paginas))
+    except (TypeError, ValueError):
+        pagina = 1
+    inicio = (pagina - 1) * tamanho
+    itens = _todos(conn, f"SELECT * {base} ORDER BY {ordem} COLLATE NOCASE {direcao}, chave LIMIT ? OFFSET ?",
+                   *params, tamanho, inicio)
+    return dict(itens=itens, total=total, pagina=pagina, paginas=paginas, por_pagina=tamanho,
+                inicio=inicio + 1 if total else 0, fim=min(inicio + tamanho, total),
+                ordem=ordem, direcao=direcao.lower())
+
+
+def salvar_centro(conn, antigo, dados):
+    """Altera sigla, dados e referências do histórico em uma única transação."""
+    sigla = _obrigatorio(dados.get("ccustos"), "Centro de custo").upper()
+    nome = _obrigatorio(dados.get("responsavel"), "Responsável")
+    with conn:
+        if not responsavel(conn, antigo):
+            raise ErroDeNegocio("Centro de custo não encontrado.")
+        if sigla != antigo and responsavel(conn, sigla):
+            raise ErroDeNegocio(f"O centro de custo {sigla} já existe.")
+        conn.execute("""UPDATE responsaveis SET ccustos=?, responsavel=?, tratamento=?, funcao=?, matricula=?, email=?
+                        WHERE ccustos=?""", (sigla, nome, _texto(dados.get("tratamento")),
+                        _texto(dados.get("funcao")), _texto(dados.get("matricula")), _texto(dados.get("email")), antigo))
+        conn.execute("UPDATE termos_emitidos SET chave=? WHERE tipo='ccusto' AND chave=?", (sigla, antigo))
+    return sigla
+
+
 def responsavel(conn, ccustos: str) -> dict | None:
     return _um(conn, "SELECT * FROM responsaveis WHERE ccustos = ?", ccustos)
 

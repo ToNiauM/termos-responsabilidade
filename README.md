@@ -33,10 +33,17 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    (migração de outros sistemas).
 2. **Atualizar base**: envie o export do sistema de patrimônio (`.xlsx`). Só a tabela de bens muda.
    *Exportar bens (formato SPW)* devolve a mesma tabela em `.xlsx`, nas 9 colunas do export — backup reimportável.
-3. **Cadastros**: responsáveis por centro de custo (editar, inclusive a sigla — as localizações
-   acompanham), localização → centro de custo, pessoas e bens atribuídos. Bem atribuído a pessoa não
-   entra no termo do setor. Excluir um centro só é possível sem bens ativos sob sua guarda; sem bens,
-   seus locais voltam a "pendentes".
+3. **Cadastros**: quatro áreas com busca visível, filtros, ordenação e paginação de 10/20/50 registros.
+   Em **Centros de custo**, encontre a sigla ou o responsável e use *Editar*; alterar a sigla mantém
+   as localizações e referências dos termos. Em **Localizações**, filtre as que estão sem centro,
+   vincule-as ou altere o centro de uma ou várias localizações com revisão de origem e destino.
+   A seleção em lote vale para a página atual e é limpa ao mudar busca, filtros ou página.
+   Em **Pessoas**, use *Editar* para corrigir o nome ou *Ver bens* para consultar um patrimônio antes
+   de atribuí-lo. Bem atribuído a pessoa não entra no termo do setor. Em **Processos SEI**, cadastre
+   processos e revise o impacto antes de substituir o vigente, encerrar ou excluir.
+   Inclusão e edição têm formulários próprios; erros mantêm os dados preenchidos. Salvar e cancelar
+   preservam o contexto da lista. Exclusões e remoções de vínculo exigem confirmação; centros com
+   bens ativos sob sua guarda e processos com termos registrados mantêm seus bloqueios de exclusão.
 4. **Termos**: escolha o centro/pessoa → página do termo → *Copiar para o SEI* ou *Baixar .docx*.
 5. **Textos**: os dizeres dos termos (abertura, compromissos, parágrafos, quem recebe a devolução,
    cidade, sigla do órgão) são editáveis no menu Textos, com marcadores como `{nome}` e `{ccustos}`;
@@ -92,6 +99,7 @@ O mesmo código roda em `https://patrimonio.sistemascfc.org`, num container nest
 | Arquivo | Função |
 |---|---|
 | `app.py` | rotas Flask |
+| `app_cadastros.py` | navegação, formulários e revisão das alterações de cadastros |
 | `db.py` | esquema, importação, consultas, cadastros |
 | `termos_html.py` | corpo HTML dos termos (padrão gelic; tabelas 80 % / 100 %) |
 | `textos.py` | textos padrão dos termos e marcadores |

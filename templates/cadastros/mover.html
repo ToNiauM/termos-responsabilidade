@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% from 'cadastros/_campos.html' import ocultos, escolha %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+<h1>{{ titulo }}</h1>
+<p>Confira as localizações selecionadas e escolha o centro de destino.</p>
+<ul>{% for loc in locais %}<li><strong>{{ loc.localizacao }}</strong> · Centro atual: {{ loc.ccustos }}</li>{% endfor %}</ul>
+<form method="post" action="{{ url_for('localizacoes_mover') }}" class="col-md-8">
+  {{ ocultos(retorno) }}{% for loc in locais %}<input type="hidden" name="localizacoes" value="{{ loc.localizacao }}"/>{% endfor %}
+  {{ escolha('ccustos_destino', 'Centro de custo de destino', centros|map(attribute='ccustos')|list, valores, erros) }}
+  <p class="text-gray-70 mt-3">Você poderá revisar a origem e o destino antes de confirmar.</p>
+  <div class="dsgov-acoes-formulario"><a class="br-button" href="{{ retorno }}">Cancelar</a><button class="br-button primary" type="submit">Revisar alteração</button></div>
+</form>
+{% endblock %}
+{% block scripts %}{% include 'cadastros/_comportamento.html' %}{% endblock %}

@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% from 'cadastros/_campos.html' import campo, ocultos %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+<h1>{{ titulo }}</h1>
+<p>Pessoa: <strong>{{ nome }}</strong>. Confira o número para consultar o bem antes de atribuí-lo.</p>
+<form method="post" action="{{ url_for('pessoas_atribuir') }}" class="col-md-8" novalidate>
+  {{ ocultos(retorno) }}<input type="hidden" name="nome" value="{{ nome }}"/>
+  {{ campo('numero', 'Número do patrimônio', valores, erros, True) }}
+  <div class="dsgov-acoes-formulario"><a class="br-button" href="{{ retorno }}">Cancelar</a><button class="br-button primary" type="submit">Consultar patrimônio</button></div>
+</form>
+{% endblock %}
+{% block scripts %}{% include 'cadastros/_comportamento.html' %}{% endblock %}

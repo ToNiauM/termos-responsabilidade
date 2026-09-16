@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% from 'cadastros/_campos.html' import campo, escolha, ocultos %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+<h1>{{ titulo }}{% if chave and aba == 'responsaveis' %}: {{ chave }}{% endif %}</h1>
+<p class="text-gray-70">Campos com <span class="text-danger">*</span> são obrigatórios.</p>
+{% if erros %}
+<div class="br-message danger"><div class="icon"><i class="fas fa-times-circle" aria-hidden="true"></i></div><div class="content" role="alert" tabindex="-1" id="erros-formulario"><span class="message-title">Confira os campos indicados.</span><span class="message-body"> Seus dados foram mantidos para correção.</span></div></div>
+{% endif %}
+<form method="post" action="{{ request.path if chave else url_for(aba ~ '_incluir') }}" class="col-md-8" novalidate>
+  {{ ocultos(retorno) }}
+  {% if aba == 'responsaveis' %}
+    {{ campo('ccustos', 'Sigla do centro de custo', valores, erros, True, ajuda='Ao alterar a sigla, as localizações e as referências dos termos acompanham a mudança.') }}
+    {{ campo('responsavel', 'Nome do responsável', valores, erros, True) }}
+    {{ campo('funcao', 'Função', valores, erros) }}
+    {{ campo('matricula', 'Matrícula', valores, erros, ajuda='Informe como consta no cadastro funcional, incluindo zeros à esquerda.') }}
+    {{ campo('email', 'E-mail', valores, erros, tipo='email') }}
+    {{ campo('tratamento', 'Tratamento', valores, erros, ajuda='Ex.: Prezado ou Prezada. Usado no texto do termo.') }}
+    {% if chave %}
+    <div class="br-card mb-4"><div class="card-content">
+      <h2 class="text-up-01">Localizações vinculadas ({{ locais|length }})</h2>
+      {% if locais %}<ul>{% for loc in locais %}<li>{{ loc }}</li>{% endfor %}</ul>{% else %}<p>Nenhuma localização vinculada.</p>{% endif %}
+      <a href="{{ url_for('cadastros', aba='localizacoes', centro=chave) }}">Gerenciar localizações deste centro</a>
+    </div></div>
+    {% endif %}
+  {% elif aba == 'pessoas' %}
+    {{ campo('nome', 'Nome completo', valores, erros, True, ajuda='Os bens atribuídos e as referências dos termos acompanham a alteração do nome.') }}
+  {% elif aba == 'localizacoes' %}
+    {% if not centros %}<p>Cadastre um centro de custo antes de vincular uma localização. <a href="{{ url_for('cadastro_novo', aba='responsaveis') }}">Cadastrar centro de custo</a></p>{% endif %}
+    {% if not pendentes %}<p>Não há localizações com bens ativos sem centro de custo.</p>{% endif %}
+    {{ escolha('localizacao', 'Localização sem centro de custo', pendentes, valores, erros) }}
+    {{ escolha('ccustos', 'Centro de custo', centros|map(attribute='ccustos')|list, valores, erros) }}
+    <p class="text-gray-70">As localizações vêm da base patrimonial. Aqui você define qual centro responde por elas.</p>
+  {% elif aba == 'processos' %}
+    {{ escolha('tipo', 'Tipo de termo', tipos, valores, erros) }}
+    {{ campo('descricao', 'Descrição', valores, erros, True, ajuda='Ex.: Termos de responsabilidade 2026.') }}
+    {{ campo('numero_sei', 'Número do processo SEI', valores, erros, True) }}
+    <div class="br-checkbox mb-2"><input id="vigente" name="vigente" type="checkbox" value="1"{% if valores.get('vigente') %} checked{% endif %}/><label for="vigente">Usar como processo vigente</label></div>
+    <p class="text-down-01 text-gray-70">O processo vigente é usado nas novas emissões deste tipo de termo. Se já houver outro, você revisará a substituição antes de salvar.</p>
+  {% endif %}
+  <div class="dsgov-acoes-formulario mt-4">
+    <a class="br-button" href="{{ retorno }}">Cancelar</a>
+    <button class="br-button primary" type="submit"{% if aba == 'localizacoes' and (not centros or not pendentes) %} disabled{% endif %}><i class="fas fa-save mr-1" aria-hidden="true"></i>{{ 'Salvar alterações' if chave else 'Salvar' }}</button>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}{% include 'cadastros/_comportamento.html' %}{% endblock %}

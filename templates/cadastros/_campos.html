@@ -1,0 +1,28 @@
+{% from '_macros.html' import select %}
+{% macro campo(nome, rotulo, valores, erros, obrigatorio=False, tipo='text', ajuda='') %}
+<div class="mb-3">
+  <div class="br-input{% if erros.get(nome) %} danger{% endif %}">
+    <label for="campo-{{ nome }}">{{ rotulo }}{% if obrigatorio %} <span class="text-danger" aria-hidden="true">*</span>{% endif %}</label>
+    <input id="campo-{{ nome }}" name="{{ nome }}" type="{{ tipo }}" value="{{ valores.get(nome, '') or '' }}"{% if obrigatorio %} required aria-required="true"{% endif %}{% if erros.get(nome) %} aria-invalid="true"{% endif %} aria-describedby="ajuda-{{ nome }}{% if erros.get(nome) %} erro-{{ nome }}{% endif %}"/>
+  </div>
+  <p class="text-down-01 text-gray-70 mb-1" id="ajuda-{{ nome }}">{{ ajuda }}</p>
+  {% if erros.get(nome) %}<span class="feedback danger" id="erro-{{ nome }}" role="alert">{{ erros[nome] }}</span>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro escolha(nome, rotulo, opcoes, valores, erros) %}
+<div class="mb-3">
+  {{ select(nome, rotulo, opcoes, selecionado=valores.get(nome)) }}
+  {% if erros.get(nome) %}<span class="feedback danger" id="erro-{{ nome }}" role="alert">{{ erros[nome] }}</span>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro ocultos(origem) %}<input type="hidden" name="retorno" value="{{ origem }}"/>{% endmacro %}
+
+{% macro acao(endpoint, rotulo, origem, campos, icone='fa-trash') %}
+<form method="post" action="{{ url_for(endpoint) }}" class="d-inline">
+  {{ ocultos(origem) }}
+  {% for k, v in campos.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}"/>{% endfor %}
+  <button class="br-button small" type="submit"><i class="fas {{ icone }} mr-1" aria-hidden="true"></i>{{ rotulo }}</button>
+</form>
+{% endmacro %}

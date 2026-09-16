@@ -1,5 +1,25 @@
 """Fixtures compartilhadas: banco SQLite temporário com dados de exemplo."""
 import pytest
+from html.parser import HTMLParser
+from werkzeug.datastructures import MultiDict
+
+
+def confirmar_revisao(cliente, resposta, rota):
+    """Envia os campos da revisão exibida, como faria o navegador."""
+    class Campos(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.dados = MultiDict()
+
+        def handle_starttag(self, tag, attrs):
+            attrs = dict(attrs)
+            if tag == "input" and attrs.get("type") == "hidden" and attrs.get("name"):
+                self.dados.add(attrs["name"], attrs.get("value", ""))
+
+    campos = Campos()
+    campos.feed(resposta.get_data(as_text=True))
+    assert campos.dados.get("revisao"), "A resposta precisa conter uma revisão antes de confirmar"
+    return cliente.post(rota, data=campos.dados, follow_redirects=True)
 
 
 @pytest.fixture

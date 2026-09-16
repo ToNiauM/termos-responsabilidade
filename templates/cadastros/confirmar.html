@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+<h1>{{ titulo }}</h1>
+<div class="br-message {{ 'danger' if bloqueado else 'warning' }}"><div class="icon"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i></div><div class="content" role="alert">{{ descricao }}</div></div>
+{% if erro %}<div class="br-message warning"><div class="content" role="alert">{{ erro }}</div></div>{% endif %}
+{% if linhas %}
+<div class="br-table mb-4"><div class="table-header"><div class="top-bar"><div class="table-title">Confira os registros afetados</div></div></div>
+  <table><caption class="sr-only">Revisão da alteração</caption><thead><tr><th scope="col">Registro</th><th scope="col">Situação atual / origem</th><th scope="col">Após confirmar / destino</th></tr></thead>
+  <tbody>{% for linha in linhas %}<tr>{% for valor in linha %}<td>{{ valor }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+</div>
+{% endif %}
+{% if bloqueado %}
+<a class="br-button secondary" href="{{ retorno }}">Voltar aos cadastros</a>
+{% if aba == 'responsaveis' %}<a class="br-button" href="{{ url_for('cadastros', aba='localizacoes', centro=request.form.get('ccustos', '')) }}">Gerenciar localizações</a>{% endif %}
+{% else %}
+<form method="post" action="{{ acao }}">
+  {% for k, v in campos %}<input type="hidden" name="{{ k }}" value="{{ v }}"/>{% endfor %}
+  <input type="hidden" name="revisao" value="{{ revisao }}"/>
+  <div class="dsgov-acoes-formulario">
+    <a class="br-button" href="{{ retorno }}">Cancelar</a>
+    <button class="br-button primary" type="submit"><i class="fas {{ 'fa-trash' if 'exclusão' in titulo else 'fa-check' }} mr-1" aria-hidden="true"></i>{{ botao }}</button>
+  </div>
+</form>
+{% endif %}
+{% endblock %}
