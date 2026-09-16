@@ -3,11 +3,29 @@
 {% block titulo %}Termo de devolução{% endblock %}
 {% block conteudo %}
 <div class="d-flex align-items-center mb-4"><h1 class="mb-0">Termo de devolução</h1></div>
-<form method="post" class="row mb-4">
+<form method="post" class="row mb-4" id="form-devolucao">
   <div class="col-md-6 mb-3">{{ select('nome', 'Pessoa que devolve', nomes, selecionado=nome) }}</div>
-  <div class="col-md-4 mb-3"><div class="br-input"><label for="numero_bem">Nº do patrimônio</label><input id="numero_bem" name="numero_bem" type="text" inputmode="numeric" placeholder="Digite e adicione"/></div></div>
+  <div class="col-md-4 mb-3"><div class="br-input"><label for="numero_bem">Nº do patrimônio</label><input id="numero_bem" name="numero_bem" type="text" inputmode="numeric" placeholder="Qualquer bem, mesmo fora da lista"/></div></div>
   <div class="col-md-2 mb-3 d-flex align-items-end"><button class="br-button secondary" type="submit"><i class="fas fa-plus mr-1" aria-hidden="true"></i>Adicionar</button></div>
 </form>
+{% if nome and sugeridos %}
+<div class="br-table mb-4">
+  <div class="table-header"><div class="top-bar"><div class="table-title">Bens com {{ nome }} (sugestão)</div>
+    <form method="post" class="ml-auto"><input type="hidden" name="nome" value="{{ nome }}"/><input type="hidden" name="todos" value="1"/>
+      <button class="br-button small" type="submit"><i class="fas fa-plus mr-1" aria-hidden="true"></i>Adicionar todos</button></form></div></div>
+  <table>
+    <caption class="sr-only">Bens atribuídos a {{ nome }} ainda não incluídos na devolução</caption>
+    <thead><tr><th scope="col">Patrimônio</th><th scope="col">Descrição</th><th scope="col">Complemento</th><th scope="col" class="dsgov-numero">Valor atual</th><th scope="col" class="dsgov-acoes">Ações</th></tr></thead>
+    <tbody>
+    {% for b in sugeridos %}
+    <tr><td>{{ b.numero }}</td><td>{{ b.descricao }}</td><td>{{ b.complemento }}</td><td class="dsgov-numero">{{ (b.valor_atual or 0)|moeda }}</td>
+      <td class="dsgov-acoes"><form method="post" class="d-inline"><input type="hidden" name="nome" value="{{ nome }}"/><input type="hidden" name="numero_bem" value="{{ b.numero }}"/>
+        <button class="br-button circle small" type="submit" aria-label="Adicionar {{ b.numero }}"><i class="fas fa-plus" aria-hidden="true"></i></button></form></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
 {% if bens %}
 <div class="br-table mb-3">
   <div class="table-header"><div class="top-bar"><div class="table-title">Bens a devolver</div></div></div>
@@ -30,21 +48,28 @@
   <button class="br-button ml-2" type="submit" name="limpar" value="1">Limpar lista</button>
 </form>
 {% endif %}
-{% if devolucoes %}
 <div class="mt-5">
-{{ cabecalho_tabela('Termos de devolução emitidos', 'devolucoes') }}
-  <thead><tr><th scope="col">Pessoa</th><th scope="col">Emitido em</th><th scope="col" class="dsgov-numero">Bens</th><th scope="col" class="dsgov-numero">Valor</th><th scope="col">E-mail</th><th scope="col" class="dsgov-acoes">Registro</th></tr></thead>
+{{ cabecalho_tabela('Situação dos termos de devolução', 'devolucoes') }}
+  <thead><tr><th scope="col">Pessoa</th><th scope="col" class="dsgov-numero">Bens com ela</th><th scope="col" class="dsgov-numero">Valor</th><th scope="col">Última devolução</th><th scope="col">E-mail</th><th scope="col" class="dsgov-acoes">Devolver</th></tr></thead>
   <tbody>
-  {% for t in devolucoes %}
+  {% for p in pessoas %}
   <tr>
-    <td>{{ t.chave }}</td><td>{{ t.emitido_em[8:10] }}/{{ t.emitido_em[5:7] }}/{{ t.emitido_em[:4] }}</td>
-    <td class="dsgov-numero">{{ t.quantidade }}</td><td class="dsgov-numero">{{ (t.valor_total)|moeda }}</td>
-    <td>{{ tag_email({'ultimo': t}) }}</td>
-    <td class="dsgov-acoes"><a class="br-button circle small" href="{{ url_for('termo_emitido_tela', id=t.id) }}" aria-label="Registro do termo de {{ t.chave }}"><i class="fas fa-history" aria-hidden="true"></i></a></td>
+    <td>{{ p.nome }}</td><td class="dsgov-numero">{{ p.quantidade }}</td><td class="dsgov-numero">{{ (p.valor)|moeda }}</td>
+    <td>{% if p.ultimo %}<a href="{{ url_for('termo_emitido_tela', id=p.ultimo.id) }}">{{ p.ultimo.emitido_em[8:10] }}/{{ p.ultimo.emitido_em[5:7] }}/{{ p.ultimo.emitido_em[:4] }}</a>{% else %}—{% endif %}</td>
+    <td>{{ tag_email(p) }}</td>
+    <td class="dsgov-acoes"><form method="post" class="d-inline"><input type="hidden" name="nome" value="{{ p.nome }}"/>
+      <button class="br-button circle small" type="submit" aria-label="Devolução de {{ p.nome }}"><i class="fas fa-box-open" aria-hidden="true"></i></button></form></td>
   </tr>
   {% endfor %}
   </tbody>
 </table></div>
 </div>
-{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+/* Escolher a pessoa já mostra os bens que estão com ela. */
+document.querySelectorAll('#form-devolucao input[name="nome"]').forEach(function (r) {
+  r.addEventListener("change", function () { document.getElementById("form-devolucao").submit(); });
+});
+</script>
 {% endblock %}

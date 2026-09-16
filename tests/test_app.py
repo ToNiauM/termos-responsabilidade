@@ -566,16 +566,35 @@ def test_termo_individual_sem_email_avisa(cliente):
     assert b"mailto:a@cfc.org.br" in r.data and b"Prezado%28a%29%20Ana%2C" in r.data
 
 
-def test_devolucao_lista_emitidos_com_sinal_de_email(cliente):
-    assert "Termos de devolução emitidos".encode() not in cliente.get("/termo_devolucao").data
+def test_devolucao_situacao_por_pessoa_com_sinal_de_email(cliente):
+    r = cliente.get("/termo_devolucao")
+    assert "Situação dos termos de devolução".encode() in r.data and b"ANA SILVA" in r.data and b"Bens com ela" in r.data
     cliente.post("/cadastros/processos/incluir", data={"tipo": "devolucao", "descricao": "D", "numero_sei": "4444", "vigente": "1"})
     cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "numero_bem": "1002"})
     cliente.get("/termo/devolucao/ANA SILVA/docx")
     r = cliente.get("/termo_devolucao")
-    assert "Termos de devolução emitidos".encode() in r.data and b"ANA SILVA" in r.data and b"sem doc./bloco" in r.data
+    assert b"sem doc./bloco" in r.data
     import db
     tid = db.termos_emitidos(db.conectar(), tipo="devolucao")[0]["id"]
     cliente.post(f"/termos-emitidos/{tid}/documento", data={"documento_sei": "1", "bloco_sei": "2"})
     cliente.post(f"/termos-emitidos/{tid}/email")
     r = cliente.get("/termo_devolucao")
     assert b"enviado " in r.data and f"/termos-emitidos/{tid}".encode() in r.data
+
+
+def test_devolucao_sugere_bens_da_pessoa_sem_travar(cliente):
+    # só escolher a pessoa (sem número) mostra os bens que estão com ela, sem erro
+    r = cliente.post("/termo_devolucao", data={"nome": "ANA SILVA"}, follow_redirects=True)
+    assert b"Bens com ANA SILVA" in r.data and b"1002" in r.data and b"Adicionar todos" in r.data and b"Erro." not in r.data
+    # um bem que NÃO está com ela também pode entrar
+    r = cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "numero_bem": "1001"}, follow_redirects=True)
+    assert b"Bens a devolver" in r.data and b"1001" in r.data
+    # adicionar todos: 1002 sai da sugestão e entra na lista
+    r = cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "todos": "1"}, follow_redirects=True)
+    assert b"Bens com ANA SILVA" not in r.data and r.data.count(b">1002<") == 1 and b">1001<" in r.data
+    # sem pessoa e sem número: pede a pessoa
+    cliente.post("/termo_devolucao", data={"limpar": "1"})
+    with cliente.session_transaction() as s:
+        s.pop("nome_devolucao", None)
+    r = cliente.post("/termo_devolucao", data={"nome": ""}, follow_redirects=True)
+    assert b"Escolha a pessoa que devolve" in r.data

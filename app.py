@@ -385,9 +385,16 @@ def termo_devolucao():
                 return redirect(url_for("termo", tipo="devolucao", chave=nome))
         elif request.form.get("remover"):
             session["bens_selecionados"] = [n for n in selecionados if n != request.form["remover"]]
+        elif request.form.get("todos"):
+            if nome:
+                session["bens_selecionados"] = selecionados + [str(b["numero"]) for b in db.bens_da_pessoa(conn, nome)
+                                                               if str(b["numero"]) not in selecionados]
         else:
             numero = request.form.get("numero_bem", "").strip()
-            if not numero.isdigit() or not db.buscar_bem(conn, int(numero)):
+            if not numero:    # só escolheu a pessoa
+                if not nome:
+                    flash("Escolha a pessoa que devolve.", "error")
+            elif not numero.isdigit() or not db.buscar_bem(conn, int(numero)):
                 flash(f"Bem {numero or '(vazio)'} não encontrado. Verifique o número digitado.", "error")
             else:
                 numero = str(int(numero))
@@ -396,8 +403,9 @@ def termo_devolucao():
         session.modified = True
         return redirect(url_for("termo_devolucao"))
     bens = [b for b in (db.buscar_bem(conn, int(n)) for n in selecionados) if b]
-    return render_template("termo_devolucao.html", nomes=db.pessoas(conn), nome=nome, bens=bens,
-                           total=sum(b["valor_atual"] or 0 for b in bens), devolucoes=db.termos_emitidos(conn, "devolucao", limite=50),
+    sugeridos = [b for b in db.bens_da_pessoa(conn, nome) if str(b["numero"]) not in selecionados] if nome else []
+    return render_template("termo_devolucao.html", nomes=db.pessoas(conn), nome=nome, bens=bens, sugeridos=sugeridos,
+                           total=sum(b["valor_atual"] or 0 for b in bens), pessoas=db.situacoes_devolucoes(conn),
                            trilha=[("Termo de devolução", None)])
 
 

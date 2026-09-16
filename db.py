@@ -829,6 +829,16 @@ def situacoes_centros(conn) -> list[dict]:
     return out
 
 
+def situacoes_devolucoes(conn) -> list[dict]:
+    """Cada pessoa com os bens que ainda estão com ela e o último termo de devolução emitido."""
+    out = []
+    for nome in pessoas(conn):
+        bens = bens_da_pessoa(conn, nome)
+        out.append({"nome": nome, "quantidade": len(bens), "valor": sum(b["valor_atual"] or 0 for b in bens),
+                    "ultimo": ultimo_termo(conn, "devolucao", nome)})
+    return out
+
+
 def situacoes_pessoas(conn) -> list[dict]:
     out = []
     for nome in pessoas(conn):
