@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import select %}
+{% from "_macros.html" import select, cabecalho_tabela, tag_email %}
 {% block titulo %}Termo de devolução{% endblock %}
 {% block conteudo %}
 <div class="d-flex align-items-center mb-4"><h1 class="mb-0">Termo de devolução</h1></div>
@@ -29,5 +29,22 @@
   <button class="br-button primary" type="submit" name="gerar" value="1"><i class="fas fa-file-alt mr-1" aria-hidden="true"></i>Gerar termo</button>
   <button class="br-button ml-2" type="submit" name="limpar" value="1">Limpar lista</button>
 </form>
+{% endif %}
+{% if devolucoes %}
+<div class="mt-5">
+{{ cabecalho_tabela('Termos de devolução emitidos', 'devolucoes') }}
+  <thead><tr><th scope="col">Pessoa</th><th scope="col">Emitido em</th><th scope="col" class="dsgov-numero">Bens</th><th scope="col" class="dsgov-numero">Valor</th><th scope="col">E-mail</th><th scope="col" class="dsgov-acoes">Registro</th></tr></thead>
+  <tbody>
+  {% for t in devolucoes %}
+  <tr>
+    <td>{{ t.chave }}</td><td>{{ t.emitido_em[8:10] }}/{{ t.emitido_em[5:7] }}/{{ t.emitido_em[:4] }}</td>
+    <td class="dsgov-numero">{{ t.quantidade }}</td><td class="dsgov-numero">{{ (t.valor_total)|moeda }}</td>
+    <td>{{ tag_email({'ultimo': t}) }}</td>
+    <td class="dsgov-acoes"><a class="br-button circle small" href="{{ url_for('termo_emitido_tela', id=t.id) }}" aria-label="Registro do termo de {{ t.chave }}"><i class="fas fa-history" aria-hidden="true"></i></a></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+</div>
 {% endif %}
 {% endblock %}

@@ -564,3 +564,18 @@ def test_termo_individual_sem_email_avisa(cliente):
     cliente.post("/cadastros/pessoas/ANA SILVA/editar", data={"nome": "ana silva", "email": "a@cfc.org.br"})
     r = cliente.get(f"/termos-emitidos/{tid}")
     assert b"mailto:a@cfc.org.br" in r.data and b"Prezado%28a%29%20Ana%2C" in r.data
+
+
+def test_devolucao_lista_emitidos_com_sinal_de_email(cliente):
+    assert "Termos de devolução emitidos".encode() not in cliente.get("/termo_devolucao").data
+    cliente.post("/cadastros/processos/incluir", data={"tipo": "devolucao", "descricao": "D", "numero_sei": "4444", "vigente": "1"})
+    cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "numero_bem": "1002"})
+    cliente.get("/termo/devolucao/ANA SILVA/docx")
+    r = cliente.get("/termo_devolucao")
+    assert "Termos de devolução emitidos".encode() in r.data and b"ANA SILVA" in r.data and b"sem doc./bloco" in r.data
+    import db
+    tid = db.termos_emitidos(db.conectar(), tipo="devolucao")[0]["id"]
+    cliente.post(f"/termos-emitidos/{tid}/documento", data={"documento_sei": "1", "bloco_sei": "2"})
+    cliente.post(f"/termos-emitidos/{tid}/email")
+    r = cliente.get("/termo_devolucao")
+    assert b"enviado " in r.data and f"/termos-emitidos/{tid}".encode() in r.data

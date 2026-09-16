@@ -397,7 +397,8 @@ def termo_devolucao():
         return redirect(url_for("termo_devolucao"))
     bens = [b for b in (db.buscar_bem(conn, int(n)) for n in selecionados) if b]
     return render_template("termo_devolucao.html", nomes=db.pessoas(conn), nome=nome, bens=bens,
-                           total=sum(b["valor_atual"] or 0 for b in bens), trilha=[("Termo de devolução", None)])
+                           total=sum(b["valor_atual"] or 0 for b in bens), devolucoes=db.termos_emitidos(conn, "devolucao", limite=50),
+                           trilha=[("Termo de devolução", None)])
 
 
 # ---------------------------------------------------------------- textos do termo
