@@ -53,4 +53,12 @@ Os templates novos não apresentam erros no verificador. O resultado global cont
 
 ## Situação de publicação
 
-Código e documentação preparados localmente. Não houve rebuild/restart do container de produção, publicação nem alteração da base real. A publicação permanece uma etapa separada, conforme o plano aprovado.
+Publicação autorizada posteriormente pelo usuário e concluída em 16/09/2026.
+
+- Commit da implementação: `db9d4c1` (`feat(cadastros): simplify maintenance and review flows`).
+- Container `termos-patrimonio` reconstruído e atualizado com `docker compose up -d --build`; serviço em execução.
+- Página inicial, quatro listagens e quatro formulários de inclusão responderam **HTTP 200**, com os textos da nova versão verificados por requisições HTTP dentro do container.
+- `https://patrimonio.sistemascfc.org/` respondeu **HTTP 401** sem credenciais, conforme a proteção HTTP Basic existente. Não foi realizado login externo automatizado.
+- Base SQLite preservada no volume existente. As verificações de produção foram somente consultas GET, sem cadastro ou alteração de registros.
+- Backup SQLite local anterior à publicação criado em `/tmp/termos-antes-ux-20260916-010246.db`, com permissões 0600 e `PRAGMA integrity_check = ok`. Essa cópia é temporária e não substitui a rotina regular de backup.
+- Imagem anterior preservada como `termos-patrimonio:antes-ux-db9d4c1` para eventual reversão.

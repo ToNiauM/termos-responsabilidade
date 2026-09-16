@@ -1,7 +1,7 @@
 # Plano de UX/UI — Cadastros
 
 Data: 16/09/2026  
-Estado: aprovado em conversa e implementado localmente; publicação pendente.
+Estado: aprovado em conversa, implementado e publicado em produção em 16/09/2026.
 
 ## 1. Objetivo e escopo
 
@@ -9,7 +9,7 @@ Facilitar encontrar, cadastrar e alterar informações na área **Cadastros**, m
 
 Premissa da proposta: “alterar o sistema” significa manter os cadastros e seus vínculos pela interface. Abrange centros de custo/responsáveis, localizações, pessoas e processos SEI. A prioridade sugerida é a manutenção dos registros existentes.
 
-O plano foi aprovado em conversa. A implementação mantém o esquema de dados existente; a publicação continua sendo uma etapa separada.
+O plano foi aprovado em conversa. A implementação mantém o esquema de dados existente; a publicação foi autorizada posteriormente e concluída. Evidências em `../notes/2026-09-16-ux-cadastros-validacao.md`.
 
 ## 2. Diagnóstico do código atual
 
