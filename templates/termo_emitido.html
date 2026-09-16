@@ -13,10 +13,26 @@
     <div class="col-md-2"><dt>Bens</dt><dd>{{ t.quantidade }}</dd></div>
     <div class="col-md-2"><dt>Valor total</dt><dd>{{ (t.valor_total)|moeda }}</dd></div>
   </dl>
-  <form method="post" action="{{ url_for('termo_emitido_documento', id=t.id) }}" class="d-flex align-items-end">
-    <div class="br-input mr-2"><label for="documento_sei">Número do documento no SEI</label><input id="documento_sei" name="documento_sei" type="text" value="{{ t.documento_sei or '' }}"/></div>
+  <form method="post" action="{{ url_for('termo_emitido_documento', id=t.id) }}" class="d-flex align-items-end flex-wrap">
+    <div class="br-input mr-2"><label for="documento_sei">Documento no SEI</label><input id="documento_sei" name="documento_sei" type="text" value="{{ t.documento_sei or '' }}"/></div>
+    <div class="br-input mr-2"><label for="bloco_sei">Bloco de assinatura</label><input id="bloco_sei" name="bloco_sei" type="text" value="{{ t.bloco_sei or '' }}"/></div>
     <button class="br-button secondary" type="submit"><i class="fas fa-save mr-1" aria-hidden="true"></i>Salvar</button>
   </form>
+  <div class="d-flex align-items-center flex-wrap mt-3">
+    {% if mailto %}
+    <a class="br-button primary mr-3" href="{{ mailto }}" id="enviar-email"><i class="fas fa-envelope mr-1" aria-hidden="true"></i>{{ 'Enviar e-mail novamente' if t.email_enviado_em else 'Enviar e-mail para assinatura' }}</a>
+    <form method="post" action="{{ url_for('termo_emitido_email', id=t.id) }}" id="registrar-email" hidden></form>
+    {% elif not email %}
+    <span class="text-gray-70 mr-3">Sem e-mail cadastrado para {{ t.chave }}. Cadastre em Cadastros para enviar o pedido de assinatura.</span>
+    {% else %}
+    <span class="text-gray-70 mr-3">Informe documento e bloco de assinatura para enviar o pedido de assinatura por e-mail.</span>
+    {% endif %}
+    {% if t.email_enviado_em %}
+    <span class="br-tag bg-success text-pure-0"><span>E-mail enviado em {{ t.email_enviado_em[8:10] }}/{{ t.email_enviado_em[5:7] }}/{{ t.email_enviado_em[:4] }} {{ t.email_enviado_em[11:16] }}</span></span>
+    {% elif mailto %}
+    <span class="br-tag bg-warning"><span>E-mail não enviado</span></span>
+    {% endif %}
+  </div>
 </div></div>
 {{ cabecalho_tabela('Bens no momento da emissão', 'foto') }}
   <thead><tr><th scope="col">Número</th><th scope="col">Descrição</th><th scope="col">Complemento</th><th scope="col">Localização</th><th scope="col" class="dsgov-numero">Valor</th></tr></thead>
@@ -26,4 +42,13 @@
   {% endfor %}
   </tbody>
 </table></div>
+{% endblock %}
+{% block scripts %}
+<script>
+/* Abre o programa de e-mail (mailto) e registra o envio no sistema. */
+var enviar = document.getElementById("enviar-email");
+if (enviar) enviar.addEventListener("click", function () {
+  setTimeout(function () { document.getElementById("registrar-email").submit(); }, 500);
+});
+</script>
 {% endblock %}

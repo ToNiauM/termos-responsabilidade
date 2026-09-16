@@ -37,7 +37,7 @@ def dados(tmp_path, monkeypatch):
 
 def semear(conn):
     """Cenário mínimo: 1 centro (CCI), 1 sala mapeada, 4 bens, 1 pessoa com 1 bem atribuído."""
-    conn.execute("INSERT INTO responsaveis VALUES ('CCI','Prezada','JAQUELINE PORTELA','j@cfc.org.br','46','coordenadora')")
+    conn.execute("INSERT INTO responsaveis VALUES ('CCI','JAQUELINE PORTELA','j@cfc.org.br','46','coordenadora')")
     conn.execute("INSERT INTO localizacoes VALUES ('01 - SALA CCI','CCI')")
     conn.executemany(
         "INSERT INTO bens VALUES (?,?,?,?,?,?,?,?,?)",
@@ -48,6 +48,6 @@ def semear(conn):
             (1004, "ATIVO", "ARMÁRIO", "AÇO", "MÓVEIS", "99 - SEM MAPA", "06/12/2012", 500.0, 250.5),
         ],
     )
-    conn.execute("INSERT INTO pessoas VALUES ('ANA SILVA')")
+    conn.execute("INSERT INTO pessoas VALUES ('ANA SILVA', NULL, NULL)")
     conn.execute("INSERT INTO atribuicoes VALUES ('ANA SILVA', 1002)")
     conn.commit()

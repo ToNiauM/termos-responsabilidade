@@ -25,7 +25,6 @@ CREATE TABLE IF NOT EXISTS bens (
 );
 CREATE TABLE IF NOT EXISTS responsaveis (
   ccustos     TEXT PRIMARY KEY,
-  tratamento  TEXT,
   responsavel TEXT NOT NULL,
   email       TEXT,
   matricula   TEXT,
@@ -36,7 +35,9 @@ CREATE TABLE IF NOT EXISTS localizacoes (
   ccustos     TEXT NOT NULL REFERENCES responsaveis(ccustos) ON UPDATE CASCADE
 );
 CREATE TABLE IF NOT EXISTS pessoas (
-  nome TEXT PRIMARY KEY
+  nome      TEXT PRIMARY KEY,
+  email     TEXT,
+  matricula TEXT
 );
 CREATE TABLE IF NOT EXISTS atribuicoes (
   nome   TEXT    NOT NULL REFERENCES pessoas(nome) ON UPDATE CASCADE ON DELETE CASCADE,
@@ -62,6 +63,8 @@ CREATE TABLE IF NOT EXISTS termos_emitidos (
   chave         TEXT NOT NULL,
   processo_id   INTEGER NOT NULL REFERENCES processos_sei(id),
   documento_sei TEXT,
+  bloco_sei     TEXT,
+  email_enviado_em TEXT,
   emitido_em    TEXT NOT NULL,
   quantidade    INTEGER NOT NULL,
   valor_total   REAL NOT NULL
@@ -150,8 +153,22 @@ def conectar(caminho: Path | None = None) -> sqlite3.Connection:
     return conn
 
 
+def _colunas(conn, tabela: str) -> list[str]:
+    return [r[1] for r in conn.execute(f"PRAGMA table_info({tabela})")]
+
+
 def criar_esquema(conn: sqlite3.Connection) -> None:
     conn.executescript(ESQUEMA)
+    # Bancos criados antes de 2026-09-16: tratamento (Prezado/Prezada) saiu; pessoas ganhou e-mail e matrícula.
+    if "tratamento" in _colunas(conn, "responsaveis"):
+        conn.execute("ALTER TABLE responsaveis DROP COLUMN tratamento")
+    if "email" not in _colunas(conn, "pessoas"):
+        conn.execute("ALTER TABLE pessoas ADD COLUMN email TEXT")
+        conn.execute("ALTER TABLE pessoas ADD COLUMN matricula TEXT")
+    if "bloco_sei" not in _colunas(conn, "termos_emitidos"):
+        conn.execute("ALTER TABLE termos_emitidos ADD COLUMN bloco_sei TEXT")
+        conn.execute("ALTER TABLE termos_emitidos ADD COLUMN email_enviado_em TEXT")
+    conn.commit()
 
 
 def inicializar() -> None:
@@ -358,9 +375,9 @@ def listar_cadastros(conn, aba, filtros):
     conn.create_function("cadastro_busca", 1, normalizar, deterministic=True)
     fontes = {
         "responsaveis": ("SELECT *, ccustos AS chave FROM responsaveis", ["ccustos", "responsavel", "funcao"]),
-        "pessoas": ("""SELECT p.nome, p.nome AS chave, COUNT(a.numero) AS quantidade
+        "pessoas": ("""SELECT p.nome, p.nome AS chave, p.email, p.matricula, COUNT(a.numero) AS quantidade
                         FROM pessoas p LEFT JOIN atribuicoes a ON a.nome = p.nome GROUP BY p.nome""",
-                    ["nome", "quantidade"]),
+                    ["nome", "email", "quantidade"]),
         "localizacoes": ("""SELECT localizacao, ccustos, localizacao AS chave FROM localizacoes
             UNION ALL SELECT DISTINCT b.localizacao, '', b.localizacao FROM bens b
             WHERE b.situacao = 'ATIVO' AND b.localizacao <> ''
@@ -420,9 +437,9 @@ def salvar_centro(conn, antigo, dados):
             raise ErroDeNegocio("Centro de custo não encontrado.")
         if sigla != antigo and responsavel(conn, sigla):
             raise ErroDeNegocio(f"O centro de custo {sigla} já existe.")
-        conn.execute("""UPDATE responsaveis SET ccustos=?, responsavel=?, tratamento=?, funcao=?, matricula=?, email=?
-                        WHERE ccustos=?""", (sigla, nome, _texto(dados.get("tratamento")),
-                        _texto(dados.get("funcao")), _texto(dados.get("matricula")), _texto(dados.get("email")), antigo))
+        conn.execute("""UPDATE responsaveis SET ccustos=?, responsavel=?, funcao=?, matricula=?, email=?
+                        WHERE ccustos=?""", (sigla, nome, _texto(dados.get("funcao")),
+                        _texto(dados.get("matricula")), _texto(dados.get("email")), antigo))
         conn.execute("UPDATE termos_emitidos SET chave=? WHERE tipo='ccusto' AND chave=?", (sigla, antigo))
     return sigla
 
@@ -539,9 +556,8 @@ def incluir_responsavel(conn, dados: dict) -> None:
     nome = _obrigatorio(dados.get("responsavel"), "Responsável")
     if responsavel(conn, sigla):
         raise ErroDeNegocio(f"O centro de custo {sigla} já existe.")
-    conn.execute("INSERT INTO responsaveis VALUES (?,?,?,?,?,?)", (
-        sigla, _texto(dados.get("tratamento")), nome, _texto(dados.get("email")),
-        _texto(dados.get("matricula")), _texto(dados.get("funcao"))))
+    conn.execute("INSERT INTO responsaveis (ccustos, responsavel, email, matricula, funcao) VALUES (?,?,?,?,?)", (
+        sigla, nome, _texto(dados.get("email")), _texto(dados.get("matricula")), _texto(dados.get("funcao"))))
     conn.commit()
 
 
@@ -568,9 +584,8 @@ def atualizar_responsavel(conn, ccustos: str, dados: dict) -> None:
     if not responsavel(conn, ccustos):
         raise ErroDeNegocio(f"Centro de custo {ccustos} não encontrado.")
     nome = _obrigatorio(dados.get("responsavel"), "Responsável")
-    conn.execute("UPDATE responsaveis SET tratamento=?, responsavel=?, email=?, matricula=?, funcao=? WHERE ccustos=?", (
-        _texto(dados.get("tratamento")), nome, _texto(dados.get("email")),
-        _texto(dados.get("matricula")), _texto(dados.get("funcao")), ccustos))
+    conn.execute("UPDATE responsaveis SET responsavel=?, email=?, matricula=?, funcao=? WHERE ccustos=?", (
+        nome, _texto(dados.get("email")), _texto(dados.get("matricula")), _texto(dados.get("funcao")), ccustos))
     conn.commit()
 
 
@@ -610,11 +625,25 @@ def mover_localizacoes(conn, localizacoes: list[str], ccustos: str) -> int:
     return cur.rowcount
 
 
-def incluir_pessoa(conn, nome: str) -> str:
+def pessoa(conn, nome: str) -> dict | None:
+    return _um(conn, "SELECT * FROM pessoas WHERE nome = ?", nome)
+
+
+def incluir_pessoa(conn, nome: str, email: str | None = None, matricula: str | None = None) -> str:
     nome = _obrigatorio(nome, "Nome").upper()
-    conn.execute("INSERT OR IGNORE INTO pessoas VALUES (?)", (nome,))
+    conn.execute("INSERT OR IGNORE INTO pessoas (nome, email, matricula) VALUES (?,?,?)",
+                 (nome, _texto(email) or None, _texto(matricula) or None))
     conn.commit()
     return nome
+
+
+def salvar_pessoa(conn, antigo: str, dados: dict) -> str:
+    """Renomeia (mantendo atribuições e histórico) e atualiza e-mail e matrícula."""
+    novo = renomear_pessoa(conn, antigo, dados.get("nome"))
+    conn.execute("UPDATE pessoas SET email = ?, matricula = ? WHERE nome = ?",
+                 (_texto(dados.get("email")) or None, _texto(dados.get("matricula")) or None, novo))
+    conn.commit()
+    return novo
 
 
 def excluir_pessoa(conn, nome: str) -> None:
@@ -763,9 +792,19 @@ def termo_emitido(conn, id: int) -> dict | None:
     return t
 
 
-def salvar_documento_sei(conn, id: int, documento: str) -> None:
-    conn.execute("UPDATE termos_emitidos SET documento_sei = ? WHERE id = ?", (_texto(documento) or None, id))
+def salvar_documento_sei(conn, id: int, documento: str, bloco: str = "") -> None:
+    """Número do documento e do bloco de assinatura no SEI; os dois são necessários para pedir a assinatura."""
+    conn.execute("UPDATE termos_emitidos SET documento_sei = ?, bloco_sei = ? WHERE id = ?",
+                 (_texto(documento) or None, _texto(bloco) or None, id))
     conn.commit()
+
+
+def registrar_email(conn, id: int) -> str:
+    """Marca a hora em que o e-mail de assinatura foi enviado (controle; o envio é pelo programa de e-mail)."""
+    agora = _agora()
+    conn.execute("UPDATE termos_emitidos SET email_enviado_em = ? WHERE id = ?", (agora, id))
+    conn.commit()
+    return agora
 
 
 def situacao_termo(conn, tipo: str, chave: str, bens_atuais: list) -> dict:
@@ -800,9 +839,9 @@ def situacoes_pessoas(conn) -> list[dict]:
 
 
 CADASTROS = {
-    "responsaveis": ["ccustos", "tratamento", "responsavel", "email", "matricula", "funcao"],
+    "responsaveis": ["ccustos", "responsavel", "email", "matricula", "funcao"],
     "localizacoes": ["localizacao", "ccustos"],
-    "pessoas": ["nome"],
+    "pessoas": ["nome", "email", "matricula"],
     "atribuicoes": ["nome", "numero"],
 }
 
@@ -878,7 +917,7 @@ def importar_cadastros(conn, arquivo) -> dict:
             problemas.append(f"responsaveis linha {r['_linha']}: responsável vazio")
         else:
             siglas.add(sigla)
-            responsaveis.append((sigla, _texto(r["tratamento"]), nome, _texto(r["email"]), _texto(r["matricula"]), _texto(r["funcao"])))
+            responsaveis.append((sigla, nome, _texto(r["email"]), _texto(r["matricula"]), _texto(r["funcao"])))
 
     localizacoes, locs = [], set()
     for r in brutos["localizacoes"]:
@@ -893,7 +932,7 @@ def importar_cadastros(conn, arquivo) -> dict:
             locs.add(loc)
             localizacoes.append((loc, sigla))
 
-    nomes = set()
+    pessoas_linhas, nomes = [], set()
     for r in brutos["pessoas"]:
         nome = _texto(r["nome"]).upper()
         if not nome:
@@ -902,6 +941,7 @@ def importar_cadastros(conn, arquivo) -> dict:
             problemas.append(f"pessoas linha {r['_linha']}: nome {nome} repetido")
         else:
             nomes.add(nome)
+            pessoas_linhas.append((nome, _texto(r["email"]), _texto(r["matricula"])))
 
     atribuicoes, numeros = [], set()
     for r in brutos["atribuicoes"]:
@@ -930,9 +970,9 @@ def importar_cadastros(conn, arquivo) -> dict:
     try:
         for t in ("atribuicoes", "pessoas", "localizacoes", "responsaveis"):
             conn.execute(f"DELETE FROM {t}")
-        conn.executemany("INSERT INTO responsaveis VALUES (?,?,?,?,?,?)", responsaveis)
+        conn.executemany("INSERT INTO responsaveis (ccustos, responsavel, email, matricula, funcao) VALUES (?,?,?,?,?)", responsaveis)
         conn.executemany("INSERT INTO localizacoes VALUES (?,?)", localizacoes)
-        conn.executemany("INSERT INTO pessoas VALUES (?)", [(n,) for n in sorted(nomes)])
+        conn.executemany("INSERT INTO pessoas (nome, email, matricula) VALUES (?,?,?)", sorted(pessoas_linhas))
         conn.executemany("INSERT INTO atribuicoes VALUES (?,?)", atribuicoes)
         if tem_inventario:
             inventario.substituir_tabelas(conn, inv_linhas)

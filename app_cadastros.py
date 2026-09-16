@@ -66,13 +66,14 @@ def registrar_cadastros(app, obter_conn):
             sigla = " ".join(valores.get("ccustos", "").split()).upper()
             if sigla != chave and db.responsavel(conn, sigla):
                 erros["ccustos"] = "Já existe um centro de custo com esta sigla."
-            email = valores.get("email", "").strip()
-            if email and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
-                erros["email"] = "Informe um e-mail válido."
         if aba == "pessoas":
             nome = " ".join(valores.get("nome", "").split()).upper()
             if nome != chave and nome in db.pessoas(conn):
                 erros["nome"] = "Esta pessoa já está cadastrada. Busque o nome na lista para editá-la."
+        if aba in ("responsaveis", "pessoas"):
+            email = valores.get("email", "").strip()
+            if email and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+                erros["email"] = "Informe um e-mail válido."
         if aba == "localizacoes" and not db.responsavel(conn, valores.get("ccustos", "")):
             erros["ccustos"] = "Escolha um centro de custo cadastrado."
         if aba == "processos" and valores.get("tipo") not in db.TIPOS_TERMO:
@@ -158,7 +159,7 @@ def registrar_cadastros(app, obter_conn):
         return render_template("cadastros.html", **contexto(aba), lista=lista, filtros=filtros, origem=origem,
                                link=link, pagina_url=pagina_url, ancora=ancora, salvo=salvo, registro=registro,
                                centros=db.centros(conn), pendentes=db.localizacoes_sem_centro(conn),
-                               tipos=list(db.ROTULO_TIPO.items()), nome=nome,
+                               tipos=list(db.ROTULO_TIPO.items()), nome=nome, pessoa=db.pessoa(conn, nome) if nome else None,
                                bens_pessoa=db.bens_da_pessoa(conn, nome) if nome else [],
                                vigentes={tipo: db.processo_vigente(conn, tipo) for tipo in db.TIPOS_TERMO})
 
@@ -213,7 +214,7 @@ def registrar_cadastros(app, obter_conn):
         erros = validar("pessoas", valores)
         if erros:
             return formulario("pessoas", valores, erros)
-        nome = db.incluir_pessoa(obter_conn(), valores["nome"])
+        nome = db.incluir_pessoa(obter_conn(), valores["nome"], valores.get("email"), valores.get("matricula"))
         flash(f"{nome} cadastrada. Consulte um patrimônio para atribuir bens a esta pessoa.", "success")
         return voltar("pessoas", nome, pessoa=True)
 
@@ -222,13 +223,13 @@ def registrar_cadastros(app, obter_conn):
         if nome not in db.pessoas(obter_conn()):
             abort(404)
         if request.method == "GET":
-            return formulario("pessoas", {"nome": nome}, chave=nome)
+            return formulario("pessoas", dict(db.pessoa(obter_conn(), nome)), chave=nome)
         valores = request.form.to_dict()
         erros = validar("pessoas", valores, nome)
         if erros:
             return formulario("pessoas", valores, erros, nome)
-        novo = db.renomear_pessoa(obter_conn(), nome, valores["nome"])
-        flash(f"Pessoa renomeada para {novo}. Os bens atribuídos foram mantidos.", "success")
+        novo = db.salvar_pessoa(obter_conn(), nome, valores)
+        flash(f"Pessoa {novo} atualizada. Os bens atribuídos foram mantidos.", "success")
         return voltar("pessoas", novo, pessoa=not bool(request.form.get("retorno")))
 
     @app.route("/cadastros/pessoas/excluir", methods=["POST"])

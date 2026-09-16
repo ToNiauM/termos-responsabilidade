@@ -6,7 +6,7 @@
   <table><caption class="sr-only">{{ areas[aba][0] }}</caption>
     <thead><tr>
       {% if aba == 'responsaveis' %}{{ coluna('ccustos', 'Centro de custo') }}{{ coluna('responsavel', 'Responsável') }}{{ coluna('funcao', 'Função') }}
-      {% elif aba == 'pessoas' %}{{ coluna('nome', 'Nome') }}{{ coluna('quantidade', 'Bens atribuídos') }}
+      {% elif aba == 'pessoas' %}{{ coluna('nome', 'Nome') }}{{ coluna('email', 'E-mail') }}{{ coluna('quantidade', 'Bens atribuídos') }}
       {% elif aba == 'localizacoes' %}
       <th scope="col" class="column-checkbox"><div class="br-checkbox hidden-label"><input id="selecionar-pagina" type="checkbox" data-parent="localizacoes"/><label for="selecionar-pagina">Selecionar localizações vinculadas desta página</label></div></th>
       {{ coluna('localizacao', 'Localização') }}{{ coluna('ccustos', 'Centro de custo') }}
@@ -20,7 +20,7 @@
       <td><a href="{{ link('responsaveis_editar', ccustos=item.ccustos) }}">{{ item.ccustos }}</a></td><td>{{ item.responsavel }}</td><td>{{ item.funcao or '—' }}</td>
       <td class="dsgov-acoes"><a class="br-button small" href="{{ link('responsaveis_editar', ccustos=item.ccustos) }}"><i class="fas fa-pen mr-1" aria-hidden="true"></i>Editar</a><a class="br-button small" href="{{ url_for('cadastros', aba='localizacoes', centro=item.ccustos) }}">Localizações</a>{{ acao('responsaveis_excluir', 'Excluir', origem, {'ccustos': item.ccustos}) }}</td>
       {% elif aba == 'pessoas' %}
-      <td><a href="{{ pagina_url(nome=item.nome) }}">{{ item.nome }}</a></td><td>{{ item.quantidade }}</td>
+      <td><a href="{{ pagina_url(nome=item.nome) }}">{{ item.nome }}</a></td><td>{{ item.email or '—' }}</td><td>{{ item.quantidade }}</td>
       <td class="dsgov-acoes"><a class="br-button small" href="{{ link('pessoas_editar', nome=item.nome) }}"><i class="fas fa-pen mr-1" aria-hidden="true"></i>Editar</a><a class="br-button small" href="{{ pagina_url(nome=item.nome) }}">Ver bens</a>{{ acao('pessoas_excluir', 'Excluir', origem, {'nome': item.nome}) }}</td>
       {% elif aba == 'localizacoes' %}
       <td class="column-checkbox">{% if item.ccustos %}<div class="br-checkbox hidden-label"><input id="local-{{ loop.index }}" type="checkbox" name="localizacoes" value="{{ item.localizacao }}" data-child="localizacoes" form="mover-localizacoes"/><label for="local-{{ loop.index }}">Selecionar {{ item.localizacao }}</label></div>{% endif %}</td>
@@ -31,7 +31,7 @@
       <td class="dsgov-acoes">{% if item.vigente %}{{ acao('processos_encerrar', 'Encerrar', origem, {'id': item.id}, 'fa-times') }}{% else %}{{ acao('processos_vigente', 'Tornar vigente', origem, {'id': item.id}, 'fa-check') }}{% endif %}{{ acao('processos_excluir', 'Excluir', origem, {'id': item.id}) }}</td>
       {% endif %}
     </tr>
-    {% else %}<tr><td colspan="{{ {'responsaveis': 4, 'pessoas': 3, 'localizacoes': 4, 'processos': 6}[aba] }}">Nenhum registro encontrado. Ajuste a busca ou use a ação de cadastro acima.</td></tr>{% endfor %}
+    {% else %}<tr><td colspan="{{ {'responsaveis': 4, 'pessoas': 4, 'localizacoes': 4, 'processos': 6}[aba] }}">Nenhum registro encontrado. Ajuste a busca ou use a ação de cadastro acima.</td></tr>{% endfor %}
     </tbody>
   </table>
 </div>

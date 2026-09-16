@@ -12,6 +12,7 @@ import inventario
 import painel
 import termos_html
 import textos
+from urllib.parse import quote
 from Script_Termo_Individual import criar_termo_responsabilidade
 from Termo_de_Responsabilidade import gerar_planilha_centro, gerar_termo_centro
 from termo_devolucao import gerar_termo_devolucao
@@ -277,10 +278,38 @@ def termo_planilha(chave):
     return _baixar(gerar_planilha_centro(bens, io.BytesIO()), f"planilha_{_nome_arquivo(chave)}.xlsx")
 
 
+NOME_TERMO = {"ccusto": "Termo de Responsabilidade por centro de custo", "individual": "Termo de Responsabilidade",
+              "devolucao": "Termo de Devolução"}
+
+
+def _destinatario(conn, t):
+    """(nome, e-mail) de quem assina o termo: responsável do centro ou a pessoa."""
+    if t["tipo"] == "ccusto":
+        r = db.responsavel(conn, t["chave"])
+        return (r["responsavel"], r["email"]) if r else (t["chave"], None)
+    p = db.pessoa(conn, t["chave"])
+    return (t["chave"], p["email"] if p else None)
+
+
+def _mailto(conn, t, nome, email):
+    """Link mailto: com assunto e corpo dos Textos; só quando há e-mail e documento SEI."""
+    if not email or not t["documento_sei"] or not t["bloco_sei"]:
+        return None
+    tx = textos.obter(conn)
+    campos = {"nome": textos.nome_proprio(nome), "termo": NOME_TERMO[t["tipo"]], "processo": t["numero_sei"],
+              "documento": t["documento_sei"], "bloco": t["bloco_sei"], **textos.campos_gerais(tx)}
+    assunto = tx["email_assunto"].format_map(campos)
+    corpo = tx["email_corpo"].format_map(campos).replace("\n", "\r\n")
+    return f"mailto:{quote(email, safe='@')}?subject={quote(assunto)}&body={quote(corpo)}"
+
+
 @app.route("/termos-emitidos/<int:id>")
 def termo_emitido_tela(id):
-    t = db.termo_emitido(obter_conn(), id) or abort(404)
-    return render_template("termo_emitido.html", t=t, rotulos=db.ROTULO_TIPO, trilha=[("Termos emitidos", url_for("termos_emitidos_tela")), (f"Registro {id}", None)])
+    conn = obter_conn()
+    t = db.termo_emitido(conn, id) or abort(404)
+    nome, email = _destinatario(conn, t)
+    return render_template("termo_emitido.html", t=t, rotulos=db.ROTULO_TIPO, email=email, mailto=_mailto(conn, t, nome, email),
+                           trilha=[("Termos emitidos", url_for("termos_emitidos_tela")), (f"Registro {id}", None)])
 
 
 @app.route("/termos-emitidos")
@@ -294,8 +323,17 @@ def termos_emitidos_tela():
 def termo_emitido_documento(id):
     conn = obter_conn()
     db.termo_emitido(conn, id) or abort(404)
-    db.salvar_documento_sei(conn, id, request.form.get("documento_sei", ""))
-    flash("Documento SEI salvo.", "success")
+    db.salvar_documento_sei(conn, id, request.form.get("documento_sei", ""), request.form.get("bloco_sei", ""))
+    flash("Documento e bloco SEI salvos.", "success")
+    return redirect(url_for("termo_emitido_tela", id=id))
+
+
+@app.route("/termos-emitidos/<int:id>/email", methods=["POST"])
+def termo_emitido_email(id):
+    conn = obter_conn()
+    db.termo_emitido(conn, id) or abort(404)
+    db.registrar_email(conn, id)
+    flash("Envio do e-mail registrado.", "success")
     return redirect(url_for("termo_emitido_tela", id=id))
 
 

@@ -33,8 +33,8 @@ def migrar(conn, acervo: Path, geral: Path) -> dict:
         sigla = db._texto(r["ccustos"]).upper()
         if not sigla:
             continue
-        conn.execute("INSERT OR REPLACE INTO responsaveis VALUES (?,?,?,?,?,?)", (
-            sigla, db._texto(r.get("tratamento")), db._texto(r.get("responsavel")) or "(preencher)",
+        conn.execute("INSERT OR REPLACE INTO responsaveis (ccustos, responsavel, email, matricula, funcao) VALUES (?,?,?,?,?)", (
+            sigla, db._texto(r.get("responsavel")) or "(preencher)",
             db._texto(r.get("email")), db._texto(r.get("matricula")), db._texto(r.get("funcao"))))
 
     for r in _linhas(acervo, "ccustos"):
@@ -49,7 +49,7 @@ def migrar(conn, acervo: Path, geral: Path) -> dict:
     nomes = {db._texto(r["responsavel"]).upper() for r in _linhas(geral, "nomes")}
     dados = _linhas(geral, "dados")
     nomes |= {db._texto(r["Nome"]).upper() for r in dados}
-    conn.executemany("INSERT OR IGNORE INTO pessoas VALUES (?)", [(n,) for n in sorted(nomes) if n])
+    conn.executemany("INSERT OR IGNORE INTO pessoas (nome) VALUES (?)", [(n,) for n in sorted(nomes) if n])
 
     for r in dados:
         nome, num = db._texto(r["Nome"]).upper(), db._numero(r["Patrimônio"])

@@ -119,12 +119,12 @@ def test_upload_invalido_mostra_erro(cliente):
 
 
 def test_cadastro_responsaveis_editar_renomear_excluir(cliente):
-    r = cliente.post("/cadastros/responsaveis/incluir", data={"ccustos": "decom", "tratamento": "Prezado",
+    r = cliente.post("/cadastros/responsaveis/incluir", data={"ccustos": "decom",
                      "responsavel": "THIAGO", "email": "", "matricula": "481", "funcao": "gerente"}, follow_redirects=True)
     assert b"DECOM" in r.data
     r = cliente.get("/cadastros/responsaveis/CCI/editar")
     assert b"JAQUELINE PORTELA" in r.data and b"01 - SALA CCI" in r.data
-    r = cliente.post("/cadastros/responsaveis/CCI/editar", data={"ccustos": "geserv", "tratamento": "Prezado",
+    r = cliente.post("/cadastros/responsaveis/CCI/editar", data={"ccustos": "geserv",
                      "responsavel": "CARLOS", "email": "", "matricula": "7", "funcao": "gerente"}, follow_redirects=True)
     assert b"GESERV" in r.data and b"CARLOS" in r.data and b">CCI<" not in r.data
     assert cliente.get("/cadastros/responsaveis/CCI/editar").status_code == 404
@@ -333,7 +333,15 @@ def test_termos_emitidos_lista_detalhe_e_documento_sei(cliente):
     r = cliente.get(f"/termos-emitidos/{tid}")
     assert b"CADEIRA" in r.data and b"1001" in r.data and b'name="documento_sei"' in r.data
     r = cliente.post(f"/termos-emitidos/{tid}/documento", data={"documento_sei": "0459999"}, follow_redirects=True)
-    assert b"0459999" in r.data
+    assert b"0459999" in r.data and b"Informe documento e bloco" in r.data and b"mailto:" not in r.data
+    # com documento + bloco e e-mail do responsável (CCI tem j@cfc.org.br): link mailto com assunto e corpo
+    r = cliente.post(f"/termos-emitidos/{tid}/documento", data={"documento_sei": "0459999", "bloco_sei": "77"}, follow_redirects=True)
+    html = r.data.decode()
+    assert "mailto:j@cfc.org.br?subject=" in html and "bloco%20de%20assinatura%2077" in html and "Jaqueline%20Portela" in html
+    assert "E-mail não enviado" in html
+    r = cliente.post(f"/termos-emitidos/{tid}/email", follow_redirects=True)
+    assert "E-mail enviado em" in r.data.decode() and "Enviar e-mail novamente" in r.data.decode()
+    assert b"0459999" in cliente.get("/termos-emitidos").data and b"77" in cliente.get("/termos-emitidos").data
     assert cliente.get("/termos-emitidos/999").status_code == 404
     assert b"Termos emitidos" in cliente.get("/").data    # menu
 
@@ -518,3 +526,32 @@ def test_inventario_relatorio_xlsx_e_card_do_painel(cliente):
     assert b"1004" not in cliente.get(f"/inventario/{eid}/relatorio?localizacao=01 - SALA CCI").data.split(b"<tbody>")[1]
     r = cliente.get(f"/inventario/{eid}/xlsx?localizacao=01 - SALA CCI")
     assert r.status_code == 200 and r.headers["Content-Disposition"].endswith(".xlsx")
+
+
+def test_pessoa_com_email_e_matricula(cliente):
+    r = cliente.post("/cadastros/pessoas/incluir", data={"nome": "bruno lima", "email": "nao-e-email", "matricula": "1"})
+    assert b"Informe um e-mail v" in r.data
+    r = cliente.post("/cadastros/pessoas/incluir", data={"nome": "bruno lima", "email": "b@cfc.org.br", "matricula": "0012"},
+                     follow_redirects=True)
+    assert b"BRUNO LIMA" in r.data and b"b@cfc.org.br" in r.data      # tela da pessoa mostra o e-mail
+    assert b"b@cfc.org.br" in cliente.get("/cadastros/pessoas").data   # lista também
+    r = cliente.get("/cadastros/pessoas/BRUNO LIMA/editar")
+    assert b'value="b@cfc.org.br"' in r.data and b'value="0012"' in r.data
+    r = cliente.post("/cadastros/pessoas/BRUNO LIMA/editar", data={"nome": "bruno lima", "email": "", "matricula": "0012"},
+                     follow_redirects=True)
+    import db
+    assert db.pessoa(db.conectar(), "BRUNO LIMA")["email"] is None
+    assert b"tratamento" not in cliente.get("/cadastros/responsaveis/CCI/editar").data
+
+
+def test_termo_individual_sem_email_avisa(cliente):
+    cliente.post("/cadastros/processos/incluir", data={"tipo": "individual", "descricao": "T", "numero_sei": "3333", "vigente": "1"})
+    cliente.get("/termo/individual/ANA SILVA/docx")
+    import db
+    tid = db.termos_emitidos(db.conectar(), tipo="individual")[0]["id"]
+    cliente.post(f"/termos-emitidos/{tid}/documento", data={"documento_sei": "1", "bloco_sei": "2"})
+    r = cliente.get(f"/termos-emitidos/{tid}")
+    assert b"Sem e-mail cadastrado para ANA SILVA" in r.data and b"mailto:" not in r.data
+    cliente.post("/cadastros/pessoas/ANA SILVA/editar", data={"nome": "ana silva", "email": "a@cfc.org.br"})
+    r = cliente.get(f"/termos-emitidos/{tid}")
+    assert b"mailto:a@cfc.org.br" in r.data and b"Ana%20Silva" in r.data

@@ -61,6 +61,18 @@ PADRAO = {
     "devolucao_abertura": "Pelo presente termo, eu, {nome}, declaro que devolvo à {unidade_nome} ({unidade_sigla}) do {orgao_sigla} o(s) bem(ns) patrimonial(is) abaixo discriminado(s), com seus acessórios, que se encontrava(m) sob minha guarda e responsabilidade, ficando desonerado(a) da respectiva carga patrimonial a partir do recebimento atestado abaixo:",
     "devolucao_data": "{cidade}, {data}",
     "devolucao_recebimento": "Atesto o recebimento do(s) bem(ns) acima especificado(s), conferido(s) quanto à identificação patrimonial e ao estado de conservação, para fins de baixa da carga do(a) responsável e atualização dos registros patrimoniais do {orgao_sigla}.",
+    # e-mail pedindo a assinatura no SEI (abre no programa de e-mail de quem envia)
+    "email_assunto": "{termo} para assinatura no SEI - processo {processo}",
+    "email_corpo": "\n".join([
+        "Prezado(a) {nome},",
+        "",
+        "O {termo} foi inserido no processo SEI {processo}, documento {documento}, bloco de assinatura {bloco}, e aguarda a sua assinatura.",
+        "",
+        "Em caso de dúvida sobre os bens relacionados, fale com a {unidade_nome} ({unidade_sigla}).",
+        "",
+        "Atenciosamente,",
+        "{unidade_sigla}",
+    ]),
 }
 
 _GERAIS = set()
@@ -68,6 +80,7 @@ _UNIDADE = {"orgao_sigla", "unidade_nome", "unidade_sigla"}
 _INDIVIDUAL = {"nome"} | _UNIDADE
 _CCUSTO = {"responsavel", "matricula", "funcao", "ccustos"} | _UNIDADE
 _DEVOLUCAO = {"nome", "cidade", "data"} | _UNIDADE
+_EMAIL = {"nome", "termo", "processo", "documento", "bloco"} | _UNIDADE
 MARCADORES = {
     "orgao_nome": _GERAIS, "orgao_sigla": _GERAIS, "cidade": _GERAIS, "unidade_nome": _GERAIS, "unidade_sigla": _GERAIS,
     "assinatura_eletronica": _GERAIS,
@@ -77,6 +90,7 @@ MARCADORES = {
     "ccusto_titulo": _CCUSTO, "ccusto_paragrafos": _CCUSTO, "ccusto_assinatura": _CCUSTO,
     "devolucao_titulo": _DEVOLUCAO, "devolucao_abertura": _DEVOLUCAO, "devolucao_data": _DEVOLUCAO,
     "devolucao_recebimento": _DEVOLUCAO,
+    "email_assunto": _EMAIL, "email_corpo": _EMAIL,
 }
 
 # Ordem e agrupamento da tela Textos.
@@ -87,10 +101,11 @@ GRUPOS = [
                           "individual_compromissos", "individual_ciencia"]),
     ("Termo por centro de custo", ["ccusto_titulo", "ccusto_paragrafos", "ccusto_assinatura"]),
     ("Termo de devolução", ["devolucao_titulo", "devolucao_abertura", "devolucao_data", "devolucao_recebimento"]),
+    ("E-mail de assinatura no SEI", ["email_assunto", "email_corpo"]),
 ]
 # Blocos que viram br-textarea; os demais são br-input.
 TEXTAREA = {"individual_abertura", "individual_compromissos", "individual_ciencia", "ccusto_paragrafos",
-            "ccusto_assinatura", "devolucao_abertura", "devolucao_recebimento"}
+            "ccusto_assinatura", "devolucao_abertura", "devolucao_recebimento", "email_corpo"}
 ROTULOS = {
     "orgao_nome": "Nome do órgão", "orgao_sigla": "Sigla do órgão", "unidade_nome": "Unidade gestora do patrimônio — nome",
     "unidade_sigla": "Unidade gestora do patrimônio — sigla (também no cabeçalho do sistema)", "cidade": "Cidade (data do termo)",
@@ -102,6 +117,7 @@ ROTULOS = {
     "ccusto_assinatura": "Assinatura (uma linha por linha)",
     "devolucao_titulo": "Título", "devolucao_abertura": "Abertura", "devolucao_data": "Linha da data",
     "devolucao_recebimento": "Declaração de recebimento",
+    "email_assunto": "Assunto", "email_corpo": "Corpo (enviado pelo seu programa de e-mail)",
 }
 
 

@@ -11,8 +11,8 @@ def planilhas(tmp_path):
     ws.title = "acervo"
     ws.append(["numero", "situacao"])  # aba ignorada
     r = acervo.create_sheet("responsavel")
-    r.append(["ccustos", "tratamento", "responsavel", "email", "matricula", "funcao"])
-    r.append(["CCI", "Prezada", "JAQUELINE", "j@cfc", 46, "coordenadora"])
+    r.append(["ccustos", "responsavel", "email", "matricula", "funcao"])
+    r.append(["CCI", "JAQUELINE", "j@cfc", 46, "coordenadora"])
     c = acervo.create_sheet("ccustos")
     c.append(["localizacao", "ccustos"])
     c.append(["01 - SALA CCI", "CCI"])

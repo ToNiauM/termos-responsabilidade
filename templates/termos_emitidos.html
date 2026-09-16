@@ -9,17 +9,18 @@
   <div class="col-md-2 mb-3 d-flex align-items-end"><button class="br-button secondary" type="submit"><i class="fas fa-filter mr-1" aria-hidden="true"></i>Filtrar</button></div>
 </form>
 {{ cabecalho_tabela('Registros de emissão', 'emitidos') }}
-  <thead><tr><th scope="col">Emitido em</th><th scope="col">Tipo</th><th scope="col">Centro / pessoa</th><th scope="col" class="dsgov-numero">Bens</th><th scope="col" class="dsgov-numero">Valor</th><th scope="col">Processo SEI</th><th scope="col">Documento SEI</th></tr></thead>
+  <thead><tr><th scope="col">Emitido em</th><th scope="col">Tipo</th><th scope="col">Centro / pessoa</th><th scope="col" class="dsgov-numero">Bens</th><th scope="col" class="dsgov-numero">Valor</th><th scope="col">Processo SEI</th><th scope="col">Documento · bloco</th><th scope="col">E-mail</th></tr></thead>
   <tbody>
   {% for t in termos %}
   <tr>
     <td><a href="{{ url_for('termo_emitido_tela', id=t.id) }}">{{ t.emitido_em[8:10] }}/{{ t.emitido_em[5:7] }}/{{ t.emitido_em[:4] }} {{ t.emitido_em[11:16] }}</a></td>
     <td>{{ rotulos[t.tipo] }}</td><td>{{ t.chave }}</td>
     <td class="dsgov-numero">{{ t.quantidade }}</td><td class="dsgov-numero">{{ (t.valor_total)|moeda }}</td>
-    <td>{{ t.numero_sei }} · {{ t.processo }}</td><td>{{ t.documento_sei or '—' }}</td>
+    <td>{{ t.numero_sei }} · {{ t.processo }}</td><td>{{ t.documento_sei or '—' }} · {{ t.bloco_sei or '—' }}</td>
+    <td>{% if t.email_enviado_em %}{{ t.email_enviado_em[8:10] }}/{{ t.email_enviado_em[5:7] }}/{{ t.email_enviado_em[:4] }}{% else %}—{% endif %}</td>
   </tr>
   {% else %}
-  <tr><td colspan="7">Nenhum termo registrado{% if tipo or chave %} com esse filtro{% endif %}.</td></tr>
+  <tr><td colspan="8">Nenhum termo registrado{% if tipo or chave %} com esse filtro{% endif %}.</td></tr>
   {% endfor %}
   </tbody>
 </table></div>

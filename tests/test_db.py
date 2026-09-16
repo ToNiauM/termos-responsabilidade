@@ -207,7 +207,7 @@ def test_excluir_centro_em_uso_falha(dados):
 
 def test_incluir_responsavel_e_localizacao(dados):
     semear(dados)
-    db.incluir_responsavel(dados, {"ccustos": " decom ", "tratamento": "Prezado", "responsavel": "THIAGO",
+    db.incluir_responsavel(dados, {"ccustos": " decom ", "responsavel": "THIAGO",
                                    "email": "t@cfc", "matricula": "481", "funcao": "gerente"})
     assert db.responsavel(dados, "DECOM")["responsavel"] == "THIAGO"
     db.incluir_localizacao(dados, "99 - SEM MAPA", "DECOM")
@@ -258,7 +258,7 @@ def test_excluir_centro_sem_bens_apaga_mapeamentos(dados):
 
 def test_atualizar_responsavel(dados):
     semear(dados)
-    db.atualizar_responsavel(dados, "CCI", {"tratamento": "Prezado", "responsavel": " carlos ", "email": "c@cfc",
+    db.atualizar_responsavel(dados, "CCI", {"responsavel": " carlos ", "email": "c@cfc",
                                            "matricula": "99", "funcao": "gerente"})
     r = db.responsavel(dados, "CCI")
     assert (r["responsavel"], r["funcao"], r["matricula"]) == ("carlos", "gerente", "99")
@@ -298,7 +298,8 @@ def test_exportar_cadastros_quatro_abas(dados, tmp_path):
     arq = db.exportar_cadastros(dados, tmp_path / "c.xlsx")
     wb = load_workbook(arq)
     assert wb.sheetnames == ["responsaveis", "localizacoes", "pessoas", "atribuicoes"]
-    assert [c.value for c in wb["responsaveis"][1]] == ["ccustos", "tratamento", "responsavel", "email", "matricula", "funcao"]
+    assert [c.value for c in wb["responsaveis"][1]] == ["ccustos", "responsavel", "email", "matricula", "funcao"]
+    assert [c.value for c in wb["pessoas"][1]] == ["nome", "email", "matricula"]
     assert [c.value for c in wb["atribuicoes"][2]] == ["ANA SILVA", 1002]
     assert wb["localizacoes"].max_row == 2 and wb["pessoas"].max_row == 2
 
@@ -314,8 +315,8 @@ def test_importar_a_propria_exportacao_e_idempotente(dados, tmp_path):
 def cadastros_xlsx(tmp_path, **abas):
     wb = Workbook()
     wb.remove(wb.active)
-    cabecalhos = {"responsaveis": ["ccustos", "tratamento", "responsavel", "email", "matricula", "funcao"],
-                  "localizacoes": ["localizacao", "ccustos"], "pessoas": ["nome"], "atribuicoes": ["nome", "numero"]}
+    cabecalhos = {"responsaveis": ["ccustos", "responsavel", "email", "matricula", "funcao"],
+                  "localizacoes": ["localizacao", "ccustos"], "pessoas": ["nome", "email", "matricula"], "atribuicoes": ["nome", "numero"]}
     for aba, cab in cabecalhos.items():
         ws = wb.create_sheet(aba)
         ws.append(cab)
@@ -329,15 +330,16 @@ def cadastros_xlsx(tmp_path, **abas):
 def test_importar_cadastros_substitui_e_normaliza(dados, tmp_path):
     semear(dados)
     arq = cadastros_xlsx(tmp_path,
-                         responsaveis=[["geserv ", "Prezado", " carlos", "c@cfc", 7, "gerente"], ["pres", "", "MARIA", "", "", ""]],
+                         responsaveis=[["geserv ", " carlos", "c@cfc", 7, "gerente"], ["pres", "MARIA", "", "", ""]],
                          localizacoes=[["01 - SALA CCI", "GESERV"], ["99 - SEM MAPA", "pres"]],
-                         pessoas=[[" bruno lima "]], atribuicoes=[["bruno lima", "1001"]])
+                         pessoas=[[" bruno lima ", "b@cfc", 12]], atribuicoes=[["bruno lima", "1001"]])
     resumo = db.importar_cadastros(dados, arq)
     assert resumo["responsaveis"] == 2 and resumo["atribuicoes"] == 1 and resumo["sem_centro"] == []
     assert db.responsavel(dados, "CCI") is None and db.responsavel(dados, "GESERV")["matricula"] == "7"
     f = db.ficha_do_bem(dados, 1001)
     assert f["ccustos"] == "GESERV" and f["pessoa"] == "BRUNO LIMA"
     assert db.pessoas(dados) == ["BRUNO LIMA"]
+    assert dict(db.pessoa(dados, "BRUNO LIMA")) == {"nome": "BRUNO LIMA", "email": "b@cfc", "matricula": "12"}
 
 
 @pytest.mark.parametrize("abas, trecho", [
@@ -345,9 +347,9 @@ def test_importar_cadastros_substitui_e_normaliza(dados, tmp_path):
     ({"atribuicoes": [["ANA SILVA", 1001]]}, "pessoas"),                     # pessoa fora da aba pessoas
     ({"pessoas": [["ANA"]], "atribuicoes": [["ANA", 9999]]}, "9999"),
     ({"pessoas": [["ANA"], ["BRUNO"]], "atribuicoes": [["ANA", 1001], ["BRUNO", 1001]]}, "repetido"),
-    ({"responsaveis": [["", "", "X", "", "", ""]]}, "sigla"),
-    ({"responsaveis": [["A", "", "", "", "", ""]]}, "responsável"),
-    ({"responsaveis": [["A", "", "X", "", "", ""], ["a", "", "Y", "", "", ""]]}, "repetid"),
+    ({"responsaveis": [["", "X", "", "", ""]]}, "sigla"),
+    ({"responsaveis": [["A", "", "", "", ""]]}, "responsável"),
+    ({"responsaveis": [["A", "X", "", "", ""], ["a", "Y", "", "", ""]]}, "repetid"),
     ({"pessoas": [["ANA"]], "atribuicoes": [["ANA", "1001.5"]]}, "inválido"),
 ])
 def test_importar_cadastros_invalidos_nao_alteram_nada(dados, tmp_path, abas, trecho):
@@ -609,3 +611,49 @@ def test_exportar_recorte_xlsx(dados, tmp_path):
     linhas = list(ws.iter_rows(values_only=True))
     assert linhas[0][:3] == ("Número", "Descrição", "Complemento") and len(linhas) == 5   # cabeçalho + 4 bens (inclui 1003 BAIXADO)
     assert linhas[1][5] == "CCI"
+
+
+def test_migracao_de_banco_antigo(tmp_path):
+    """Banco de antes de 2026-09-16: responsaveis com tratamento, pessoas só com nome, termos sem bloco."""
+    import sqlite3
+    caminho = tmp_path / "antigo.db"
+    velho = sqlite3.connect(caminho)
+    velho.executescript("""
+        CREATE TABLE responsaveis (ccustos TEXT PRIMARY KEY, tratamento TEXT, responsavel TEXT NOT NULL, email TEXT, matricula TEXT, funcao TEXT);
+        CREATE TABLE pessoas (nome TEXT PRIMARY KEY);
+        CREATE TABLE processos_sei (id INTEGER PRIMARY KEY, tipo TEXT NOT NULL, descricao TEXT NOT NULL, numero_sei TEXT NOT NULL, vigente INTEGER NOT NULL DEFAULT 0, criado_em TEXT NOT NULL);
+        CREATE TABLE termos_emitidos (id INTEGER PRIMARY KEY, tipo TEXT NOT NULL, chave TEXT NOT NULL, processo_id INTEGER NOT NULL,
+            documento_sei TEXT, emitido_em TEXT NOT NULL, quantidade INTEGER NOT NULL, valor_total REAL NOT NULL);
+        INSERT INTO responsaveis VALUES ('CCI', 'Prezada', 'JAQUELINE', 'j@cfc', '46', 'coordenadora');
+        INSERT INTO pessoas VALUES ('ANA SILVA');
+    """)
+    velho.commit()
+    velho.close()
+    conn = db.conectar(caminho)
+    db.criar_esquema(conn)
+    db.criar_esquema(conn)   # idempotente
+    assert dict(db.responsavel(conn, "CCI")) == {"ccustos": "CCI", "responsavel": "JAQUELINE", "email": "j@cfc", "matricula": "46", "funcao": "coordenadora"}
+    assert dict(db.pessoa(conn, "ANA SILVA")) == {"nome": "ANA SILVA", "email": None, "matricula": None}
+    assert "bloco_sei" in db._colunas(conn, "termos_emitidos") and "email_enviado_em" in db._colunas(conn, "termos_emitidos")
+
+
+def test_pessoa_email_matricula_e_salvar(dados):
+    semear(dados)
+    assert db.incluir_pessoa(dados, " bruno lima ", " b@cfc ", "0012") == "BRUNO LIMA"
+    assert dict(db.pessoa(dados, "BRUNO LIMA")) == {"nome": "BRUNO LIMA", "email": "b@cfc", "matricula": "0012"}
+    novo = db.salvar_pessoa(dados, "BRUNO LIMA", {"nome": "bruno souza", "email": "", "matricula": "7"})
+    assert novo == "BRUNO SOUZA" and db.pessoa(dados, "BRUNO LIMA") is None
+    assert dict(db.pessoa(dados, "BRUNO SOUZA")) == {"nome": "BRUNO SOUZA", "email": None, "matricula": "7"}
+    with pytest.raises(db.ErroDeNegocio):
+        db.salvar_pessoa(dados, "BRUNO SOUZA", {"nome": "ana silva"})
+
+
+def test_bloco_sei_e_registro_de_email(dados):
+    semear(dados)
+    db.incluir_processo(dados, "ccusto", "T", "1111")
+    t = db.registrar_emissao(dados, "ccusto", "CCI", db.bens_do_centro(dados, "CCI"))
+    db.salvar_documento_sei(dados, t["id"], "0451234", " 55 ")
+    t = db.termo_emitido(dados, t["id"])
+    assert (t["documento_sei"], t["bloco_sei"], t["email_enviado_em"]) == ("0451234", "55", None)
+    quando = db.registrar_email(dados, t["id"])
+    assert db.termo_emitido(dados, t["id"])["email_enviado_em"] == quando

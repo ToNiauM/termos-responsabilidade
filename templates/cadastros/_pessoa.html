@@ -1,7 +1,8 @@
 <h1>{{ nome }}</h1>
-<p class="text-gray-70">{{ bens_pessoa|length }} bem(ns) sob responsabilidade individual.</p>
+<p class="text-gray-70">{{ bens_pessoa|length }} bem(ns) sob responsabilidade individual.
+  · Matrícula {{ pessoa.matricula or '—' }} · E-mail {{ pessoa.email or 'não cadastrado' }}</p>
 <div class="d-flex flex-wrap mb-4">
-  <a class="br-button secondary mr-2" href="{{ link('pessoas_editar', nome=nome) }}"><i class="fas fa-pen mr-1" aria-hidden="true"></i>Editar nome</a>
+  <a class="br-button secondary mr-2" href="{{ link('pessoas_editar', nome=nome) }}"><i class="fas fa-pen mr-1" aria-hidden="true"></i>Editar</a>
   <a class="br-button mr-2" href="{{ pagina_url(nome='') }}">Voltar à lista de pessoas</a>
   <a class="br-button" href="{{ url_for('termo', tipo='individual', chave=nome) }}"><i class="fas fa-file-alt mr-1" aria-hidden="true"></i>Ver termo individual</a>
 </div>
