@@ -53,7 +53,7 @@
     {% if lista.pagina < lista.paginas %}<a class="br-button circle" href="{{ pagina_url(pagina=lista.pagina+1) }}" aria-label="Próxima página"><i class="fas fa-angle-right" aria-hidden="true"></i></a>{% else %}<button class="br-button circle" disabled aria-label="Próxima página"><i class="fas fa-angle-right" aria-hidden="true"></i></button>{% endif %}
   </div>
 </nav>
-<p class="mt-4"><a class="br-button" href="{{ url_for('cadastros_exportar') }}"><i class="fas fa-file-excel mr-1" aria-hidden="true"></i>Exportar todos os cadastros</a></p>
+<p class="mt-4"><a class="br-button" href="{{ url_for('cadastros_exportar') }}"><i class="fas fa-download mr-1" aria-hidden="true"></i>Baixar todos os cadastros</a></p>
 {% endif %}
 {% endblock %}
 {% block scripts %}{% include 'cadastros/_comportamento.html' %}{% endblock %}
