@@ -337,7 +337,8 @@ def test_termos_emitidos_lista_detalhe_e_documento_sei(cliente):
     # com documento + bloco e e-mail do responsável (CCI tem j@cfc.org.br): link mailto com assunto e corpo
     r = cliente.post(f"/termos-emitidos/{tid}/documento", data={"documento_sei": "0459999", "bloco_sei": "77"}, follow_redirects=True)
     html = r.data.decode()
-    assert "mailto:j@cfc.org.br?subject=" in html and "bloco%20de%20assinatura%2077" in html and "Jaqueline%20Portela" in html
+    assert "mailto:j@cfc.org.br?subject=" in html and "bloco%20de%20assinatura%2077" in html
+    assert "Prezado%28a%29%20Jaqueline%2C" in html and "Jaqueline%20Portela" not in html    # só o primeiro nome
     assert "E-mail não enviado" in html
     r = cliente.post(f"/termos-emitidos/{tid}/email", follow_redirects=True)
     assert "E-mail enviado em" in r.data.decode() and "Enviar e-mail novamente" in r.data.decode()
@@ -554,4 +555,4 @@ def test_termo_individual_sem_email_avisa(cliente):
     assert b"Sem e-mail cadastrado para ANA SILVA" in r.data and b"mailto:" not in r.data
     cliente.post("/cadastros/pessoas/ANA SILVA/editar", data={"nome": "ana silva", "email": "a@cfc.org.br"})
     r = cliente.get(f"/termos-emitidos/{tid}")
-    assert b"mailto:a@cfc.org.br" in r.data and b"Ana%20Silva" in r.data
+    assert b"mailto:a@cfc.org.br" in r.data and b"Prezado%28a%29%20Ana%2C" in r.data

@@ -64,7 +64,7 @@ PADRAO = {
     # e-mail pedindo a assinatura no SEI (abre no programa de e-mail de quem envia)
     "email_assunto": "{termo} para assinatura no SEI - processo {processo}",
     "email_corpo": "\n".join([
-        "Prezado(a) {nome},",
+        "Prezado(a) {primeiro_nome},",
         "",
         "O {termo} foi inserido no processo SEI {processo}, documento {documento}, bloco de assinatura {bloco}, e aguarda a sua assinatura.",
         "",
@@ -80,7 +80,7 @@ _UNIDADE = {"orgao_sigla", "unidade_nome", "unidade_sigla"}
 _INDIVIDUAL = {"nome"} | _UNIDADE
 _CCUSTO = {"responsavel", "matricula", "funcao", "ccustos"} | _UNIDADE
 _DEVOLUCAO = {"nome", "cidade", "data"} | _UNIDADE
-_EMAIL = {"nome", "termo", "processo", "documento", "bloco"} | _UNIDADE
+_EMAIL = {"nome", "primeiro_nome", "termo", "processo", "documento", "bloco"} | _UNIDADE
 MARCADORES = {
     "orgao_nome": _GERAIS, "orgao_sigla": _GERAIS, "cidade": _GERAIS, "unidade_nome": _GERAIS, "unidade_sigla": _GERAIS,
     "assinatura_eletronica": _GERAIS,

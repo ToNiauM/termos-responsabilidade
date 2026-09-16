@@ -296,7 +296,8 @@ def _mailto(conn, t, nome, email):
     if not email or not t["documento_sei"] or not t["bloco_sei"]:
         return None
     tx = textos.obter(conn)
-    campos = {"nome": textos.nome_proprio(nome), "termo": NOME_TERMO[t["tipo"]], "processo": t["numero_sei"],
+    nome = textos.nome_proprio(nome)
+    campos = {"nome": nome, "primeiro_nome": nome.split()[0] if nome else "", "termo": NOME_TERMO[t["tipo"]], "processo": t["numero_sei"],
               "documento": t["documento_sei"], "bloco": t["bloco_sei"], **textos.campos_gerais(tx)}
     assunto = tx["email_assunto"].format_map(campos)
     corpo = tx["email_corpo"].format_map(campos).replace("\n", "\r\n")
