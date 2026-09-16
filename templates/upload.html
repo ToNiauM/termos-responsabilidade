@@ -1,26 +1,31 @@
 {% extends "base.html" %}
 {% block titulo %}Atualizar base{% endblock %}
 {% block conteudo %}
-<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Atualizar base de bens</h1></div>
-<form method="post" enctype="multipart/form-data" class="col-md-8 mb-4">
-  <p class="text-gray-70">Envie o export do sistema de patrimônio (.xlsx, aba com a coluna <em>Número Bem</em>). A tabela de bens é substituída inteira; responsáveis, localizações, pessoas e atribuições não mudam.</p>
-  <div class="br-upload mb-3">
-    <label class="upload-label" for="arquivo"><span>Arquivo .xlsx</span></label>
-    <input class="upload-input" id="arquivo" name="arquivo" type="file" accept=".xlsx" required/>
-    <div class="upload-list"></div>
+<div class="mb-4"><h1 class="mb-1">Atualizar base</h1>
+  <p class="text-gray-70 mb-0">Baixe a planilha, edite e carregue de volta. Carregar substitui o conjunto inteiro.</p></div>
+<div class="row">
+  {% for card in [
+    {'id': 'bens', 'titulo': 'Bens', 'descricao': 'Export do sistema de patrimônio (SPW). Cadastros não mudam.',
+     'baixar': url_for('bens_exportar'), 'carregar': url_for('upload'), 'confirmar': 'Substituir todos os bens pela planilha'},
+    {'id': 'cadastros', 'titulo': 'Cadastros', 'descricao': 'Centros de custo, localizações, pessoas, atribuições e inventários. Bens não mudam.',
+     'baixar': url_for('cadastros_exportar'), 'carregar': url_for('importar_cadastros'), 'confirmar': 'Substituir todos os cadastros pela planilha'}] %}
+  <div class="col-md-6 mb-3">
+    <form method="post" action="{{ card.carregar }}" enctype="multipart/form-data" class="br-card h-100 mb-0" data-confirmar="{{ card.confirmar }}">
+      <div class="card-header"><div class="text-weight-semi-bold">{{ card.titulo }}</div></div>
+      <div class="card-content">
+        <p class="text-gray-70">{{ card.descricao }}</p>
+        <p><a class="br-button secondary" href="{{ card.baixar }}"><i class="fas fa-download mr-1" aria-hidden="true"></i>Baixar</a></p>
+        <div class="br-upload mb-3">
+          <label class="upload-label" for="arquivo-{{ card.id }}"><span>Planilha .xlsx</span></label>
+          <input class="upload-input" id="arquivo-{{ card.id }}" name="arquivo" type="file" accept=".xlsx" required/>
+          <div class="upload-list"></div>
+        </div>
+        <button class="br-button primary" type="submit"><i class="fas fa-upload mr-1" aria-hidden="true"></i>Carregar</button>
+      </div>
+    </form>
   </div>
-  <button class="br-button primary" type="submit"><i class="fas fa-upload mr-1" aria-hidden="true"></i>Importar</button>
-  <a class="br-button ml-2" href="{{ url_for('bens_exportar') }}"><i class="fas fa-file-excel mr-1" aria-hidden="true"></i>Exportar bens (formato SPW)</a>
-</form>
-<form method="post" action="{{ url_for('importar_cadastros') }}" enctype="multipart/form-data" class="col-md-8 mb-4">
-  <p class="text-gray-70">Importar cadastros: a planilha exportada em <a href="{{ url_for('cadastros_exportar') }}">Cadastros → Exportar</a>, editada. Substitui responsáveis, localizações, pessoas e atribuições inteiros; o que não estiver na planilha some. Bens não mudam. Se a planilha tiver abas <code>inv_*</code>, os inventários (eventos, salas, leituras e sobras) também são substituídos.</p>
-  <div class="br-upload mb-3">
-    <label class="upload-label" for="arquivo-cadastros"><span>Planilha de cadastros .xlsx</span></label>
-    <input class="upload-input" id="arquivo-cadastros" name="arquivo" type="file" accept=".xlsx" required/>
-    <div class="upload-list"></div>
-  </div>
-  <button class="br-button secondary" type="submit"><i class="fas fa-upload mr-1" aria-hidden="true"></i>Importar cadastros</button>
-</form>
+  {% endfor %}
+</div>
 {% if sem_centro %}
 <div class="br-message warning">
   <div class="icon"><i class="fas fa-exclamation-triangle fa-lg" aria-hidden="true"></i></div>
@@ -31,7 +36,7 @@
 {% if importacoes %}
 {% from "_macros.html" import cabecalho_tabela %}
 <div class="mt-4">
-{{ cabecalho_tabela('Últimas importações', 'imp') }}
+{{ cabecalho_tabela('Últimas cargas de bens', 'imp') }}
   <thead><tr><th scope="col">Data</th><th scope="col">Arquivo</th><th scope="col" class="dsgov-numero">Total</th><th scope="col" class="dsgov-numero">Ativos</th><th scope="col" class="dsgov-numero">Novos</th><th scope="col" class="dsgov-numero">Removidos</th><th scope="col" class="dsgov-numero">Movidos</th><th scope="col" class="dsgov-numero">Situação</th></tr></thead>
   <tbody>
   {% for i in importacoes %}
@@ -42,4 +47,15 @@
 </table></div>
 </div>
 {% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll("form[data-confirmar]").forEach(function (form) {
+  form.addEventListener("submit", function (ev) {
+    var arquivo = form.querySelector("input[type=file]").files[0];
+    var nome = arquivo ? arquivo.name : "selecionada";
+    if (!confirm(form.dataset.confirmar + " " + nome + "?")) ev.preventDefault();
+  });
+});
+</script>
 {% endblock %}

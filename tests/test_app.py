@@ -273,7 +273,7 @@ def test_importar_cadastros_reimporta_inventario(cliente):
 def test_exportar_bens(cliente):
     r = cliente.get("/bens/exportar")
     assert r.status_code == 200 and r.headers["Content-Disposition"].endswith("bens.xlsx")
-    assert b"Exportar bens" in cliente.get("/upload").data
+    assert b"Baixar" in cliente.get("/upload").data and b"Carregar" in cliente.get("/upload").data
 
 
 def test_pesquisa_numero_vai_para_ficha_e_texto_lista(cliente):

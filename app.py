@@ -305,7 +305,7 @@ def upload():
     if request.method == "POST":
         arquivo = request.files.get("arquivo")
         if not arquivo or not arquivo.filename.lower().endswith(".xlsx"):
-            flash("Envie o export do sistema em .xlsx.", "error")
+            flash("Carregue o export do sistema de patrimônio em .xlsx.", "error")
             return redirect(url_for("upload"))
         resumo = db.importar_bens(obter_conn(), arquivo.stream, nome_arquivo=arquivo.filename)
         flash(f"{resumo['total']} bens importados ({resumo['ativos']} ativos): {resumo['novos']} novo(s), "
@@ -399,7 +399,7 @@ def cadastros_exportar():
 def importar_cadastros():
     arquivo = request.files.get("arquivo")
     if not arquivo or not arquivo.filename.lower().endswith(".xlsx"):
-        flash("Envie a planilha de cadastros em .xlsx.", "error")
+        flash("Carregue a planilha de cadastros em .xlsx.", "error")
         return redirect(url_for("upload"))
     r = db.importar_cadastros(obter_conn(), arquivo.stream)
     msg = (f"Cadastros importados: {r['responsaveis']} centro(s) de custo, {r['localizacoes']} localização(ões), "
