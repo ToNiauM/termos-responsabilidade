@@ -66,8 +66,11 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    é o retrato dos bens de cada evento encerrado (gravado no encerramento); é opcional na importação —
    ausente, a tabela é mantida. A 7ª aba, `inv_fotos`, tem as fotos dos bens (evento, número, nfoto, url);
    também é opcional — ausente, uma coluna `foto_url` em `inv_leituras` (planilhas anteriores) vira a
-   foto 1 de cada bem. A coluna `fotos_seq` de `inv_leituras` é o contador interno das fotos (maior número
-   já usado por bem); é opcional na importação.
+   foto 1 de cada bem. Atenção: diferente de `inv_bens_encerrados`, quando as abas `inv_*` são importadas
+   sem `inv_fotos` e sem a coluna `foto_url`, a tabela de fotos fica vazia (as imagens continuam no bucket,
+   mas sem referência). A coluna `fotos_seq` de `inv_leituras` é o contador interno das fotos (maior número
+   já usado por bem); é opcional na importação. Desmarcar um bem apaga a leitura e esse contador; se o bem
+   for lido e fotografado de novo, a numeração recomeça em 1.
 
 Backup = copiar a pasta `dados/`. `dados/segredo.txt` — chave que assina a sessão do navegador, criada
 na primeira execução; na web pode vir da variável `TERMOS_SEGREDO`. Na VPS o container cria esse arquivo como root; para rodar o sistema fora do Docker na mesma pasta, defina `TERMOS_SEGREDO` no ambiente ou ajuste o dono do arquivo.

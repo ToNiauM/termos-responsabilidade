@@ -55,7 +55,11 @@ def apagar(url: str | None) -> None
   então não há reaproveitamento de chave.
 - **Contador `nfoto`** por `(evento, numero)`: sempre `MAX(nfoto) + 1` (1 quando não há nenhuma). Nunca
   reaproveitado: apagar a foto 2 e tirar outra gera a 3. Assim a URL nova nunca coincide com uma já servida
-  pelo cache do navegador ou do R2.
+  pelo cache do navegador ou do R2. Exceção registrada na revisão final (2026-09-17): o contador vive na
+  leitura (`inventario_leituras.fotos_seq`); Desmarcar apaga a leitura e o contador junto, então reler o
+  bem e fotografar de novo recomeça em 1 (os objetos antigos já foram apagados do bucket; o risco residual
+  é uma miniatura antiga em cache até expirar). Aceito pela simplicidade; a alternativa seria um contador
+  por evento.
 - **Pasta única por evento**: como `nome` não é único em `inventario_eventos`, `abrir_evento` recusa nome
   cuja `pasta` coincida com a de qualquer evento existente: `ErroDeNegocio("Já existe um evento com esse
   nome (pasta de fotos 'inventario2026'); escolha outro nome.")`. `validar_abas` faz a mesma checagem entre

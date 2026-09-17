@@ -208,8 +208,9 @@ def ler(conn, evento_id: int, localizacao: str, numero: int, integrante: str) ->
 
 
 def bens_da_sala(conn, evento_id: int, localizacao: str) -> dict:
-    """bens: ativos cadastrados na sala (com a leitura do evento, se houver) e situacao_inv;
-    trazidos: leituras feitas nesta sala de bens de outra sala ou não ativos; sobras: desta sala."""
+    """bens: ativos cadastrados na sala (com a leitura do evento, se houver), situacao_inv e a lista de
+    fotos; trazidos: leituras feitas nesta sala de bens de outra sala ou não ativos (sem busca de fotos,
+    a tabela Trazidos não tem coluna de foto); sobras: desta sala."""
     B = _fonte_bens(conn, evento_id)
     bens = _todos(conn, f"""
         SELECT b.*, {_LEITURA} FROM {B} b
@@ -223,7 +224,7 @@ def bens_da_sala(conn, evento_id: int, localizacao: str) -> dict:
         ORDER BY r.lido_em DESC""", evento_id, localizacao, localizacao)
     sobras = _todos(conn, "SELECT * FROM inventario_sobras WHERE evento_id = ? AND localizacao = ? ORDER BY id DESC",
                     evento_id, localizacao)
-    for b in bens + trazidos:
+    for b in bens:
         b["fotos"] = fotos_do_bem_no_evento(conn, evento_id, b["numero"]) if b["lido_em"] else []
     return {"bens": bens, "trazidos": trazidos, "sobras": sobras}
 

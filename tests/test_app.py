@@ -578,6 +578,18 @@ def test_sala_mostra_varias_fotos_e_camera(cliente, monkeypatch):
     assert linha.count(b'class="dsgov-miniatura"') == 2 and b"/excluir" not in linha and b"foto-input" not in linha   # (o JS da página ainda cita foto-input; por isso a checagem é só na linha)
 
 
+def test_foto_com_url_nao_http_nao_vira_link(cliente):
+    eid = _abrir(cliente)
+    cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+    import db, inventario
+    conn = db.conectar()
+    inventario.adicionar_foto(conn, eid, 1001, lambda c: "javascript:alert(1)")
+    r = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI")
+    assert b'href="javascript:' not in r.data
+    r = cliente.get("/bem?numero=1001")
+    assert b'href="javascript:' not in r.data
+
+
 def test_inventario_relatorio_xlsx_e_card_do_painel(cliente):
     assert b"Nenhum invent" in cliente.get("/").data
     eid = _abrir(cliente)
