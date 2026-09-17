@@ -55,7 +55,7 @@ PADRAO = {
         "Os bens e as informações a eles relativas serão apresentados à {unidade_sigla} e à comissão de inventário sempre que solicitados, em especial no inventário anual (Lei n.º 4.320/1964, art. 96; IN SEDAP n.º 205/1988, item 8).",
         "Ao final do mandato, da função ou da designação, ou na mudança de lotação, o responsável apresentará os bens à {unidade_sigla} para conferência e transferência da carga ao sucessor, permanecendo responsável por eles até a assinatura do novo Termo de Responsabilidade emitido pela {unidade_sigla}.",
     ]),
-    "ccusto_assinatura": "{responsavel}\n{funcao} do(a) {ccustos} do {orgao_sigla}",
+    "ccusto_assinatura": "{responsavel}\n{funcao} do(a) {ccustos}",
     # termo de devolução
     "devolucao_titulo": "TERMO DE DEVOLUÇÃO",
     "devolucao_abertura": "Pelo presente termo, eu, {nome}, declaro que devolvo à {unidade_nome} ({unidade_sigla}) do {orgao_sigla} o(s) bem(ns) patrimonial(is) abaixo discriminado(s), com seus acessórios, que se encontrava(m) sob minha guarda e responsabilidade, ficando desonerado(a) da respectiva carga patrimonial a partir do recebimento atestado abaixo:",
