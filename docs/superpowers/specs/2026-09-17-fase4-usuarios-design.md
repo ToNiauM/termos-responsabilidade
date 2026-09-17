@@ -143,7 +143,7 @@ Notas:
   `SESSION_COOKIE_SECURE` quando `TERMOS_LOGIN` está ligado (o site é só https). No desktop nada disso
   importa: não há login.
 - **`POST /sair`**: `session.clear()`, redireciona para `/login`. Botão "Sair" no bloco `header-login` do
-  DSGov, com o nome do usuário e o perfil por extenso. (POST, não GET, para não sair por link acidental e
+  DSGov, com o nome do usuário, o perfil por extenso e o link "Trocar senha" (para `/senha`). (POST, não GET, para não sair por link acidental e
   para ficar coberto pelo CSRF.)
 - **`GET/POST /senha`**: senha atual, nova, confirmação. Regras: nova com no mínimo 8 caracteres, diferente
   da atual, confirmação igual. Sucesso grava o hash e `trocar_senha = 0`. Enquanto `trocar_senha = 1`, o
