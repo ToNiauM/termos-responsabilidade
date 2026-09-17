@@ -679,3 +679,17 @@ def test_bloco_sei_e_registro_de_email(dados):
     assert (t["documento_sei"], t["bloco_sei"], t["email_enviado_em"]) == ("0451234", "55", None)
     quando = db.registrar_email(dados, t["id"])
     assert db.termo_emitido(dados, t["id"])["email_enviado_em"] == quando
+
+
+def test_exportar_grava_texto_literal_e_numeros_como_numeros(dados, tmp_path):
+    from openpyxl import load_workbook
+    semear(dados)
+    dados.execute("INSERT INTO bens VALUES (1005,'ATIVO','=1+1','=SOMA(A1)','MÓVEIS','01 - SALA CCI','01/01/2020',10,9)")
+    dados.commit()
+    wb = load_workbook(db.exportar_bens(dados, tmp_path / "bens.xlsx"))
+    linha = [c for c in wb["base"].iter_rows(min_row=2) if c[0].value == 1005][0]
+    assert linha[2].value == "=1+1" and linha[2].data_type == "s"       # texto, não fórmula
+    assert linha[3].value == "=SOMA(A1)" and linha[3].data_type == "s"
+    assert linha[0].data_type == "n" and linha[8].data_type == "n"       # número continua número
+    wb = load_workbook(db.exportar_recorte(dados, {}, tmp_path / "recorte.xlsx"))
+    assert all(c.data_type != "f" for linha in wb["recorte"].iter_rows(min_row=2) for c in linha)

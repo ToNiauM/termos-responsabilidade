@@ -4,7 +4,7 @@ planilhas. Só dados: toda função recebe `conn` primeiro e não importa Flask 
 Regras (spec 2026-09-15): `bens` é espelho do SPW e nunca muda aqui; "local sistema" = bens.localizacao,
 "local inventário" = sala onde o bem foi lido; divergente = os dois diferem (calculado, nunca gravado)."""
 import db
-from db import ErroDeNegocio, _agora, _obrigatorio, _texto, _todos, _um
+from db import ErroDeNegocio, _agora, _obrigatorio, _texto, _todos, _um, acrescentar_linha
 
 CONSERVACAO = ("Bom", "Regular", "Ruim", "Inservível")
 ROTULO_SITUACAO = {"localizado": "Localizado", "divergente": "Divergente", "pendente": "Não localizado"}
@@ -270,15 +270,15 @@ def exportar_xlsx(conn, evento_id: int, destino, localizacao: str | None = None)
     ws.append([f"{e['nome']} — gerado em {_data_br(_agora())} — {('sala ' + localizacao) if localizacao else 'todas as salas'}"])
     ws.append(COLUNAS_XLSX)
     for x in relatorio(conn, evento_id, localizacao):
-        ws.append([x["numero"], x["descricao"], x["complemento"], x["classificacao"], x["local_sistema"], x["local_inventario"],
-                   ROTULO_SITUACAO[x["situacao_inv"]], x["conservacao"], x["quem_usa"], x["observacao"], x["integrante"],
-                   _data_br(x["lido_em"]), x["foto_url"], x["situacao_bem"]])
+        acrescentar_linha(ws, [x["numero"], x["descricao"], x["complemento"], x["classificacao"], x["local_sistema"], x["local_inventario"],
+                                ROTULO_SITUACAO[x["situacao_inv"]], x["conservacao"], x["quem_usa"], x["observacao"], x["integrante"],
+                                _data_br(x["lido_em"]), x["foto_url"], x["situacao_bem"]])
     ws2 = wb.create_sheet("Sobras")
     ws2.append([f"{e['nome']} — sobras (bens sem cadastro)"])
     ws2.append(COLUNAS_SOBRAS)
     sql = "SELECT * FROM inventario_sobras WHERE evento_id = ?" + (" AND localizacao = ?" if localizacao else "") + " ORDER BY localizacao, id"
     for s in _todos(conn, sql, *([evento_id, localizacao] if localizacao else [evento_id])):
-        ws2.append([s["localizacao"], s["descricao"], s["complemento"], s["observacao"], s["integrante"], _data_br(s["criado_em"]), s["foto_url"]])
+        acrescentar_linha(ws2, [s["localizacao"], s["descricao"], s["complemento"], s["observacao"], s["integrante"], _data_br(s["criado_em"]), s["foto_url"]])
     wb.save(destino)
     return destino
 
@@ -303,7 +303,7 @@ def exportar_abas(conn, wb) -> None:
         ws = wb.create_sheet(aba)
         ws.append(colunas)
         for linha in conn.execute(f"SELECT {', '.join(colunas)} FROM {_TABELA[aba]} ORDER BY {colunas[0]}, {colunas[1]}"):
-            ws.append(list(linha))
+            acrescentar_linha(ws, list(linha))
 
 
 def _data_iso(valor, rotulo, linha, problemas, obrigatoria):

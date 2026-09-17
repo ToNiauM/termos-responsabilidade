@@ -4,6 +4,7 @@ from docx.shared import Inches, Pt
 from openpyxl import Workbook
 
 import config
+import db
 import textos as textos_mod
 
 # Função para formatar moeda no estilo brasileiro sem usar locale
@@ -111,6 +112,6 @@ def gerar_planilha_centro(bens, destino):
     ws.title = "bens"
     ws.append(["numero", "descricao", "complemento", "localizacao", "valor_atual"])
     for b in sorted(bens, key=lambda b: b["numero"]):
-        ws.append([b["numero"], b["descricao"], b["complemento"], b["localizacao"], b["valor_atual"]])
+        db.acrescentar_linha(ws, [b["numero"], b["descricao"], b["complemento"], b["localizacao"], b["valor_atual"]])
     wb.save(destino)
     return destino

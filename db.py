@@ -866,6 +866,15 @@ CADASTROS = {
 }
 
 
+def acrescentar_linha(ws, valores: list) -> None:
+    """ws.append que grava texto como texto: '=1+1' numa descrição vira fórmula no openpyxl e o Excel
+    tenta calcular. Números e datas passam como estão."""
+    ws.append(valores)
+    for celula in ws[ws.max_row]:
+        if isinstance(celula.value, str) and celula.data_type == "f":
+            celula.data_type = "s"
+
+
 def exportar_cadastros(conn, destino: Path) -> Path:
     """Planilha com as 4 tabelas de cadastro, no formato do banco (para backup e edição em massa),
     mais as abas inv_* (migração/backup dos eventos de inventário)."""
@@ -875,7 +884,7 @@ def exportar_cadastros(conn, destino: Path) -> Path:
         ws = wb.create_sheet(tabela)
         ws.append(colunas)
         for linha in conn.execute(f"SELECT {', '.join(colunas)} FROM {tabela} ORDER BY {colunas[0]}"):
-            ws.append(list(linha))
+            acrescentar_linha(ws, list(linha))
     import inventario
     inventario.exportar_abas(conn, wb)
     wb.save(destino)
@@ -1150,8 +1159,8 @@ def exportar_recorte(conn, f: dict, destino):
     ws.append(["Número", "Descrição", "Complemento", "Classificação", "Localização", "Centro de custo", "Pessoa",
                "Situação", "Data entrada", "Valor compra", "Valor atual"])
     for b in recorte(conn, f, limite=None)["bens"]:
-        ws.append([b["numero"], b["descricao"], b["complemento"], b["classificacao"], b["localizacao"], b["ccustos"],
-                   b["pessoa"], b["situacao"], b["data_entrada"], b["valor_compra"], b["valor_atual"]])
+        acrescentar_linha(ws, [b["numero"], b["descricao"], b["complemento"], b["classificacao"], b["localizacao"], b["ccustos"],
+                                b["pessoa"], b["situacao"], b["data_entrada"], b["valor_compra"], b["valor_atual"]])
     wb.save(destino)
     return destino
 
@@ -1164,6 +1173,6 @@ def exportar_bens(conn, destino: Path) -> Path:
     ws.append(list(COLUNAS_EXPORT))
     campos = ", ".join(COLUNAS_EXPORT.values())
     for linha in conn.execute(f"SELECT {campos} FROM bens ORDER BY numero"):
-        ws.append(list(linha))
+        acrescentar_linha(ws, list(linha))
     wb.save(destino)
     return destino
