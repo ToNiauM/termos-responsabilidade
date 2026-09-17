@@ -3,6 +3,7 @@ from html.parser import HTMLParser
 
 from flask import g
 
+import comissoes
 import menu
 import usuarios
 from tests.conftest import SENHA_PADRAO, logar
@@ -115,3 +116,130 @@ def test_macro_de_ajuda_da_tela(dados):
         macros = app.jinja_env.get_template('_macros.html').module
         assert 'href="/ajuda#pesquisa"' in str(macros.ajuda_titulo('pesquisa'))
         assert str(macros.ajuda_titulo(None)).strip() == ''
+
+
+# ---------------------------------------------------------- botão de ajuda nas telas interativas
+
+def _links_ajuda(html):
+    """Links /ajuda#... presentes na página: o botão de ajuda contextual do título, quando existe."""
+    return [l for l in Estrutura(html).links if l.startswith('/ajuda#')]
+
+
+def _checar_pagina(cliente, resposta, funcoes, endpoint, args, login_ativo=True):
+    """O botão de ajuda da página (se houver) bate com menu.ancora_ajuda e leva a uma seção de fato
+    renderizada em /ajuda para o mesmo usuário; sem âncora, a página não mostra nenhum botão."""
+    assert resposta.status_code == 200, endpoint
+    html = resposta.get_data(as_text=True)
+    links = _links_ajuda(html)
+    esperado = menu.ancora_ajuda(funcoes, endpoint, args, login_ativo)
+    if esperado is None:
+        assert links == [], (endpoint, links)
+        return
+    assert links == [f'/ajuda#{esperado}'], (endpoint, links, esperado)
+    assert esperado in ajuda(cliente).ids, (endpoint, esperado)
+
+
+def test_telas_interativas_oferecem_ajuda_coerente(cliente, dados):
+    """Roteiro sem efeito colateral pelas telas interativas listadas na tarefa: só GETs que não emitem
+    termo e um POST que devolve formulário com erro. A contagem de termos emitidos não pode mudar."""
+    antes = dados.execute("SELECT COUNT(*) FROM termos_emitidos").fetchone()[0]
+    beltrana_id = usuarios.por_login(dados, 'beltrana')['id']
+    eid = comissoes.abrir(dados, 'Evento', '', [beltrana_id], None)
+    funcoes = {'admin'}
+    telas = [
+        ('/', 'home', {}),
+        ('/analise', 'analise', {}),
+        ('/pesquisa', 'pesquisa', {}),
+        ('/bem?numero=1001', 'bem', {}),
+        ('/centro-custos', 'centro_custos', {}),
+        ('/termos-individuais', 'termos_individuais', {}),
+        ('/termo_devolucao', 'termo_devolucao', {}),
+        ('/termos-emitidos', 'termos_emitidos_tela', {}),
+        ('/cadastros/responsaveis', 'cadastros', {'aba': 'responsaveis'}),
+        ('/cadastros/localizacoes', 'cadastros', {'aba': 'localizacoes'}),
+        ('/cadastros/pessoas', 'cadastros', {'aba': 'pessoas'}),
+        ('/cadastros/processos', 'cadastros', {'aba': 'processos'}),
+        ('/textos', 'textos_tela', {}),
+        ('/upload', 'upload', {}),
+        ('/usuarios', 'usuarios.lista', {}),
+        ('/usuarios/novo', 'usuarios.novo', {}),
+        (f'/usuarios/{beltrana_id}/editar', 'usuarios.editar', {'id': beltrana_id}),
+        ('/senha', 'usuarios.senha', {}),
+        ('/inventario', 'inventario.eventos_tela', {}),
+        (f'/inventario/{eid}', 'inventario.evento_tela', {'id': eid}),
+        (f'/inventario/{eid}/sala/01 - SALA CCI', 'inventario.sala_tela', {'id': eid, 'localizacao': '01 - SALA CCI'}),
+        (f'/inventario/{eid}/relatorio', 'inventario.relatorio_tela', {'id': eid}),
+        (f'/inventario/{eid}/painel', 'inventario.painel_tela', {'id': eid}),
+        (f'/inventario/{eid}/comissao', 'inventario.comissao', {'id': eid}),
+        (f'/inventario/{eid}/excluir', 'inventario.excluir', {'id': eid}),
+    ]
+    for url, endpoint, args in telas:
+        _checar_pagina(cliente, cliente.get(url), funcoes, endpoint, args)
+    # Tela filha via POST com erro: não cria usuário, não emite termo.
+    r = cliente.post('/usuarios/incluir', data={
+        'login': 'novato', 'nome': 'Fulano', 'senha': 'Senha!234', 'confirmacao': 'outra-senha', 'funcoes': ['consulta'],
+    })
+    assert usuarios.por_login(dados, 'novato') is None
+    _checar_pagina(cliente, r, funcoes, 'usuarios.incluir', {})
+    assert dados.execute("SELECT COUNT(*) FROM termos_emitidos").fetchone()[0] == antes
+
+
+def test_paginas_sem_ajuda_nao_mostram_botao(cliente):
+    """Login e a negação de acesso (403) não pertencem a nenhuma seção do guia: nenhum botão de ajuda."""
+    cliente.post('/sair')
+    assert _links_ajuda(cliente.get('/login').get_data(as_text=True)) == []
+    assert logar(cliente, 'beltrana', SENHA_PADRAO).status_code == 302
+    r = cliente.get('/usuarios')          # só ADMIN; a inventariante é negada
+    assert r.status_code == 403
+    assert _links_ajuda(r.get_data(as_text=True)) == []
+
+
+# ---------------------------------------------------------- conteúdo da ajuda por combinação de funções
+
+def test_ajuda_inventariante_sem_relatorios(cliente):
+    from tests.conftest import logar,SENHA_PADRAO
+    cliente.post('/sair'); logar(cliente,'beltrana',SENHA_PADRAO)
+    html=cliente.get('/ajuda').get_data(as_text=True)
+    estrutura=Estrutura(html)
+    assert {'inventario','conta','perguntas'} <= estrutura.ids
+    assert not {'inicio','pesquisa','termos','analise','consulta-inventarios','usuarios'} & estrutura.ids
+    assert 'Copiar para o SEI' not in html and 'Exporte a planilha' not in html
+
+
+def test_ajuda_consulta_sem_instrucao_de_emissao(cliente, usuarios_exemplo):
+    cliente.post('/sair'); logar(cliente, *usuarios_exemplo['consulta'])
+    html = cliente.get('/ajuda').get_data(as_text=True)
+    estrutura = Estrutura(html)
+    assert 'termos' in estrutura.ids
+    assert 'Copiar para o SEI' not in html and 'Baixar .docx' not in html
+
+
+def test_ajuda_operador_emissao_sem_instrucoes_de_exclusao_ou_admin(cliente, usuarios_exemplo):
+    cliente.post('/sair'); logar(cliente, *usuarios_exemplo['operador'])
+    html = cliente.get('/ajuda').get_data(as_text=True)
+    estrutura = Estrutura(html)
+    assert {'termos', 'cadastros'} <= estrutura.ids
+    assert 'usuarios' not in estrutura.ids
+    assert 'Copiar para o SEI' in html
+    assert 'Exclusões pedem confirmação' not in html and 'A planilha de cadastros substitui' not in html
+
+
+def test_ajuda_consulta_de_inventarios_relatorios_sem_conferencia(cliente, dados):
+    usuarios.criar(dados, 'ci', 'Consulta Inv', SENHA_PADRAO, ['consulta_inventarios'], trocar_senha=False)
+    cliente.post('/sair'); logar(cliente, 'ci', SENHA_PADRAO)
+    html = cliente.get('/ajuda').get_data(as_text=True)
+    estrutura = Estrutura(html)
+    assert 'consulta-inventarios' in estrutura.ids and 'inventario' not in estrutura.ids
+    assert 'Exporte a planilha' in html
+    assert 'Conferência do inventário' not in html
+
+
+def test_ajuda_combinacao_de_funcoes_soma_secoes(cliente, dados):
+    usuarios.criar(dados, 'multi', 'Multi Função', SENHA_PADRAO, ['operador', 'consulta_inventarios'], trocar_senha=False)
+    cliente.post('/sair'); logar(cliente, 'multi', SENHA_PADRAO)
+    ids_combinado = ajuda(cliente).secoes
+    ids_operador = {s['id'] for s in menu.secoes_ajuda(['operador'], True)}
+    ids_consulta_inventarios = {s['id'] for s in menu.secoes_ajuda(['consulta_inventarios'], True)}
+    esperado = [id for id, *_ in menu.SECOES if id in ids_operador | ids_consulta_inventarios]
+    assert ids_combinado == esperado
+    assert ids_operador < set(ids_combinado) and ids_consulta_inventarios < set(ids_combinado)

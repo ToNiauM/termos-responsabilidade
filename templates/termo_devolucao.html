@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% from '_macros.html' import ajuda_titulo %}
 {% from "_macros.html" import select, cabecalho_tabela, tag_email %}
 {% block titulo %}Termo de devolução{% endblock %}
 {% block conteudo %}
-<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Termo de devolução</h1></div>
+<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Termo de devolução</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}</div>
 <form method="post" class="row mb-4" id="form-devolucao">{{ csrf_campo() }}
   <div class="col-md-6 mb-3">{{ select('nome', 'Pessoa que devolve', nomes, selecionado=nome) }}</div>
   <div class="col-md-4 mb-3"><div class="br-input"><label for="numero_bem">Nº do patrimônio</label><input id="numero_bem" name="numero_bem" type="text" inputmode="numeric" placeholder="Qualquer bem, mesmo fora da lista"/></div></div>

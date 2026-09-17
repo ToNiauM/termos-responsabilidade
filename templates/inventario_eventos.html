@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% from '_macros.html' import ajuda_titulo %}
 {% from "_macros.html" import cabecalho_tabela %}
 {% block titulo %}Inventário{% endblock %}
 {% block conteudo %}
-<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Inventário</h1></div>
+<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Inventário</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}</div>
 {% if aberto %}
 <div class="br-card mb-4">
   <div class="card-header"><div class="text-weight-semi-bold text-up-02">{{ aberto.nome }}</div>

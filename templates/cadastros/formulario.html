@@ -1,8 +1,9 @@
 {% extends 'base.html' %}
+{% from '_macros.html' import ajuda_titulo %}
 {% from 'cadastros/_campos.html' import campo, escolha, ocultos %}
 {% block titulo %}{{ titulo }}{% endblock %}
 {% block conteudo %}
-<h1>{{ titulo }}{% if chave and aba == 'responsaveis' %}: {{ chave }}{% endif %}</h1>
+<h1>{{ titulo }}{% if chave and aba == 'responsaveis' %}: {{ chave }}{% endif %}</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}
 <p class="text-gray-70">Campos com <span class="text-danger">*</span> são obrigatórios.</p>
 {% if erros %}
 <div class="br-message danger"><div class="icon"><i class="fas fa-times-circle" aria-hidden="true"></i></div><div class="content" role="alert" tabindex="-1" id="erros-formulario"><span class="message-title">Confira os campos indicados.</span><span class="message-body"> Seus dados foram mantidos para correção.</span></div></div>

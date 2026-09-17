@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% from '_macros.html' import ajuda_titulo %}
 {% from "_macros.html" import select, cabecalho_tabela %}
 {% block titulo %}Relatório — {{ e.nome }}{% endblock %}
 {% macro th(col, rotulo) -%}
 <th scope="col">{% if col in colunas_ordem %}<a href="{{ url_for('inventario.relatorio_tela', id=e.id, **dict(ativos, ordem=col, dir=('desc' if f.ordem == col and f.dir != 'desc' else 'asc'))) }}">{{ rotulo }}{% if f.ordem == col %} <i class="fas fa-sort-{{ 'down' if f.dir == 'desc' else 'up' }}" aria-hidden="true"></i>{% endif %}</a>{% else %}{{ rotulo }}{% endif %}</th>
 {%- endmacro %}
 {% block conteudo %}
-<div class="d-flex align-items-center mb-3"><h1 class="mb-0">Relatório · {{ e.nome }}</h1>
+<div class="d-flex align-items-center mb-3"><h1 class="mb-0">Relatório · {{ e.nome }}</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}
   <a class="br-button secondary ml-auto" href="{{ url_for('inventario.painel_tela', id=e.id) }}"><i class="fas fa-chart-pie mr-1" aria-hidden="true"></i>Painel</a></div>
 <form method="get" class="br-card mb-3"><div class="card-content row">
   <div class="col-md-3 mb-3">{{ select('localizacao', 'Sala', [('', 'Todas')] + salas, selecionado=f.localizacao or '', obrigatorio=False) }}</div>

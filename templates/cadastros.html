@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from '_macros.html' import ajuda_titulo %}
 {% from '_macros.html' import select %}
 {% from 'cadastros/_campos.html' import ocultos, acao %}
 {% block titulo %}{{ areas[aba][0] }} · Cadastros{% endblock %}
@@ -12,7 +13,7 @@
   {% include 'cadastros/_pessoa.html' %}
 {% else %}
 <div class="d-flex flex-wrap align-items-center mb-3">
-  <h1 class="mb-2 mr-3">{{ areas[aba][0] }}</h1>
+  <h1 class="mb-2 mr-3">{{ areas[aba][0] }}</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}
   <a class="br-button primary ml-auto" href="{{ link('cadastro_novo', aba=aba) }}"><i class="fas fa-plus mr-1" aria-hidden="true"></i>{{ areas[aba][2] }}</a>
 </div>
 <p class="text-gray-70">{{ areas[aba][1] }}.</p>

@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% from '_macros.html' import ajuda_titulo %}
 {% block titulo %}Bem {{ bem.numero }}{% endblock %}
 {% block conteudo %}
 <div class="d-flex align-items-center mb-4">
-  <h1 class="mb-0">Bem {{ bem.numero }}</h1>
+  <h1 class="mb-0">Bem {{ bem.numero }}</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}
   <div class="ml-auto"><a class="br-button" href="{{ url_for('home') }}">Voltar</a></div>
 </div>
 <div class="br-card"><div class="card-content">

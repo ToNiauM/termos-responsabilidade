@@ -1,9 +1,10 @@
 {% extends "base.html" %}
+{% from '_macros.html' import ajuda_titulo %}
 {% from "_macros.html" import cabecalho_tabela %}
 {% block titulo %}Registro {{ t.id }}{% endblock %}
 {% block conteudo %}
 <div class="d-flex align-items-center mb-4">
-  <h1 class="mb-0">{{ rotulos[t.tipo]|capitalize }}: {{ t.chave }}</h1>
+  <h1 class="mb-0">{{ rotulos[t.tipo]|capitalize }}: {{ t.chave }}</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}
   <div class="ml-auto"><a class="br-button secondary" href="{{ url_for('termo', tipo=t.tipo, chave=t.chave) }}"><i class="fas fa-file-alt mr-1" aria-hidden="true"></i>Abrir termo atual</a></div>
 </div>
 <div class="br-card mb-4"><div class="card-content">

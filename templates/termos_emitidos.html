@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% from '_macros.html' import ajuda_titulo %}
 {% from "_macros.html" import select, cabecalho_tabela %}
 {% block titulo %}Termos emitidos{% endblock %}
 {% block conteudo %}
-<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Termos emitidos</h1></div>
+<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Termos emitidos</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}</div>
 <form method="get" class="row mb-4">
   <div class="col-md-3 mb-3">{{ select('tipo', 'Tipo', [('', 'Todos')] + rotulos.items()|list, selecionado=tipo or '', obrigatorio=False) }}</div>
   <div class="col-md-4 mb-3"><div class="br-input"><label for="chave">Centro de custo ou pessoa</label><input id="chave" name="chave" type="text" value="{{ chave or '' }}" placeholder="contém..."/></div></div>

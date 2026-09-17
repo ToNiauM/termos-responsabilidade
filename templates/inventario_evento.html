@@ -1,9 +1,10 @@
 {% extends "base.html" %}
+{% from '_macros.html' import ajuda_titulo %}
 {% from "_macros.html" import cabecalho_tabela %}
 {% block titulo %}{{ e.nome }}{% endblock %}
 {% block conteudo %}
 <div class="d-flex align-items-center mb-3">
-  <h1 class="mb-0">{{ e.nome }}</h1>
+  <h1 class="mb-0">{{ e.nome }}</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}
   <div class="ml-auto">
     {% if pode('inventario.painel_tela') %}<a class="br-button secondary" href="{{ url_for('inventario.painel_tela', id=e.id) }}"><i class="fas fa-chart-pie mr-1" aria-hidden="true"></i>Painel</a>{% endif %}
     {% if pode('inventario.relatorio_tela') %}<a class="br-button secondary ml-2" href="{{ url_for('inventario.relatorio_tela', id=e.id) }}"><i class="fas fa-table mr-1" aria-hidden="true"></i>Relatório</a>{% endif %}

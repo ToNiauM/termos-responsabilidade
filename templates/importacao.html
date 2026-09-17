@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% from '_macros.html' import ajuda_titulo %}
 {% from "_macros.html" import cabecalho_tabela %}
 {% block titulo %}Importação{% endblock %}
 {% block conteudo %}
-<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Importação de {{ i.importado_em[8:10] }}/{{ i.importado_em[5:7] }}/{{ i.importado_em[:4] }} {{ i.importado_em[11:16] }}</h1></div>
+<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Importação de {{ i.importado_em[8:10] }}/{{ i.importado_em[5:7] }}/{{ i.importado_em[:4] }} {{ i.importado_em[11:16] }}</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}</div>
 <p class="text-gray-70">{{ i.arquivo or 'arquivo não informado' }} · {{ i.total }} bens ({{ i.ativos }} ativos)</p>
 <div class="row mb-4">
   {% for rotulo, n in [('Novos', i.novos), ('Removidos', i.removidos), ('Movidos', i.movidos), ('Situação alterada', i.situacao)] %}

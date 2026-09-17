@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% from '_macros.html' import ajuda_titulo %}
 {% from "_macros.html" import cabecalho_tabela %}
 {% block titulo %}{% if filtro %}Bens de {{ chave }}{% else %}Pesquisa{% endif %}{% endblock %}
 {% block conteudo %}
 {% set termo_url = url_for('termo', tipo=filtro, chave=chave) if filtro else None %}
 <div class="d-flex align-items-center mb-4">
-  <h1 class="mb-0">{% if filtro %}Bens de {{ chave }} ({{ bens|length }}){% else %}Pesquisa{% if q %}: “{{ q }}”{% endif %}{% endif %}</h1>
+  <h1 class="mb-0">{% if filtro %}Bens de {{ chave }} ({{ bens|length }}){% else %}Pesquisa{% if q %}: “{{ q }}”{% endif %}{% endif %}</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}
   {% if filtro %}<a class="br-button primary ml-auto" href="{{ termo_url }}"><i class="fas fa-file-alt mr-1" aria-hidden="true"></i>{% if filtro == 'ccusto' %}Termo do centro de custo{% else %}Termo individual{% endif %}</a>{% endif %}
 </div>
 

@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% from '_macros.html' import ajuda_titulo %}
 {% from "_macros.html" import select, grafico, tag_termo, cabecalho_tabela %}
 {% block titulo %}Análise{% endblock %}
 {% block conteudo %}
 {% set mostra_termo_completo = termo_de and pode('termo') %}
 <div class="d-flex align-items-center mb-3">
-  <h1 class="mb-0">Análise</h1>
+  <h1 class="mb-0">Análise</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}
   <div class="ml-auto">
     {% if mostra_termo_completo %}
     <a class="br-button primary" href="{{ url_for('termo', tipo=termo_de[0], chave=termo_de[1]) }}">

@@ -1,7 +1,8 @@
 {% extends "base.html" %}
+{% from '_macros.html' import ajuda_titulo %}
 {% block titulo %}{{ 'Usuário ' ~ u.login if u else 'Novo usuário' }}{% endblock %}
 {% block conteudo %}
-<h1>{% if u %}Usuário <code>{{ u.login }}</code>{% else %}Novo usuário{% endif %}</h1>
+<div class="d-flex align-items-center mb-2"><h1 class="mb-0">{% if u %}Usuário <code>{{ u.login }}</code>{% else %}Novo usuário{% endif %}</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}</div>
 <p class="text-gray-70">Campos com <span class="text-danger">*</span> são obrigatórios.</p>
 {% if senha_temporaria %}
 <div class="br-message warning mb-3"><div class="icon"><i class="fas fa-key fa-lg" aria-hidden="true"></i></div>
