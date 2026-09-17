@@ -757,15 +757,15 @@ def ultimo_termo(conn, tipo: str, chave: str) -> dict | None:
 
 
 def registrar_emissao(conn, tipo: str, chave: str, bens: list) -> dict:
-    """Foto do termo. Sem processo vigente do tipo → ErroDeNegocio. No mesmo dia, com a mesma lista de
-    bens, só atualiza a hora do registro existente."""
+    """Foto do termo. Sem processo vigente do tipo → ErroDeNegocio. No mesmo dia, com o mesmo processo e a mesma lista de bens, só atualiza a hora do registro existente."""
     proc = processo_vigente(conn, tipo)
     if not proc:
         raise ErroDeNegocio(f"Cadastre um processo SEI vigente para {ROTULO_TIPO[tipo]} em Cadastros → Processos SEI.")
     agora = _agora()
     numeros = sorted(int(b["numero"]) for b in bens)
     ultimo = ultimo_termo(conn, tipo, chave)
-    if ultimo and ultimo["emitido_em"][:10] == agora[:10] and _numeros_do_termo(conn, ultimo["id"]) == numeros:
+    if (ultimo and ultimo["emitido_em"][:10] == agora[:10] and ultimo["processo_id"] == proc["id"]
+            and _numeros_do_termo(conn, ultimo["id"]) == numeros):
         conn.execute("UPDATE termos_emitidos SET emitido_em = ? WHERE id = ?", (agora, ultimo["id"]))
         conn.commit()
         return termo_emitido(conn, ultimo["id"])

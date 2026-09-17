@@ -507,6 +507,16 @@ def test_registrar_emissao_mesmo_dia_mesma_lista_nao_duplica(dados):
     assert c["id"] != a["id"] and c["quantidade"] == 2
 
 
+def test_registrar_emissao_com_outro_processo_cria_termo_novo(dados):
+    semear(dados)
+    db.incluir_processo(dados, "ccusto", "Termos 2026", "2222")
+    a = db.registrar_emissao(dados, "ccusto", "CCI", db.bens_do_centro(dados, "CCI"))
+    db.incluir_processo(dados, "ccusto", "Termos 2026 (novo)", "3333")   # passa a ser o vigente
+    b = db.registrar_emissao(dados, "ccusto", "CCI", db.bens_do_centro(dados, "CCI"))
+    assert b["id"] != a["id"] and b["numero_sei"] == "3333" and db.termo_emitido(dados, a["id"])["numero_sei"] == "2222"
+    assert len(db.termos_emitidos(dados)) == 2
+
+
 def test_situacao_termo(dados):
     semear(dados)
     bens = db.bens_do_centro(dados, "CCI")
