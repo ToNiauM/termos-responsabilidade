@@ -4,6 +4,7 @@
 <div class="d-flex align-items-center mb-4"><h1 class="mb-0">Comissão de {{ e.nome }}</h1></div>
 <p class="text-gray-70">Marque quem pode ler bens neste evento. Quem sair da comissão deixa de ler; as leituras já feitas ficam.</p>
 <form method="post" action="{{ url_for('inventario.comissao', id=e.id) }}" class="col-md-6">{{ csrf_campo() }}
+  {% if local %}
   {% for u in elegiveis %}
   <div class="br-checkbox mb-2"><input id="int-{{ loop.index }}" name="integrantes" type="checkbox" value="{{ u.nome }}"{% if u.nome in e.integrantes or u.id is none %} checked{% endif %}{% if u.id is none %} disabled{% endif %}/>
     <label for="int-{{ loop.index }}">{{ u.nome }} <span class="text-gray-70 text-down-01">· {{ u.funcoes|map('rotulo_funcao')|join(', ') }}{% if u.nome in com_leituras %} · já tem leituras neste evento{% endif %}</span></label></div>
@@ -12,6 +13,19 @@
   <div class="br-checkbox mb-2"><input id="ant-{{ loop.index }}" name="integrantes" type="checkbox" value="{{ nome }}" checked/>
     <label for="ant-{{ loop.index }}">{{ nome }} <span class="text-gray-70 text-down-01">· sem usuário ativo com este nome{% if nome in com_leituras %} · já tem leituras{% endif %}</span></label></div>
   {% endfor %}
+  {% else %}
+  {% for u in elegiveis %}
+  <div class="br-checkbox mb-2">
+    <input id="integrante-{{ u.id }}" name="usuarios" type="checkbox" value="{{ u.id }}"{% if u.id in selecionados %} checked{% endif %}/>
+    <label for="integrante-{{ u.id }}">{{ u.nome }} ({{ u.login }})</label>
+  </div>
+  {% endfor %}
+  {% if sem_vinculo %}
+  <div class="br-message warning"><div class="content" role="alert">
+    <span class="message-body">Integrantes anteriores sem conta vinculada: {{ sem_vinculo|join(', ') }}. Selecione acima as contas que poderão conferir os bens.</span>
+  </div></div>
+  {% endif %}
+  {% endif %}
   <div class="dsgov-acoes-formulario mt-4">
     <a class="br-button" href="{{ url_for('inventario.evento_tela', id=e.id) }}">Cancelar</a>
     <button class="br-button primary" type="submit"><i class="fas fa-save mr-1" aria-hidden="true"></i>Salvar comissão</button>

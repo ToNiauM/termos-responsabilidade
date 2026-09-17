@@ -4,9 +4,9 @@ from urllib.parse import urlsplit
 
 from flask import Blueprint, abort, flash, g, make_response, redirect, render_template, request, session, url_for
 
+import comissoes
 import config
 import db
-import inventario
 import usuarios
 
 usuarios_bp = Blueprint("usuarios", __name__)
@@ -126,10 +126,10 @@ def editar(id):
                             email=f.get("email", ""))
         except db.ErroDeNegocio as e:
             return _form_usuario(u, valores, str(e))
-        nome_novo = " ".join(str(f.get("nome") or "").split())
-        if nome_novo != u["nome"]:
-            # Nome mudou: mantém o usuário na comissão do evento aberto (leituras já feitas ficam com o nome antigo).
-            inventario.renomear_integrante(conn, u["nome"], nome_novo)
+        if " ".join(str(f.get("nome") or "").split()) != u["nome"]:
+            # Nome mudou: atualiza o nome dele na comissão dos eventos abertos (o vínculo é por ID e não muda;
+            # leituras e sobras já registradas ficam com o nome antigo).
+            comissoes.atualizar_nome(conn, id)
         flash(f"Usuário {u['login']} salvo" + ("" if f.get("ativo") else " (inativo)") + ".", "success")
         return redirect(_retorno())
     return _form_usuario(u, {"nome": u["nome"], "funcoes": u["funcoes"], "ativo": "1" if u["ativo"] else None, "email": u["email"] or ""}, None)

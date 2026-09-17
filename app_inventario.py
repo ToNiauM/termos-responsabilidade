@@ -4,6 +4,7 @@ import io
 
 from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, send_file, url_for
 
+import comissoes
 import db
 import fotos
 import inventario
@@ -32,29 +33,36 @@ def _trilha(e=None, *resto):
     return t
 
 
+def _local() -> bool:
+    """Modo desktop: o administrador local não tem linha em `usuarios`, então a comissão vai por nome."""
+    return g.usuario["id"] is None
+
+
 def _elegiveis(conn) -> list[dict]:
     """Usuários que podem compor a comissão. No desktop o administrador local entra sempre."""
     lista = usuarios.elegiveis_comissao(conn)
-    if g.usuario["id"] is None:
+    if _local():
         lista = [dict(g.usuario)] + lista
     return lista
 
 
 def _nomes_para_comissao(marcados: list) -> list[str]:
+    """Só no modo desktop: nomes marcados + o administrador local, que sempre compõe a comissão."""
     nomes = list(marcados)
-    if g.usuario["id"] is None and g.usuario["nome"] not in nomes:
+    if g.usuario["nome"] not in nomes:
         nomes.append(g.usuario["nome"])
     return nomes
 
 
-def _na_comissao(e) -> bool:
-    return g.usuario["nome"] in e["integrantes"]
+def _na_comissao(conn, e) -> bool:
+    return comissoes.pode_conferir(conn, g.usuario, e["id"])
 
 
 def _exigir_comissao(conn, id):
-    """Quem não está na comissão do evento não altera leituras, fotos nem sobras (mesma regra de ler)."""
+    """Quem não está na comissão do evento não altera leituras, fotos nem sobras (mesma regra de ler).
+    O vínculo é por identidade (comissoes), não pelo nome digitado na comissão."""
     e = _evento_ou_404(conn, id)
-    if g.usuario["nome"] not in e["integrantes"]:
+    if not comissoes.pode_conferir(conn, g.usuario, id):
         raise db.ErroDeNegocio(inventario.FORA_DA_COMISSAO)
     return e
 
@@ -65,7 +73,8 @@ def eventos_tela():
     aberto = inventario.evento_aberto(conn)
     return render_template("inventario_eventos.html", aberto=inventario.evento(conn, aberto["id"]) if aberto else None,
                            eventos=[e for e in inventario.eventos(conn) if e["encerrado_em"]],
-                           salas_ativas=db.localizacoes_ativas(conn), elegiveis=_elegiveis(conn), trilha=_trilha())
+                           salas_ativas=db.localizacoes_ativas(conn), elegiveis=_elegiveis(conn), local=_local(),
+                           trilha=_trilha())
 
 
 @inventario_bp.route("/abrir", methods=["POST"])
@@ -73,8 +82,11 @@ def abrir():
     conn = _conn()
     f = request.form
     salas = None if f.get("escopo", "todas") == "todas" else f.getlist("salas")
-    eid = inventario.abrir_evento(conn, f.get("nome", ""), f.get("descricao", ""), _nomes_para_comissao(f.getlist("integrantes")),
-                                  salas, elegiveis=[u["nome"] for u in _elegiveis(conn)])
+    if _local():
+        eid = inventario.abrir_evento(conn, f.get("nome", ""), f.get("descricao", ""), _nomes_para_comissao(f.getlist("integrantes")),
+                                      salas, elegiveis=[u["nome"] for u in _elegiveis(conn)])
+    else:
+        eid = comissoes.abrir(conn, f.get("nome", ""), f.get("descricao", ""), f.getlist("usuarios"), salas)
     flash("Evento aberto. Comece pelas salas.", "success")
     return redirect(url_for("inventario.evento_tela", id=eid))
 
@@ -84,7 +96,7 @@ def evento_tela(id):
     conn = _conn()
     e = _evento_ou_404(conn, id)
     return render_template("inventario_evento.html", e=e, salas=inventario.salas(conn, id),
-                           na_comissao=_na_comissao(e), confirmar=request.args.get("confirmar"), trilha=_trilha(e))
+                           na_comissao=_na_comissao(conn, e), confirmar=request.args.get("confirmar"), trilha=_trilha(e))
 
 
 @inventario_bp.route("/<int:id>/encerrar", methods=["POST"])
@@ -104,13 +116,19 @@ def comissao(id):
     e = _evento_ou_404(conn, id)
     inventario._evento_aberto_ou_erro(conn, id)
     if request.method == "POST":
-        # Nomes já na comissão continuam aceitos (integrantes migrados sem usuário); nome novo só se for usuário elegível.
-        inventario.editar_comissao(conn, id, _nomes_para_comissao(request.form.getlist("integrantes")),
-                                   elegiveis=[u["nome"] for u in _elegiveis(conn)] + e["integrantes"])
+        if _local():
+            # Desktop: sem contas para vincular; nomes já na comissão continuam aceitos, nome novo só se for elegível.
+            inventario.editar_comissao(conn, id, _nomes_para_comissao(request.form.getlist("integrantes")),
+                                       elegiveis=[u["nome"] for u in _elegiveis(conn)] + e["integrantes"])
+        else:
+            comissoes.definir(conn, id, request.form.getlist("usuarios"))
         flash("Comissão atualizada.", "success")
         return redirect(url_for("inventario.evento_tela", id=id))
     com_leituras = {r[0] for r in conn.execute("SELECT DISTINCT integrante FROM inventario_leituras WHERE evento_id = ?", (id,))}
+    ligados = comissoes.vinculos(conn, id)
     return render_template("inventario_comissao.html", e=e, elegiveis=_elegiveis(conn), com_leituras=com_leituras,
+                           local=_local(), selecionados={v["usuario_id"] for v in ligados},
+                           sem_vinculo=[n for n in e["integrantes"] if n not in {v["nome_na_comissao"] for v in ligados}],
                            trilha=_trilha(e, ("Comissão", None)))
 
 
@@ -172,7 +190,7 @@ def sala_tela(id, localizacao):
     d = inventario.bens_da_sala(conn, id, localizacao)
     d["bens"].sort(key=lambda b: (_ORDEM_SITUACAO[b["situacao_inv"]], b["numero"]))
     return render_template("inventario_sala.html", e=e, sala=sala, localizacao=localizacao,
-                           na_comissao=_na_comissao(e), integrante=g.usuario["nome"],
+                           na_comissao=_na_comissao(conn, e), integrante=g.usuario["nome"],
                            conservacao=inventario.CONSERVACAO, fotos_ativas=fotos.configurado(), **d,
                            trilha=_trilha(e, (localizacao, None)))
 
@@ -187,6 +205,7 @@ def ler(id, localizacao):
     if numero is None:
         return jsonify({"erro": "Número inválido.", "numero": None}), 404
     try:
+        _exigir_comissao(conn, id)      # vínculo por ID: o homônimo de um integrante não lê pelo nome
         r = inventario.ler(conn, id, localizacao, numero, g.usuario["nome"])
     except inventario.BemNaoEncontrado as e:
         return jsonify({"erro": str(e), "numero": e.numero}), 404
@@ -290,6 +309,7 @@ def foto_excluir(id, numero, nfoto):
 @inventario_bp.route("/<int:id>/sala/<path:localizacao>/sobra", methods=["POST"])
 def sobra(id, localizacao):
     conn = _conn()
+    _exigir_comissao(conn, id)          # vínculo por ID: o homônimo de um integrante não registra sobra pelo nome
     f = request.form
     integrante = g.usuario["nome"]
     exigir = fotos.configurado()

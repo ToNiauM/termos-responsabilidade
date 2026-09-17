@@ -99,8 +99,10 @@ def renomear_integrante(conn, antigo: str, novo: str) -> int:
     return cur.rowcount
 
 
-def abrir_evento(conn, nome: str, descricao, integrantes: list, salas: list | None = None, elegiveis: list | None = None) -> int:
-    """Um evento aberto por vez. salas=None → todas as localizações com bens ATIVO; lista → amostragem."""
+def abrir_evento(conn, nome: str, descricao, integrantes: list, salas: list | None = None, elegiveis: list | None = None,
+                 confirmar: bool = True) -> int:
+    """Um evento aberto por vez. salas=None → todas as localizações com bens ATIVO; lista → amostragem.
+    confirmar=False deixa a transação aberta para quem chamou (comissoes.abrir grava os vínculos junto)."""
     nome = _obrigatorio(nome, "Nome do evento")
     nova = fotos.pasta(nome, 0)
     for outro in eventos(conn):
@@ -118,7 +120,8 @@ def abrir_evento(conn, nome: str, descricao, integrantes: list, salas: list | No
     eid = cur.lastrowid
     conn.executemany("INSERT INTO inventario_integrantes VALUES (?,?)", [(eid, n) for n in nomes])
     conn.executemany("INSERT INTO inventario_salas (evento_id, localizacao) VALUES (?,?)", [(eid, s) for s in escolhidas])
-    conn.commit()
+    if confirmar:
+        conn.commit()
     return eid
 
 
@@ -808,6 +811,11 @@ def substituir_tabelas(conn, linhas: dict) -> None:
         snapshot = conn.execute("SELECT evento_id, numero, situacao, descricao, complemento, classificacao, localizacao FROM inventario_bens_encerrados").fetchall()
         ids = {e[0] for e in linhas["inv_eventos"]}
         snapshot = [r for r in snapshot if r[0] in ids]
+    # Vínculos de comissão (identidade dos integrantes) não vêm na planilha: guardados antes do DELETE em
+    # cascata e repostos só onde a identidade do evento ficou intacta e o nome continua na comissão.
+    vinculos = conn.execute("""SELECT c.evento_id, c.usuario_id, c.nome_na_comissao, e.nome, e.aberto_em
+                               FROM inventario_comissao_usuarios c
+                               JOIN inventario_eventos e ON e.id = c.evento_id""").fetchall()
     for aba in reversed(list(ABAS)):
         conn.execute(f"DELETE FROM {_TABELA[aba]}")
     conn.executemany("INSERT INTO inventario_eventos (id, nome, descricao, aberto_em, encerrado_em) VALUES (?,?,?,?,?)", linhas["inv_eventos"])
@@ -817,3 +825,8 @@ def substituir_tabelas(conn, linhas: dict) -> None:
     conn.executemany("INSERT INTO inventario_sobras (evento_id, localizacao, descricao, complemento, observacao, foto_url, integrante, criado_em) VALUES (?,?,?,?,?,?,?,?)", linhas["inv_sobras"])
     conn.executemany(f"INSERT OR IGNORE INTO inventario_bens_encerrados (evento_id, {_COLS_SNAPSHOT}) VALUES (?,?,?,?,?,?,?)", snapshot)
     conn.executemany("INSERT INTO inventario_fotos (evento_id, numero, nfoto, url, criado_em) VALUES (?,?,?,?,?)", linhas["inv_fotos"])
+    novos = {r[0]: (r[1], r[3]) for r in linhas["inv_eventos"]}
+    nomes = set(linhas["inv_integrantes"])
+    preservados = [(eid, uid, nome_comissao) for eid, uid, nome_comissao, nome_evento, aberto_em in vinculos
+                   if novos.get(eid) == (nome_evento, aberto_em) and (eid, nome_comissao) in nomes]
+    conn.executemany("INSERT INTO inventario_comissao_usuarios VALUES (?,?,?)", preservados)
