@@ -1,7 +1,11 @@
 # Fase 5: menu em árvore, Início enxuto, Análise no lugar de Recorte e página Ajuda
 
 **Data:** 2026-09-17
-**Estado:** desenho aprovado pelo usuário em 2026-09-17 (AskUserQuestion).
+**Estado:** referência histórica, substituída em 2026-09-17 pelas specs
+`2026-09-17-fase5-acessos-design.md` e `2026-09-17-fase5-experiencia-design.md`,
+conforme decisões registradas em `../notes/2026-09-17-fase5-grill.md`.
+**Atenção ao executor:** não executar as regras antigas de perfil único, inventariante
+com consulta geral, indicador único "sem valor" ou Ajuda igual para todas as funções.
 **Base:** `main` após a Fase 4 (`2026-09-17-fase4-usuarios-design.md`). Esta fase depende dela: o menu e a
 Ajuda são filtrados por perfil, e "Usuários" é item do menu.
 
