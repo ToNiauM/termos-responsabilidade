@@ -78,7 +78,10 @@ Um evento encerrado sem linhas no snapshot (não há nenhum em produção; só t
 "classificacao", "localizacao"]` (exportada por último, tabela `inventario_bens_encerrados`). Validação em
 `validar_abas`: `evento_id` existe em `inv_eventos` **e** está encerrado (tem `encerrado_em`); `numero` inteiro;
 `(evento_id, numero)` único. Não exige que o bem exista em `bens` (é justamente o que o snapshot preserva).
-`substituir_tabelas` apaga e regrava a tabela junto com as outras cinco (regra "tudo ou nada" inalterada).
+`substituir_tabelas` apaga e regrava a tabela junto com as outras cinco quando a aba está presente. A aba é
+**opcional mesmo quando as outras cinco existem** (planilhas exportadas antes desta versão têm só 5 abas):
+ausente → `inventario_bens_encerrados` não é tocada; presente → substituída. A regra "as 5 abas inv_* juntas ou
+nenhuma" continua valendo para as cinco originais.
 
 ---
 
@@ -95,8 +98,8 @@ def andar(localizacao: str) -> str
 def encerrar_evento(conn, id) -> None                      # + snapshot (2.2)
 
 def ler_lote(conn, evento_id, localizacao, numeros: list[int], integrante) -> dict
-    # chama a regra de `ler` para cada número (mesmas validações; bem inexistente é pulado e listado);
-    # um só commit ao final. Devolve {"lidos": n, "nao_encontrados": [numeros]}
+    # chama `ler` para cada número (mesmas validações; bem inexistente é pulado e listado).
+    # Devolve {"lidos": n, "nao_encontrados": [numeros]}
 
 def desfazer_leituras(conn, evento_id, numeros: list[int]) -> list[str]
     # evento aberto obrigatório; DELETE das leituras (evento_id, numero) informadas; devolve as foto_url
@@ -105,8 +108,9 @@ def desfazer_leituras(conn, evento_id, numeros: list[int]) -> list[str]
 FILTROS_RELATORIO = ("localizacao", "situacao", "integrante", "conservacao", "foto", "busca", "ordem", "dir")
 CONSERVACAO_VAZIA = "-"    # valor do filtro para "Não informada"
 
-def relatorio(conn, evento_id, filtros: dict | None = None) -> list[dict]
-    # filtros: localizacao, situacao (localizado|divergente|pendente), integrante, conservacao (valor de
+def relatorio(conn, evento_id, localizacao=None, situacao=None, integrante=None, conservacao=None, foto=None,
+              busca=None, ordem=None, dir=None) -> list[dict]
+    # (argumentos nomeados; a rota passa **filtros) localizacao, situacao (localizado|divergente|pendente), integrante, conservacao (valor de
     # CONSERVACAO ou "-" = sem conservação), foto ("com"|"sem"), busca (texto), ordem (nome de coluna de
     # COLUNAS_ORDEM), dir ("asc"|"desc", padrão asc). Filtro em Python sobre o resultado do SQL atual.
     # Busca: normaliza (NFD, sem acento, casefold) e exige cada palavra em algum de
@@ -122,9 +126,9 @@ def descrever_filtros(filtros: dict) -> str
 
 def contar_fotos(linhas) -> int                             # linhas com foto_url http(s)
 
-def exportar_xlsx(conn, evento_id, destino, filtros=None, fotos=False)
+def exportar_xlsx(conn, evento_id, destino, localizacao=None, fotos=False, **filtros)
     # Aba "Bens": linha 1 nome do evento; linha 2 "Gerado em dd/mm/aaaa hh:mm"; linha 3 descrever_filtros;
-    # linha 4 "Total: N bens"; linha 5 COLUNAS_XLSX; dados a partir da 6ª. Mesmos filtros/ordem do relatório.
+    # linha 4 "Total de bens: N"; linha 5 COLUNAS_XLSX; dados a partir da 6ª. Mesmos filtros/ordem do relatório.
     # fotos=True: célula Foto = fórmula '=_xlfn.IMAGE("url")' gravada direto em ws.cell (não por
     # acrescentar_linha, que força texto), altura da linha 60 pt; sem url http(s) → "-". fotos=False: URL como hoje.
     # Aba "Sobras" como hoje (com o filtro de sala se houver); com fotos=True também usa IMAGE.
@@ -214,7 +218,8 @@ Botão **Painel** (`fa-chart-pie`) antes de "Relatório". Nada mais muda.
   selecionados como localizados** (`name="acao" value="marcar"`, primary) e **Desmarcar** (`value="desmarcar"`,
   secondary, `data-confirmar`: o JS pede `confirm("Desfazer N leituras?")` antes de enviar). Desabilitados
   sem integrante.
-- Linhas inseridas pelo JS após uma leitura (função `aplicar`) também ganham a célula de seleção.
+- O JS de leitura não muda: uma leitura só move linhas que já existem na tabela (com a célula de seleção) ou
+  insere em "Trazidos", que não tem seleção.
 
 ---
 
