@@ -17,7 +17,7 @@
   {% for u in elegiveis %}
   <div class="br-checkbox mb-2">
     <input id="integrante-{{ u.id }}" name="usuarios" type="checkbox" value="{{ u.id }}"{% if u.id in selecionados %} checked{% endif %}/>
-    <label for="integrante-{{ u.id }}">{{ u.nome }} ({{ u.login }})</label>
+    <label for="integrante-{{ u.id }}">{{ u.nome }} ({{ u.login }}){% if u.nome in com_leituras %} <span class="text-gray-70 text-down-01">· já tem leituras neste evento</span>{% endif %}</label>
   </div>
   {% endfor %}
   {% if sem_vinculo %}

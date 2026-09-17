@@ -40,6 +40,45 @@ def test_login_acerto_erro_e_proximo(cliente, dados):
     cliente.post("/sair")
 
 
+def test_inventariante_entra_so_no_inventario(cliente, monkeypatch):
+    """Quem só tem função de inventário não passa pelo Início (nem calcula o painel geral) e não alcança o acervo."""
+    import app as web
+
+    def painel_proibido(*args, **kwargs):
+        raise AssertionError("não calcular painel geral")
+
+    monkeypatch.setattr(web.db, "painel", painel_proibido)
+    cliente.post("/sair")
+    assert logar(cliente, "beltrana", SENHA_PADRAO).headers["Location"] == "/inventario"
+    assert cliente.get("/").headers["Location"] == "/inventario"
+    for rota in ("/bem?numero=1001", "/pesquisa?q=CADEIRA", "/recorte", "/recorte/xlsx", "/centro-custos"):
+        assert cliente.get(rota).status_code == 403, rota
+    html = cliente.get("/inventario").get_data(as_text=True)
+    assert "Nenhum inventário atribuído a você" in html
+    assert 'action="/pesquisa"' not in html
+
+
+def test_proximo_so_leva_a_rota_que_o_usuario_abre(cliente, dados):
+    """`proximo` é conferido contra as funções e contra a comissão; o que não passa vira o destino inicial."""
+    import inventario
+    fulano = usuarios.por_login(dados, ADMIN_LOGIN)["id"]
+    beltrana = usuarios.por_login(dados, "beltrana")["id"]
+    cliente.post("/inventario/abrir", data={"nome": "Inv", "usuarios": [fulano], "escopo": "todas"})
+    eid = inventario.evento_aberto(dados)["id"]
+    cliente.post("/sair")
+    r = cliente.post("/login?proximo=%2Fbem%3Fnumero%3D1001", data={"login": "beltrana", "senha": SENHA_PADRAO})
+    assert r.headers["Location"] == "/inventario"                     # rota do acervo: fora das funções dela
+    cliente.post("/sair")
+    r = cliente.post(f"/login?proximo=%2Finventario%2F{eid}", data={"login": "beltrana", "senha": SENHA_PADRAO})
+    assert r.headers["Location"] == "/inventario"                     # evento de outra comissão
+    cliente.post("/sair")
+    logar(cliente, ADMIN_LOGIN, ADMIN_SENHA)
+    cliente.post(f"/inventario/{eid}/comissao", data={"usuarios": [fulano, beltrana]})
+    cliente.post("/sair")
+    r = cliente.post(f"/login?proximo=%2Finventario%2F{eid}", data={"login": "beltrana", "senha": SENHA_PADRAO})
+    assert r.headers["Location"] == f"/inventario/{eid}"               # agora é dela
+
+
 def test_login_inativo_e_bloqueado(cliente, dados, monkeypatch):
     cliente.post("/sair")
     relogio = {"agora": datetime(2026, 9, 17, 10, 0)}
@@ -58,7 +97,7 @@ def test_login_inativo_e_bloqueado(cliente, dados, monkeypatch):
 
 def test_usuario_inativado_com_sessao_aberta_cai_no_login(cliente, dados):
     logar(cliente, "beltrana", SENHA_PADRAO)
-    assert cliente.get("/").status_code == 200
+    assert cliente.get("/inventario").status_code == 200
     usuarios.editar(dados, usuarios.por_login(dados, "beltrana")["id"], "Beltrana", ["inventariante"], ativo=False)
     assert cliente.get("/").headers["Location"].startswith("/login")
 
@@ -84,8 +123,8 @@ def test_troca_obrigatoria_de_senha(cliente, dados):
     r = cliente.post("/senha", data={"atual": temp, "nova": "curta", "confirmacao": "curta"})
     assert r.status_code == 200 and b"8 caracteres" in r.data
     r = cliente.post("/senha", data={"atual": temp, "nova": "NovaSenha1", "confirmacao": "NovaSenha1"})
-    assert r.headers["Location"] == "/"
-    assert cliente.get("/").status_code == 200 and usuarios.por_id(dados, uid)["trocar_senha"] == 0
+    assert r.headers["Location"] == "/inventario"                                     # destino inicial da inventariante
+    assert cliente.get("/inventario").status_code == 200 and usuarios.por_id(dados, uid)["trocar_senha"] == 0
     r = cliente.get("/senha")
     assert r.status_code == 200 and b"Trocar senha" in r.data                          # voluntária também
 
@@ -118,4 +157,4 @@ def test_login_por_email(cliente, dados):
     cliente.post("/sair")
     assert "Usuário ou e-mail".encode() in cliente.get("/login").data
     assert logar(cliente, "Beltrana@CFC.org.br", SENHA_PADRAO).status_code == 302
-    assert b"Beltrana" in cliente.get("/").data
+    assert b"Beltrana" in cliente.get("/inventario").data

@@ -105,7 +105,7 @@ def cliente_local(dados, monkeypatch):
 
 @pytest.fixture
 def usuarios_exemplo(dados):
-    """Um usuário de cada perfil além do admin: login → (login, senha)."""
+    """Um usuário de cada função além do admin: login → (login, senha)."""
     import usuarios
     usuarios.criar(dados, "op", "Operador Teste", SENHA_PADRAO, ["operador"], trocar_senha=False)
     usuarios.criar(dados, "leitor", "Consulta Teste", SENHA_PADRAO, ["consulta"], trocar_senha=False)

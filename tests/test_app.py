@@ -7,6 +7,7 @@ from openpyxl import Workbook, load_workbook
 import db
 from tests.conftest import semear, confirmar_revisao, logar, ADMIN_LOGIN, ADMIN_NOME, ADMIN_SENHA, SENHA_PADRAO
 from tests.test_db import CABECALHO
+from tests.test_permissoes import NEGADO
 
 
 def test_home_e_busca_de_bem(cliente):
@@ -35,6 +36,24 @@ def test_bem_mostra_fotos_por_evento(cliente):
     assert r.data.index(b"Inv 2") < r.data.index(b">Inv<") and r.data.index(b"https://x/c.webp") < r.data.index(b"https://x/a.webp") < r.data.index(b"https://x/b.webp")
     assert b"encerrado em" in r.data and b"lido em" in r.data
     assert b"Fotos do invent" not in cliente.get("/bem?numero=1002").data
+
+
+def test_bem_so_mostra_fotos_dos_eventos_visiveis(cliente, dados):
+    """Quem soma Consulta e Inventário vê, na ficha do bem, só as fotos dos eventos de que participa."""
+    import inventario
+    import usuarios
+    uid = usuarios.criar(dados, "mista", "Mista", SENHA_PADRAO, ["consulta", "inventariante"], trocar_senha=False)
+    eid = _abrir(cliente, comissao=["Fulano"])                       # evento alheio a 'Mista'
+    cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+    inventario.adicionar_foto(dados, eid, 1001, lambda c: "https://x/alheia.webp")
+    cliente.post("/sair"); logar(cliente, "mista", SENHA_PADRAO)
+    r = cliente.get("/bem?numero=1001")
+    assert r.status_code == 200 and b"Fotos do invent" not in r.data and b"alheia.webp" not in r.data
+    cliente.post("/sair"); logar(cliente, ADMIN_LOGIN, ADMIN_SENHA)
+    cliente.post(f"/inventario/{eid}/comissao", data={"usuarios": _ids("Fulano") + [uid]})
+    cliente.post("/sair"); logar(cliente, "mista", SENHA_PADRAO)
+    r = cliente.get("/bem?numero=1001")
+    assert b"Fotos do invent" in r.data and b"alheia.webp" in r.data
 
 
 def test_termo_ccusto_documento_docx_planilha(cliente):
@@ -465,7 +484,7 @@ def test_inventario_sala_leitura_json(cliente):
     r = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI")
     assert r.status_code == 200 and b'id="leitura"' in r.data and b"html5-qrcode" in r.data and "não faz parte da comissão".encode() in r.data
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
-    assert r.status_code == 409 and "comissão" in r.get_json()["erro"].lower()
+    assert r.status_code == 403 and r.get_json()["erro"] == NEGADO           # sem vínculo: barrado antes da view
     cliente.post(f"/inventario/{eid}/comissao", data={"usuarios": _ids("Fulano", "Beltrana")})
     j = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "001001"}).get_json()
     assert j["situacao"] == "localizado" and j["numero"] == 1001 and j["descricao"] == "CADEIRA" and j["reler"] is False
@@ -664,7 +683,7 @@ def test_inventario_lote_marcar_e_desmarcar(cliente, monkeypatch):
     assert b"Nenhuma leitura para desfazer" in r.data
     cliente.post(f"/inventario/{eid}/comissao", data={"usuarios": _ids("Beltrana")})
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "marcar", "numeros": ["1002"]}, follow_redirects=True)
-    assert "comissão".encode() in r.data.lower()
+    assert r.status_code == 403 and NEGADO.encode() in r.data
     cliente.post(f"/inventario/{eid}/comissao", data={"usuarios": _ids("Fulano", "Beltrana")})
     cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"})
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "marcar", "numeros": ["1002"]}, follow_redirects=True)
@@ -824,6 +843,9 @@ def test_inventario_comissao_por_usuarios(cliente, dados, usuarios_exemplo):
     j = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"}).get_json()
     assert j["situacao"] == "localizado" and j["integrante"] == "Fulano"
     assert b"lendo como <strong>Fulano</strong>" in cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI").data
+    r = cliente.get(f"/inventario/{eid}/comissao")                                                  # aviso de quem já leu
+    assert r.data.count("já tem leituras neste evento".encode()) == 1
+    assert "Fulano (admin) <span class=\"text-gray-70 text-down-01\">· já tem leituras".encode() in r.data
     cliente.post("/sair"); logar(cliente, *usuarios_exemplo["operador"])
     assert cliente.get(f"/inventario/{eid}/comissao").status_code == 403                         # só admin
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1002"})
@@ -847,6 +869,7 @@ def test_inventario_desktop_admin_local_entra_na_comissao(cliente_local):
 
 
 def test_inventario_fora_da_comissao_nao_edita_nem_apaga(cliente, monkeypatch):
+    """Admin fora da comissão: toda escrita é negada (403) antes da view, sem tocar no banco nem no bucket."""
     import io
     from PIL import Image
     import db, fotos, inventario
@@ -857,26 +880,29 @@ def test_inventario_fora_da_comissao_nao_edita_nem_apaga(cliente, monkeypatch):
     sobra_id = inventario.bens_da_sala(db.conectar(), eid, "01 - SALA CCI")["sobras"][0]["id"]
     cliente.post("/sair"); logar(cliente, ADMIN_LOGIN, ADMIN_SENHA)
     r = cliente.post(f"/inventario/{eid}/leitura/1001", json={"conservacao": "Bom"})
-    assert r.status_code == 409 and "comissão" in r.get_json()["erro"].lower()
+    assert r.status_code == 403 and r.get_json()["erro"] == NEGADO
     for v in fotos.VARIAVEIS:
         monkeypatch.setenv(v, "x")
     monkeypatch.setenv("R2_PUBLIC_URL", "https://f.exemplo.org")
-    monkeypatch.setattr(fotos, "enviar", lambda chave, dados: f"https://f.exemplo.org/{chave}")
+    tocou = []                                     # negado não fala com o bucket
+    monkeypatch.setattr(fotos, "enviar", lambda chave, dados: tocou.append(("enviar", chave)))
+    monkeypatch.setattr(fotos, "apagar", lambda url: tocou.append(("apagar", url)))
     buf = io.BytesIO(); Image.new("RGB", (30, 20), (1, 2, 3)).save(buf, "PNG"); imagem = buf.getvalue()
     r = cliente.post(f"/inventario/{eid}/leitura/1001/foto", data={"foto": (io.BytesIO(imagem), "a.png")}, content_type="multipart/form-data")
-    assert r.status_code == 409 and "comissão" in r.get_json()["erro"].lower()
+    assert r.status_code == 403 and r.get_json()["erro"] == NEGADO
     r = cliente.post(f"/inventario/{eid}/leitura/1001/foto/1/excluir", follow_redirects=True)
-    assert "não faz parte da comissão".encode() in r.data
+    assert r.status_code == 403 and NEGADO.encode() in r.data
     r = cliente.post(f"/inventario/{eid}/sobra/{sobra_id}/excluir", follow_redirects=True)
-    assert "não faz parte da comissão".encode() in r.data
+    assert r.status_code == 403 and NEGADO.encode() in r.data
     assert any(s["id"] == sobra_id for s in inventario.bens_da_sala(db.conectar(), eid, "01 - SALA CCI")["sobras"])   # sobra continua
     n_antes = db.conectar().execute("SELECT count(*) FROM inventario_leituras WHERE evento_id = ? AND numero = 1001", (eid,)).fetchone()[0]
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "desmarcar", "numeros": ["1001"]}, follow_redirects=True)
-    assert "não faz parte da comissão".encode() in r.data
+    assert r.status_code == 403 and NEGADO.encode() in r.data
     n_depois = db.conectar().execute("SELECT count(*) FROM inventario_leituras WHERE evento_id = ? AND numero = 1001", (eid,)).fetchone()[0]
     assert n_depois == n_antes                                    # leitura de Beltrana continua
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "marcar", "numeros": ["1002"]}, follow_redirects=True)
-    assert "não faz parte da comissão".encode() in r.data
+    assert r.status_code == 403 and NEGADO.encode() in r.data
+    assert tocou == []
     cliente.post(f"/inventario/{eid}/comissao", data={"usuarios": _ids("Fulano", "Beltrana")})
     r = cliente.post(f"/inventario/{eid}/leitura/1001", json={"conservacao": "Bom"})
     assert r.status_code == 200

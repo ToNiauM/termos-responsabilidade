@@ -5,8 +5,8 @@
 <div class="d-flex align-items-center mb-3">
   <h1 class="mb-0">{{ e.nome }}</h1>
   <div class="ml-auto">
-    <a class="br-button secondary" href="{{ url_for('inventario.painel_tela', id=e.id) }}"><i class="fas fa-chart-pie mr-1" aria-hidden="true"></i>Painel</a>
-    <a class="br-button secondary ml-2" href="{{ url_for('inventario.relatorio_tela', id=e.id) }}"><i class="fas fa-table mr-1" aria-hidden="true"></i>Relatório</a>
+    {% if pode('inventario.painel_tela') %}<a class="br-button secondary" href="{{ url_for('inventario.painel_tela', id=e.id) }}"><i class="fas fa-chart-pie mr-1" aria-hidden="true"></i>Painel</a>{% endif %}
+    {% if pode('inventario.relatorio_tela') %}<a class="br-button secondary ml-2" href="{{ url_for('inventario.relatorio_tela', id=e.id) }}"><i class="fas fa-table mr-1" aria-hidden="true"></i>Relatório</a>{% endif %}
     {% if not e.encerrado_em %}
     {% if pode('inventario.comissao') %}<a class="br-button secondary ml-2" href="{{ url_for('inventario.comissao', id=e.id) }}"><i class="fas fa-users mr-1" aria-hidden="true"></i>Comissão</a>{% endif %}
     {% if pode('inventario.encerrar', 'POST') %}
@@ -31,11 +31,11 @@
 {% set r = e.resumo %}
 <p class="text-gray-70">{{ r.salas_iniciadas }} de {{ r.salas }} salas iniciadas · {{ r.lidos }} de {{ r.bens }} bens localizados ({{ r.pct_bens }}%) · {{ r.divergentes }} divergentes · {{ r.sobras }} sobras · Comissão: {{ e.integrantes|join(', ') }}</p>
 {{ cabecalho_tabela('Salas do evento', 'salas') }}
-  <thead><tr><th scope="col">Sala</th><th scope="col">Centro</th><th scope="col" class="dsgov-numero">Bens</th><th scope="col" class="dsgov-numero">Localizados</th><th scope="col" class="dsgov-numero">Divergentes</th><th scope="col" class="dsgov-numero">Pendentes</th><th scope="col">Situação</th><th scope="col" class="dsgov-acoes">Ler</th></tr></thead>
+  <thead><tr><th scope="col">Sala</th><th scope="col">Centro</th><th scope="col" class="dsgov-numero">Bens</th><th scope="col" class="dsgov-numero">Localizados</th><th scope="col" class="dsgov-numero">Divergentes</th><th scope="col" class="dsgov-numero">Pendentes</th><th scope="col">Situação</th><th scope="col" class="dsgov-acoes">{% set conferir = na_comissao and not e.encerrado_em and pode('inventario.ler', 'POST') %}{{ 'Conferir' if conferir else 'Ver' }}</th></tr></thead>
   <tbody>{% for s in salas %}
   <tr><td>{{ s.localizacao }}</td><td>{{ s.ccustos or '—' }}</td><td class="dsgov-numero">{{ s.total }}</td><td class="dsgov-numero">{{ s.localizados }}</td><td class="dsgov-numero">{{ s.divergentes }}</td><td class="dsgov-numero">{{ s.pendentes }}</td>
     <td>{% if s.total and s.pendentes == 0 %}<span class="br-tag bg-success text-pure-0"><span>completa</span></span>{% elif s.localizados or s.divergentes %}<span class="br-tag bg-warning"><span>em andamento</span></span>{% else %}<span class="br-tag bg-gray-20"><span>não iniciada</span></span>{% endif %}</td>
-    <td class="dsgov-acoes"><a class="br-button circle small primary" href="{{ url_for('inventario.sala_tela', id=e.id, localizacao=s.localizacao) }}" aria-label="Ler {{ s.localizacao }}"><i class="fas fa-barcode" aria-hidden="true"></i></a></td></tr>
+    <td class="dsgov-acoes"><a class="br-button circle small primary" href="{{ url_for('inventario.sala_tela', id=e.id, localizacao=s.localizacao) }}" aria-label="{{ 'Conferir sala' if conferir else 'Ver sala' }} {{ s.localizacao }}"><i class="fas {{ 'fa-barcode' if conferir else 'fa-eye' }}" aria-hidden="true"></i></a></td></tr>
   {% endfor %}</tbody>
 </table></div>
 {% endblock %}

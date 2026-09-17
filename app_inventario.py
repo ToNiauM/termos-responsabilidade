@@ -67,13 +67,22 @@ def _exigir_comissao(conn, id):
     return e
 
 
+def _pode(endpoint, metodo="GET") -> bool:
+    return usuarios.permitido(g.usuario["funcoes"], endpoint, metodo)
+
+
 @inventario_bp.route("")
 def eventos_tela():
+    """Só os eventos visíveis a quem pediu: o inventariante vê apenas aqueles de que participa."""
     conn = _conn()
-    aberto = inventario.evento_aberto(conn)
+    visiveis = comissoes.eventos_visiveis(conn, g.usuario)
+    aberto = next((e for e in visiveis if not e["encerrado_em"]), None)
+    pode_abrir = _pode("inventario.abrir", "POST")
     return render_template("inventario_eventos.html", aberto=inventario.evento(conn, aberto["id"]) if aberto else None,
-                           eventos=[e for e in inventario.eventos(conn) if e["encerrado_em"]],
-                           salas_ativas=db.localizacoes_ativas(conn), elegiveis=_elegiveis(conn), local=_local(),
+                           eventos=[e for e in visiveis if e["encerrado_em"]],
+                           salas_ativas=db.localizacoes_ativas(conn) if pode_abrir else [],
+                           elegiveis=_elegiveis(conn) if pode_abrir else [], local=_local(),
+                           pode_abrir=pode_abrir, pode_relatorios=_pode("inventario.relatorio_tela"),
                            trilha=_trilha())
 
 

@@ -10,7 +10,8 @@ from markupsafe import Markup
 
 from app_inventario import inventario_bp
 from app_cadastros import registrar_cadastros
-from app_usuarios import usuarios_bp
+from app_usuarios import destino_inicial, usuarios_bp
+import comissoes
 import config
 import db
 import inventario
@@ -38,7 +39,10 @@ app.add_template_filter(permissoes.ROTULOS.__getitem__, "rotulo_funcao")
 
 DSGOV_FIXO = {"SISTEMA": "Termos de Responsabilidade"}
 
-NEGADO = "Seu perfil não tem acesso a isso."
+NEGADO = "Seu usuário não tem permissão para esta ação."
+
+ESCRITA_INVENTARIO = {"inventario.ler", "inventario.atualizar_leitura", "inventario.lote", "inventario.foto_leitura",
+                      "inventario.foto_excluir", "inventario.sobra", "inventario.sobra_excluir"}
 
 CSRF_INVALIDO = "Sessão expirada ou formulário inválido. Recarregue a página e tente de novo."
 
@@ -66,10 +70,32 @@ def _negado():
     return render_template("403.html", trilha=[("Acesso negado", None)]), 403
 
 
+def _autorizado(funcoes, ep) -> bool:
+    """Matriz das funções. No OPTIONS (resposta automática do Flask) basta um método real permitido."""
+    if request.method == "OPTIONS":
+        metodos = (request.url_rule.methods if request.url_rule else set()) - {"HEAD", "OPTIONS"}
+        return any(usuarios.permitido(funcoes, ep, m) for m in metodos)
+    return usuarios.permitido(funcoes, ep, request.method)
+
+
+def _escopo_do_inventario():
+    """Depois da matriz: o evento da URL precisa ser visível e, para escrever, exige vínculo com a comissão.
+    Vale também no modo desktop. Nada da view roda antes disto: negado não lê evento, bucket nem documento."""
+    if request.blueprint != "inventario" or "id" not in (request.view_args or {}):
+        return None
+    eid = request.view_args["id"]
+    if not comissoes.visivel(obter_conn(), g.usuario, eid):
+        return _negado()
+    if request.endpoint in ESCRITA_INVENTARIO and not comissoes.pode_conferir(obter_conn(), g.usuario, eid):
+        return _negado()
+    return None
+
+
 @app.before_request
 def resolver_usuario():
     """Quem está usando: sessão (web, TERMOS_LOGIN=1) ou o administrador local (desktop). Sem sessão válida
-    → /login. Com senha temporária → /senha até trocar. Fora da matriz de permissões das funções → 403."""
+    → /login. Com senha temporária → /senha até trocar. Fora da matriz de permissões das funções → 403.
+    Por último, o escopo do inventário (evento visível; escrita só para a comissão)."""
     ep = request.endpoint
     if ep is None or ep == "static":
         return None
@@ -79,23 +105,23 @@ def resolver_usuario():
             return _csrf_invalido()
     if not config.exigir_login():
         g.usuario = usuarios.USUARIO_LOCAL
-        return None if usuarios.permitido(usuarios.USUARIO_LOCAL["funcoes"], ep, request.method) else _negado()
-    u = usuarios.por_id(obter_conn(), session.get("usuario_id")) if session.get("usuario_id") else None
-    if u is None or not u["ativo"]:
-        session.clear()
-        g.usuario = None
-        if ep == "usuarios.login":
-            return None
-        if request.method == "GET":
-            proximo = urlencode({"proximo": request.full_path.rstrip("?")})
-            return redirect(f"{url_for('usuarios.login')}?{proximo}")
-        return redirect(url_for("usuarios.login"))
-    g.usuario = u
-    if u["trocar_senha"] and ep not in ("usuarios.senha", "usuarios.sair", "usuarios.login"):
-        return redirect(url_for("usuarios.senha"))
-    if not usuarios.permitido(g.usuario["funcoes"], ep, request.method):
+    else:
+        u = usuarios.por_id(obter_conn(), session.get("usuario_id")) if session.get("usuario_id") else None
+        if u is None or not u["ativo"]:
+            session.clear()
+            g.usuario = None
+            if ep == "usuarios.login":
+                return None
+            if request.method == "GET":
+                proximo = urlencode({"proximo": request.full_path.rstrip("?")})
+                return redirect(f"{url_for('usuarios.login')}?{proximo}")
+            return redirect(url_for("usuarios.login"))
+        g.usuario = u
+        if u["trocar_senha"] and ep not in ("usuarios.senha", "usuarios.sair", "usuarios.login"):
+            return redirect(url_for("usuarios.senha"))
+    if not _autorizado(g.usuario["funcoes"], ep):
         return _negado()
-    return None
+    return _escopo_do_inventario()
 
 
 @app.context_processor
@@ -103,7 +129,8 @@ def contexto_dsgov():
     t = textos.obter(obter_conn())
     dsgov = dict(DSGOV_FIXO, ORGAO=t["orgao_nome"], SUBTITULO=t["unidade_sigla"])
     usuario = getattr(g, "usuario", None)
-    contexto = {"DSGOV": dsgov, "USUARIO": usuario, "MENU": [], "CSRF": _csrf_token()}
+    contexto = {"DSGOV": dsgov, "USUARIO": usuario, "MENU": [], "CSRF": _csrf_token(),
+                "URL_INICIAL": url_for("home"), "pode": lambda *_a, **_k: False}
     if not usuario:
         return contexto
     funcoes = usuario["funcoes"]
@@ -112,11 +139,15 @@ def contexto_dsgov():
         return usuarios.permitido(funcoes, endpoint, metodo)
 
     contexto["pode"] = pode
-    inv = [("Eventos", url_for("inventario.eventos_tela"))]
-    if (e := inventario.evento_aberto(obter_conn())):
-        inv += [(e["nome"], url_for("inventario.evento_tela", id=e["id"])),
-                ("Painel", url_for("inventario.painel_tela", id=e["id"])),
-                ("Relatório", url_for("inventario.relatorio_tela", id=e["id"]))]
+    contexto["URL_INICIAL"] = destino_inicial(usuario)
+    inv = []
+    if pode("inventario.eventos_tela"):
+        inv.append(("Eventos", url_for("inventario.eventos_tela")))
+        if (e := _evento_aberto_visivel(usuario)):
+            inv.append((e["nome"], url_for("inventario.evento_tela", id=e["id"])))
+            if pode("inventario.painel_tela"):
+                inv += [("Painel", url_for("inventario.painel_tela", id=e["id"])),
+                        ("Relatório", url_for("inventario.relatorio_tela", id=e["id"]))]
     itens = [
         ("Início", "fa-home", "home", {}, []),
         ("Termo por centro de custo", "fa-building", "centro_custos", {}, []),
@@ -130,9 +161,16 @@ def contexto_dsgov():
         ("Atualizar base", "fa-upload", "upload", {}, []),
         ("Usuários", "fa-users", "usuarios.lista", {}, []),
     ]
+    # `home` é de todas as funções (é o destino de quem não tem outro), mas Início só faz sentido para o acervo
+    so_com = {"home": bool(set(funcoes) & permissoes.ACERVO), "usuarios.lista": config.exigir_login()}
     contexto["MENU"] = [(rotulo, icone, url_for(endpoint, **kw), filhos) for rotulo, icone, endpoint, kw, filhos in itens
-                        if pode(endpoint) and not (endpoint == "usuarios.lista" and not config.exigir_login())]
+                        if pode(endpoint) and so_com.get(endpoint, True)]
     return contexto
+
+
+def _evento_aberto_visivel(usuario):
+    """Evento aberto que este usuário pode ver (inventariante só vê os eventos de que participa)."""
+    return next((e for e in comissoes.eventos_visiveis(obter_conn(), usuario) if not e["encerrado_em"]), None)
 
 
 def obter_conn():
@@ -173,9 +211,12 @@ def _baixar(arquivo: io.BytesIO, nome: str):
 # ---------------------------------------------------------------- início e ficha do bem
 @app.route("/")
 def home():
+    if (destino := destino_inicial(g.usuario)) != url_for("home"):
+        return redirect(destino)      # quem não tem o acervo não passa pelo Início (nem paga o painel geral)
     p = db.painel(obter_conn())
     f = {"situacao": "ATIVO"}
-    inventario_aberto = inventario.evento(obter_conn(), a["id"]) if (a := inventario.evento_aberto(obter_conn())) else None
+    a = _evento_aberto_visivel(g.usuario) if usuarios.permitido(g.usuario["funcoes"], "inventario.eventos_tela") else None
+    inventario_aberto = inventario.evento(obter_conn(), a["id"]) if a else None
     return render_template("index.html", p=p, cards=painel.cards_graficos(p["dimensoes"], f), f=f,
                            moeda=painel.moeda, url_recorte=painel.url_recorte, trilha=[], inventario_aberto=inventario_aberto)
 
@@ -242,8 +283,10 @@ def bem():
     if not ficha:
         flash(f"Bem {numero or '(vazio)'} não encontrado.", "error")
         return redirect(url_for("home"))
-    return render_template("bem.html", bem=ficha, historico=db.historico_do_bem(obter_conn(), int(numero)), rotulos=db.ROTULO_TIPO,
-                           fotos=inventario.fotos_do_bem(obter_conn(), int(numero)), trilha=[(f"Bem {numero}", None)])
+    conn = obter_conn()
+    grupos = [g_ for g_ in inventario.fotos_do_bem(conn, int(numero)) if comissoes.visivel(conn, g.usuario, g_["evento_id"])]
+    return render_template("bem.html", bem=ficha, historico=db.historico_do_bem(conn, int(numero)), rotulos=db.ROTULO_TIPO,
+                           fotos=grupos, trilha=[(f"Bem {numero}", None)])
 
 
 @app.route("/pesquisa")

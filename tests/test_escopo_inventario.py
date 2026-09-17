@@ -9,6 +9,7 @@ import db
 import inventario
 import usuarios
 from tests.conftest import semear
+from tests.test_permissoes import NEGADO
 
 
 def _integrantes(conn, eid):
@@ -202,14 +203,30 @@ def test_web_nao_autoriza_homonimo_pelo_nome_na_comissao(cliente, dados):
     assert _integrantes(dados, eid) == ["Beltrana"]
     cliente.post("/sair"); logar(cliente, "beltrana2", SENHA_PADRAO)
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
-    assert r.status_code == 409 and "comissão" in r.get_json()["erro"].lower()
+    assert r.status_code == 403 and r.get_json()["erro"] == NEGADO       # o homônimo nem chega à view
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/sobra",
                      data={"descricao": "VENTILADOR", "observacao": "sem plaqueta"}, follow_redirects=True)
-    assert "não faz parte da comissão".encode() in r.data
+    assert r.status_code == 403 and NEGADO.encode() in r.data
+    assert cliente.get(f"/inventario/{eid}").status_code == 403          # nem vê o evento alheio
     assert not dados.execute("SELECT 1 FROM inventario_leituras").fetchone()
     assert not dados.execute("SELECT 1 FROM inventario_sobras").fetchone()
     cliente.post("/sair"); logar(cliente, "beltrana", SENHA_PADRAO)
     assert cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"}).status_code == 200
+
+
+def test_tela_de_eventos_nao_alude_a_evento_alheio(cliente, dados):
+    """Inventariante fora de qualquer comissão: estado vazio, sem o nome nem os números do evento dos outros."""
+    from tests.conftest import SENHA_PADRAO, logar
+    fulano = dados.execute("SELECT id FROM usuarios WHERE login='admin'").fetchone()[0]
+    cliente.post("/inventario/abrir", data={"nome": "Inventário Secreto", "usuarios": [fulano], "escopo": "todas"})
+    eid = inventario.evento_aberto(dados)["id"]
+    cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+    cliente.post("/sair"); logar(cliente, "beltrana", SENHA_PADRAO)
+    html = cliente.get("/inventario").get_data(as_text=True)
+    assert "Nenhum inventário atribuído a você" in html
+    assert "Inventário Secreto" not in html and "bens localizados" not in html and "Abrir evento" not in html
+    assert f"/inventario/{eid}" not in html
+    assert cliente.get(f"/inventario/{eid}").status_code == 403
 
 
 def test_tela_da_comissao_mostra_integrante_sem_conta_vinculada(cliente, dados):

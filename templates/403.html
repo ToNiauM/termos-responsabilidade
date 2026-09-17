@@ -4,10 +4,10 @@
 <div class="d-flex align-items-center mb-4"><h1 class="mb-0">{% if csrf %}Sessão expirada{% else %}Acesso negado{% endif %}</h1></div>
 {% if not csrf %}
 <div class="br-message danger"><div class="icon"><i class="fas fa-ban fa-lg" aria-hidden="true"></i></div>
-  <div class="content" role="alert"><span class="message-title">Seu perfil não tem acesso a isso.</span><span class="message-body"> Se precisar desta função, peça ao administrador para ajustar seu perfil.</span></div></div>
+  <div class="content" role="alert"><span class="message-title">Seu usuário não tem permissão para esta ação.</span><span class="message-body"> Se precisar dela, peça ao administrador para ajustar suas funções.</span></div></div>
 {% else %}
 <div class="br-message danger"><div class="icon"><i class="fas fa-ban fa-lg" aria-hidden="true"></i></div>
   <div class="content" role="alert"><span class="message-title">Sessão expirada ou formulário inválido.</span><span class="message-body"> Recarregue a página e tente de novo.</span></div></div>
 {% endif %}
-<a class="br-button mt-3" href="{{ url_for('home') }}"><i class="fas fa-home mr-1" aria-hidden="true"></i>Início</a>
+<a class="br-button mt-3" href="{{ URL_INICIAL }}"><i class="fas fa-home mr-1" aria-hidden="true"></i>Início</a>
 {% endblock %}

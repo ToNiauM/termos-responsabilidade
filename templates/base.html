@@ -38,9 +38,11 @@
             </div>
           </div>
           {% endif %}
+          {% if pode('pesquisa') %}
           <div class="header-search-trigger">
             <button class="br-button circle" type="button" aria-label="Abrir pesquisa" data-toggle="search" data-target=".header-search"><i class="fas fa-search" aria-hidden="true"></i></button>
           </div>
+          {% endif %}
         </div>
       </div>
       <div class="header-bottom">
@@ -53,6 +55,7 @@
             <div class="header-subtitle">{{ DSGOV.SUBTITULO }}</div>
           </div>
         </div>
+        {% if pode('pesquisa') %}
         <div class="header-search">
           <form class="br-input has-icon" method="get" action="{{ url_for('pesquisa') }}">
             <label for="pesquisa-q">Pesquisar</label>
@@ -61,6 +64,7 @@
           </form>
           <button class="br-button circle search-close ml-1" type="button" aria-label="Fechar pesquisa" data-dismiss="search"><i class="fas fa-times" aria-hidden="true"></i></button>
         </div>
+        {% endif %}
       </div>
     </div>
   </header>
@@ -97,7 +101,7 @@
           {% if trilha %}
           <nav class="br-breadcrumb" aria-label="Trilha de navegação">
             <ol class="crumb-list" role="list">
-              <li class="crumb home"><a class="br-button circle" href="{{ url_for('home') }}"><span class="sr-only">Página inicial</span><i class="fas fa-home" aria-hidden="true"></i></a></li>
+              <li class="crumb home"><a class="br-button circle" href="{{ URL_INICIAL }}"><span class="sr-only">Página inicial</span><i class="fas fa-home" aria-hidden="true"></i></a></li>
               {% for rotulo, url in trilha %}
                 {% if url %}<li class="crumb"><i class="icon fas fa-chevron-right" aria-hidden="true"></i><a href="{{ url }}">{{ rotulo }}</a></li>
                 {% else %}<li class="crumb" data-active="active"><i class="icon fas fa-chevron-right" aria-hidden="true"></i><span tabindex="0" aria-current="page">{{ rotulo }}</span></li>{% endif %}

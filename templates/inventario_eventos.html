@@ -16,10 +16,12 @@
     </div>
     <div class="br-message info mb-3"><div class="icon"><i class="fas fa-info-circle fa-lg" aria-hidden="true"></i></div>
       <div class="content"><span class="message-body">{{ r.pct_bens }}% dos bens localizados.</span></div></div>
-    <a class="br-button primary" href="{{ url_for('inventario.evento_tela', id=aberto.id) }}"><i class="fas fa-door-open mr-1" aria-hidden="true"></i>Salas e leitura</a>
-    <a class="br-button secondary ml-2" href="{{ url_for('inventario.relatorio_tela', id=aberto.id) }}"><i class="fas fa-table mr-1" aria-hidden="true"></i>Relatório</a>
+    <a class="br-button primary" href="{{ url_for('inventario.evento_tela', id=aberto.id) }}"><i class="fas fa-door-open mr-1" aria-hidden="true"></i>{% if pode('inventario.ler', 'POST') %}Salas e leitura{% else %}Salas{% endif %}</a>
+    {% if pode_relatorios %}<a class="br-button secondary ml-2" href="{{ url_for('inventario.relatorio_tela', id=aberto.id) }}"><i class="fas fa-table mr-1" aria-hidden="true"></i>Relatório</a>{% endif %}
   </div>
 </div>
+{% elif not pode_abrir %}
+<p class="text-gray-70">{% if eventos %}Nenhum evento aberto no momento.{% else %}Nenhum inventário atribuído a você. Quando a comissão de um evento incluir seu usuário, ele aparece aqui.{% endif %}</p>
 {% else %}
 <p class="text-gray-70">Nenhum evento aberto. Abra um evento para começar a conferência.</p>
 <form method="post" action="{{ url_for('inventario.abrir') }}" class="br-card mb-4">{{ csrf_campo() }}<div class="card-content">
@@ -55,10 +57,10 @@
 {% endif %}
 {% if eventos %}
 {{ cabecalho_tabela('Eventos encerrados', 'eventos') }}
-  <thead><tr><th scope="col">Evento</th><th scope="col">Aberto em</th><th scope="col">Encerrado em</th><th scope="col" class="dsgov-acoes">Relatório</th></tr></thead>
+  <thead><tr><th scope="col">Evento</th><th scope="col">Aberto em</th><th scope="col">Encerrado em</th>{% if pode_relatorios %}<th scope="col" class="dsgov-acoes">Relatório</th>{% endif %}</tr></thead>
   <tbody>{% for e in eventos %}
   <tr><td><a href="{{ url_for('inventario.evento_tela', id=e.id) }}">{{ e.nome }}</a></td><td>{{ e.aberto_em[8:10] }}/{{ e.aberto_em[5:7] }}/{{ e.aberto_em[:4] }}</td><td>{{ e.encerrado_em[8:10] }}/{{ e.encerrado_em[5:7] }}/{{ e.encerrado_em[:4] }}</td>
-    <td class="dsgov-acoes"><a class="br-button circle small" href="{{ url_for('inventario.relatorio_tela', id=e.id) }}" aria-label="Relatório de {{ e.nome }}"><i class="fas fa-table" aria-hidden="true"></i></a></td></tr>
+    {% if pode_relatorios %}<td class="dsgov-acoes"><a class="br-button circle small" href="{{ url_for('inventario.relatorio_tela', id=e.id) }}" aria-label="Relatório de {{ e.nome }}"><i class="fas fa-table" aria-hidden="true"></i></a></td>{% endif %}</tr>
   {% endfor %}</tbody>
 </table></div>
 {% endif %}

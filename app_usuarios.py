@@ -2,7 +2,9 @@
 import secrets
 from urllib.parse import urlsplit
 
-from flask import Blueprint, abort, flash, g, make_response, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, current_app, flash, g, make_response, redirect, render_template, request, session, url_for
+from werkzeug.exceptions import MethodNotAllowed, NotFound
+from werkzeug.routing import RequestRedirect
 
 import comissoes
 import config
@@ -31,6 +33,26 @@ def _proximo_seguro(valor: str | None) -> str:
     return v
 
 
+def destino_inicial(u) -> str:
+    """Primeira tela do usuário: quem cuida do acervo começa no Início; quem só confere inventário, no inventário."""
+    return url_for("home" if set(u["funcoes"]) & {"admin", "operador", "consulta"} else "inventario.eventos_tela")
+
+
+def _proximo_autorizado(valor, u) -> str:
+    """`proximo` só é seguido se for um GET que este usuário pode abrir (e um evento que ele pode ver).
+    Qualquer outra coisa — rota inexistente, sem permissão, evento alheio, o próprio Início — vira o destino inicial."""
+    seguro = _proximo_seguro(valor)
+    try:
+        ep, args = current_app.url_map.bind_to_environ(request.environ).match(urlsplit(seguro).path, method="GET")
+    except (NotFound, MethodNotAllowed, RequestRedirect):
+        return destino_inicial(u)
+    if ep in {"usuarios.login", "usuarios.sair", "static"} or not usuarios.permitido(u["funcoes"], ep):
+        return destino_inicial(u)
+    if ep.startswith("inventario.") and "id" in args and not comissoes.visivel(_conn(), u, args["id"]):
+        return destino_inicial(u)
+    return destino_inicial(u) if ep == "home" else seguro
+
+
 @usuarios_bp.before_request
 def _so_com_login_ligado():
     """No desktop (sem TERMOS_LOGIN) não há conta: estas telas não existem."""
@@ -42,7 +64,7 @@ def _so_com_login_ligado():
 def login():
     conn = _conn()
     if g.usuario and request.method == "GET":
-        return redirect(url_for("home"))
+        return redirect(destino_inicial(g.usuario))
     proximo = request.args.get("proximo")
     sem_usuarios = conn.execute("SELECT count(*) FROM usuarios").fetchone()[0] == 0
     if request.method == "POST" and not sem_usuarios:
@@ -54,7 +76,7 @@ def login():
         session["usuario_id"] = u["id"]
         session["csrf"] = secrets.token_urlsafe(32)
         session.permanent = True
-        return redirect(_proximo_seguro(proximo))
+        return redirect(_proximo_autorizado(proximo, u) if proximo else destino_inicial(u))
     return render_template("login.html", erro=None, login="", proximo=proximo, sem_usuarios=sem_usuarios)
 
 
@@ -72,7 +94,7 @@ def senha():
         except db.ErroDeNegocio as e:
             return render_template("senha.html", erro=str(e), obrigatoria=bool(g.usuario["trocar_senha"]), trilha=[("Trocar senha", None)])
         flash("Senha alterada.", "success")
-        return redirect(url_for("home"))
+        return redirect(destino_inicial(g.usuario))
     return render_template("senha.html", erro=None, obrigatoria=bool(g.usuario["trocar_senha"]), trilha=[("Trocar senha", None)])
 
 
