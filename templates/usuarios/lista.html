@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_macros.html" import cabecalho_tabela %}
+{% block titulo %}Usuários{% endblock %}
+{% block conteudo %}
+<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Usuários</h1>
+  <a class="br-button primary ml-auto" href="{{ url_for('usuarios.novo', retorno=request.full_path) }}"><i class="fas fa-user-plus mr-1" aria-hidden="true"></i>Novo usuário</a></div>
+<form method="get" class="br-card mb-3"><div class="card-content row align-items-end">
+  <div class="col-md-4 mb-2"><div class="br-input"><label for="q">Login ou nome</label><input id="q" name="q" type="text" value="{{ q }}"/></div></div>
+  <div class="col-md-3 mb-2"><div class="br-select"><div class="br-input"><label for="perfil">Perfil</label>
+    <select id="perfil" name="perfil" class="br-input"><option value="">Todos</option>{% for p in perfis %}<option value="{{ p }}"{% if p == perfil %} selected{% endif %}>{{ rotulos[p] }}</option>{% endfor %}</select></div></div></div>
+  <div class="col-md-3 mb-2"><div class="br-checkbox"><input id="inativos" name="inativos" type="checkbox" value="1"{% if inativos %} checked{% endif %}/><label for="inativos">Mostrar inativos</label></div></div>
+  <div class="col-md-2 mb-2"><button class="br-button secondary" type="submit"><i class="fas fa-search mr-1" aria-hidden="true"></i>Filtrar</button></div>
+</div></form>
+{{ cabecalho_tabela('Usuários cadastrados', 'usuarios') }}
+  <thead><tr><th scope="col">Login</th><th scope="col">Nome</th><th scope="col">Perfil</th><th scope="col">Situação</th><th scope="col">Último acesso</th><th scope="col" class="dsgov-acoes">Ações</th></tr></thead>
+  <tbody>{% for u in lista %}
+  <tr><td><code>{{ u.login }}</code></td><td>{{ u.nome }}</td><td>{{ rotulos[u.perfil] }}</td>
+    <td>{% if u.ativo %}<span class="br-tag bg-success text-pure-0"><span>ativo</span></span>{% else %}<span class="br-tag bg-gray-20"><span>inativo</span></span>{% endif %}
+      {% if u.trocar_senha %}<span class="br-tag bg-warning ml-1"><span>senha temporária</span></span>{% endif %}</td>
+    <td>{% if u.ultimo_acesso %}{{ u.ultimo_acesso[8:10] }}/{{ u.ultimo_acesso[5:7] }}/{{ u.ultimo_acesso[:4] }} {{ u.ultimo_acesso[11:16] }}{% else %}—{% endif %}</td>
+    <td class="dsgov-acoes"><a class="br-button circle small" href="{{ url_for('usuarios.editar', id=u.id, retorno=request.full_path) }}" aria-label="Editar {{ u.login }}"><i class="fas fa-edit" aria-hidden="true"></i></a></td></tr>
+  {% else %}<tr><td colspan="6">Nenhum usuário encontrado.</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endblock %}

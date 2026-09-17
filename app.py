@@ -100,10 +100,10 @@ def contexto_dsgov():
         ("Cadastros", "fa-address-book", "cadastros", {"aba": "responsaveis"}, []),
         ("Textos", "fa-file-signature", "textos_tela", {}, []),
         ("Atualizar base", "fa-upload", "upload", {}, []),
-        # ("Usuários", "fa-users", "usuarios.lista", {}, []),               # Task 6: rota ainda não existe
+        ("Usuários", "fa-users", "usuarios.lista", {}, []),
     ]
     contexto["MENU"] = [(rotulo, icone, url_for(endpoint, **kw), filhos) for rotulo, icone, endpoint, kw, filhos in itens
-                        if pode(endpoint)]
+                        if pode(endpoint) and not (endpoint == "usuarios.lista" and not config.exigir_login())]
     return contexto
 
 

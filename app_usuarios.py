@@ -69,3 +69,64 @@ def senha():
         flash("Senha alterada.", "success")
         return redirect(url_for("home"))
     return render_template("senha.html", erro=None, obrigatoria=bool(g.usuario["trocar_senha"]), trilha=[("Trocar senha", None)])
+
+
+def _retorno() -> str:
+    return _proximo_seguro(request.args.get("retorno")) if request.args.get("retorno") else url_for("usuarios.lista")
+
+
+def _form_usuario(u, valores, erro, senha_temporaria=None):
+    return render_template("usuarios/formulario.html", u=u, valores=valores, erro=erro, perfis=usuarios.PERFIS,
+                           rotulos=usuarios.ROTULO_PERFIL, retorno=_retorno(), senha_temporaria=senha_temporaria,
+                           trilha=[("Usuários", url_for("usuarios.lista")), ((u["login"] if u else "Novo usuário"), None)])
+
+
+@usuarios_bp.route("/usuarios")
+def lista():
+    q, perfil, inativos = request.args.get("q", ""), request.args.get("perfil") or None, request.args.get("inativos") == "1"
+    return render_template("usuarios/lista.html", lista=usuarios.listar(_conn(), q, perfil, inativos), q=q, perfil=perfil,
+                           inativos=inativos, perfis=usuarios.PERFIS, rotulos=usuarios.ROTULO_PERFIL, trilha=[("Usuários", None)])
+
+
+@usuarios_bp.route("/usuarios/novo")
+def novo():
+    return _form_usuario(None, {"perfil": "consulta", "trocar_senha": "1"}, None)
+
+
+@usuarios_bp.route("/usuarios/incluir", methods=["POST"])
+def incluir():
+    f = request.form
+    valores = {k: f.get(k, "") for k in ("login", "nome", "perfil", "trocar_senha")}
+    try:
+        if f.get("senha", "") != f.get("confirmacao", ""):
+            raise db.ErroDeNegocio("A confirmação não confere com a senha.")
+        usuarios.criar(_conn(), f.get("login"), f.get("nome"), f.get("senha"), f.get("perfil"), trocar_senha=bool(f.get("trocar_senha")))
+    except db.ErroDeNegocio as e:
+        return _form_usuario(None, valores, str(e))
+    flash(f"Usuário {f.get('login', '').strip().lower()} criado.", "success")
+    return redirect(_retorno())
+
+
+@usuarios_bp.route("/usuarios/<int:id>/editar", methods=["GET", "POST"])
+def editar(id):
+    conn = _conn()
+    u = usuarios.por_id(conn, id) or abort(404)
+    if request.method == "POST":
+        f = request.form
+        valores = {"nome": f.get("nome", ""), "perfil": f.get("perfil", ""), "ativo": f.get("ativo")}
+        try:
+            usuarios.editar(conn, id, f.get("nome"), f.get("perfil"), ativo=bool(f.get("ativo")), logado_id=g.usuario["id"])
+        except db.ErroDeNegocio as e:
+            return _form_usuario(u, valores, str(e))
+        flash(f"Usuário {u['login']} salvo" + ("" if f.get("ativo") else " (inativo)") + ".", "success")
+        return redirect(_retorno())
+    return _form_usuario(u, {"nome": u["nome"], "perfil": u["perfil"], "ativo": "1" if u["ativo"] else None}, None)
+
+
+@usuarios_bp.route("/usuarios/<int:id>/nova-senha", methods=["POST"])
+def nova_senha(id):
+    conn = _conn()
+    u = usuarios.por_id(conn, id) or abort(404)
+    senha = usuarios.nova_senha_temporaria(conn, id)
+    u = usuarios.por_id(conn, id)
+    return _form_usuario(u, {"nome": u["nome"], "perfil": u["perfil"], "ativo": "1" if u["ativo"] else None}, None, senha_temporaria=senha)

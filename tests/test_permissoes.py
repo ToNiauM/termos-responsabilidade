@@ -39,9 +39,9 @@ def test_toda_rota_do_app_esta_na_matriz(dados):
 
 
 # (endpoint GET exemplar por área, e o que cada perfil deve receber)
-# Nota: "/usuarios" só existe na Task 6 (rota ainda não criada); fica de fora até lá.
 _ROTAS_GET = {
     "/": {"admin": 200, "operador": 200, "inventariante": 200, "consulta": 200},
+    "/usuarios": {"admin": 200, "operador": 403, "inventariante": 403, "consulta": 403},
     "/bem?numero=1001": {"admin": 200, "operador": 200, "inventariante": 200, "consulta": 200},
     "/centro-custos": {"admin": 200, "operador": 200, "inventariante": 403, "consulta": 200},
     "/termo/ccusto/CCI": {"admin": 200, "operador": 200, "inventariante": 403, "consulta": 200},
@@ -91,8 +91,7 @@ def test_menu_por_perfil(cliente, usuarios_exemplo):
     def menu():
         return cliente.get("/").data.split(b'id="main-navigation"')[1].split(b"menu-footer")[0]
     m = menu()
-    # "Usuários" ainda não entra: a rota usuarios.lista só existe na Task 6 (item comentado em app.py até lá).
-    assert b">Usu\xc3\xa1rios<" not in m and b">Textos<" in m and b">Cadastros<" in m
+    assert b">Usu\xc3\xa1rios<" in m and b">Textos<" in m and b">Cadastros<" in m
     cliente.post("/sair"); logar(cliente, *usuarios_exemplo["operador"])
     m = menu()
     assert b">Usu\xc3\xa1rios<" not in m and b">Textos<" in m and b">Cadastros<" in m and b">Atualizar base<" in m
