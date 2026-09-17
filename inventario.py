@@ -10,6 +10,13 @@ CONSERVACAO = ("Bom", "Regular", "Ruim", "Inservível")
 ROTULO_SITUACAO = {"localizado": "Localizado", "divergente": "Divergente", "pendente": "Não localizado"}
 ANDAR_SEM = "Sem andar"
 
+# Constantes para filtros do relatório
+FILTROS_RELATORIO = ("localizacao", "situacao", "integrante", "conservacao", "foto", "busca", "ordem", "dir")
+CONSERVACAO_VAZIA = "-"    # valor do filtro/chave para "Não informada"
+COLUNAS_ORDEM = ("numero", "descricao", "local_sistema", "local_inventario", "situacao_inv", "conservacao", "quem_usa", "integrante", "lido_em")
+_CAMPOS_BUSCA = ("numero", "descricao", "complemento", "quem_usa", "observacao", "local_sistema", "local_inventario")
+ROTULO_FOTO = {"com": "Com foto", "sem": "Sem foto"}
+
 
 class BemNaoEncontrado(ErroDeNegocio):
     """Número lido não existe em `bens`: a tela oferece registrar como sobra."""
@@ -274,6 +281,37 @@ def excluir_sobra(conn, evento_id: int, sobra_id: int) -> dict:
 
 
 # ---------------------------------------------------------------- relatório e planilha do evento
+
+def _normalizar(texto) -> str:
+    """Sem acento e sem caixa, como cadastro_busca em db.py."""
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", str(texto if texto is not None else "").casefold()) if not unicodedata.combining(c))
+
+
+def _tem_foto(x: dict) -> bool:
+    return str(x.get("foto_url") or "").startswith(("http://", "https://"))
+
+
+def contar_fotos(linhas) -> int:
+    return sum(1 for x in linhas if _tem_foto(x))
+
+
+def descrever_filtros(f: dict) -> str:
+    """Frase dos filtros ativos, para a tela e o cabeçalho do xlsx."""
+    partes = [f"Sala {f['localizacao']}" if f.get("localizacao") else "Todas as salas"]
+    if f.get("situacao") in ROTULO_SITUACAO:
+        partes.append(f"Situação {ROTULO_SITUACAO[f['situacao']]}")
+    if f.get("integrante"):
+        partes.append(f"Integrante {f['integrante']}")
+    if f.get("conservacao"):
+        partes.append("Conservação " + ("Não informada" if f["conservacao"] == CONSERVACAO_VAZIA else f["conservacao"]))
+    if f.get("foto") in ROTULO_FOTO:
+        partes.append(ROTULO_FOTO[f["foto"]])
+    if (f.get("busca") or "").strip():
+        partes.append(f'Busca "{f["busca"].strip()}"')
+    return " · ".join(partes)
+
+
 COLUNAS_XLSX = ["Patrimônio", "Descrição", "Complemento", "Classificação", "Local sistema", "Local inventário",
                 "Situação", "Conservação", "Quem usa", "Observação", "Integrante", "Data/hora", "Foto", "Situação do bem"]
 COLUNAS_SOBRAS = ["Sala", "Descrição", "Complemento", "Observação", "Integrante", "Data/hora", "Foto"]
@@ -282,9 +320,12 @@ _CAMPOS_REL = """b.numero AS numero, b.descricao, b.complemento, b.classificacao
         b.situacao AS situacao_bem"""
 
 
-def relatorio(conn, evento_id: int, localizacao: str | None = None, situacao: str | None = None) -> list[dict]:
-    """Uma linha por bem ativo das salas do escopo (ou da sala pedida), mais os lidos nela vindos de fora
-    do escopo (ou de bens que deixaram de estar ATIVO). situacao filtra por localizado | divergente | pendente."""
+def relatorio(conn, evento_id: int, localizacao=None, situacao=None, integrante=None, conservacao=None, foto=None,
+              busca=None, ordem=None, dir=None) -> list[dict]:
+    """Uma linha por bem ativo das salas do escopo (ou da sala pedida), mais os lidos nela vindos de fora do
+    escopo (ou de bens que deixaram de estar ATIVO). Filtros em Python sobre o resultado (≤ alguns milhares de
+    linhas): situacao localizado|divergente|pendente; integrante; conservacao (valor ou "-" = não informada);
+    foto com|sem; busca sem acento (todas as palavras, em qualquer campo de _CAMPOS_BUSCA); ordem/dir."""
     if not _um(conn, "SELECT id FROM inventario_eventos WHERE id = ?", evento_id):
         raise ErroDeNegocio("Evento de inventário não encontrado.")
     B = _fonte_bens(conn, evento_id)
@@ -311,6 +352,20 @@ def relatorio(conn, evento_id: int, localizacao: str | None = None, situacao: st
         ORDER BY local_sistema, numero""", *params)
     if situacao:
         linhas = [x for x in linhas if x["situacao_inv"] == situacao]
+    if integrante:
+        linhas = [x for x in linhas if x["integrante"] == integrante]
+    if conservacao:
+        linhas = [x for x in linhas if (x["conservacao"] or CONSERVACAO_VAZIA) == conservacao]
+    if foto in ROTULO_FOTO:
+        linhas = [x for x in linhas if _tem_foto(x) == (foto == "com")]
+    palavras = _normalizar(busca).split()
+    if palavras:
+        linhas = [x for x in linhas if all(any(p in _normalizar(x[c]) for c in _CAMPOS_BUSCA) for p in palavras)]
+    if ordem in COLUNAS_ORDEM:
+        vazios = [x for x in linhas if x[ordem] in (None, "")]
+        cheios = [x for x in linhas if x[ordem] not in (None, "")]
+        cheios.sort(key=lambda x: x[ordem] if isinstance(x[ordem], (int, float)) else _normalizar(x[ordem]), reverse=(dir == "desc"))
+        linhas = cheios + vazios
     return linhas
 
 

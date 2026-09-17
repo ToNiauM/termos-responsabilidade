@@ -346,3 +346,29 @@ def test_ler_lote_e_desfazer_leituras(dados):
         inventario.desfazer_leituras(dados, eid, [1002])
     with pytest.raises(db.ErroDeNegocio):
         inventario.ler_lote(dados, eid, "01 - SALA CCI", [1002], "Fulano")
+
+
+def test_relatorio_filtros_busca_e_ordem(dados):
+    eid = semear_inventario(dados)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    inventario.ler(dados, eid, "02 - SALA B", 2001, "Beltrana")
+    inventario.atualizar_leitura(dados, eid, 1001, conservacao="Ruim", quem_usa="José", foto_url="https://x/1001.webp")
+    inventario.atualizar_leitura(dados, eid, 2001, observacao="tela quebrada")
+    num = lambda **f: [x["numero"] for x in inventario.relatorio(dados, eid, **f)]
+    assert num() == [1001, 1002, 2001, 2002, 1004]
+    assert num(integrante="Fulano") == [1001] and num(integrante="Beltrana") == [2001]
+    assert num(conservacao="Ruim") == [1001] and num(conservacao="-") == [1002, 2001, 2002, 1004]
+    assert num(foto="com") == [1001] and num(foto="sem") == [1002, 2001, 2002, 1004]
+    assert num(busca="jose") == [1001] and num(busca="QUEBRADA tela") == [2001]
+    assert num(busca="cadeira giratoria") == [1001] and num(busca="20") == [2001, 2002] and num(busca="   ") == num()
+    assert num(ordem="numero", dir="desc") == [2002, 2001, 1004, 1002, 1001]
+    assert num(ordem="descricao") == [1004, 1001, 2002, 2001, 1002]            # ARMÁRIO, CADEIRA, IMPRESSORA, MONITOR, NOTEBOOK
+    assert num(ordem="integrante") == [2001, 1001, 1002, 2002, 1004]           # vazios sempre por último
+    assert num(ordem="integrante", dir="desc") == [1001, 2001, 1002, 2002, 1004]
+    assert num(ordem="inexistente") == num()
+    assert num(localizacao="02 - SALA B", situacao="pendente") == [2002]
+    assert inventario.contar_fotos(inventario.relatorio(dados, eid)) == 1
+    assert inventario.descrever_filtros({}) == "Todas as salas"
+    assert inventario.descrever_filtros({"localizacao": "01 - SALA CCI", "situacao": "divergente", "integrante": "Fulano",
+                                         "conservacao": "-", "foto": "com", "busca": " cadeira ", "ordem": "numero"}) == \
+        'Sala 01 - SALA CCI · Situação Divergente · Integrante Fulano · Conservação Não informada · Com foto · Busca "cadeira"'
