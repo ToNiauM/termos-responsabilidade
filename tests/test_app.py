@@ -596,6 +596,8 @@ def test_inventario_lote_marcar_e_desmarcar(cliente, monkeypatch):
     monkeypatch.setattr(fotos, "apagar", apagadas.append)
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "desmarcar", "numeros": ["1001"]}, follow_redirects=True)
     assert b"desfeita" in r.data and apagadas == ["https://x/1001.webp"] and r.data.count(b">Localizado<") == 1
+    r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "desmarcar", "numeros": ["1001"]}, follow_redirects=True)
+    assert b"Nenhuma leitura para desfazer" in r.data
     with cliente.session_transaction() as sess:
         sess.pop("integrante", None)
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "marcar", "numeros": ["1002"]}, follow_redirects=True)

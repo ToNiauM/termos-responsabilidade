@@ -156,14 +156,18 @@ def lote(id, localizacao):
     conn = _conn()
     _evento_ou_404(conn, id)
     volta = redirect(url_for("inventario.sala_tela", id=id, localizacao=localizacao))
-    numeros = [int(n) for n in request.form.getlist("numeros") if n.strip().isdigit()]
+    numeros = [int(n) for n in request.form.getlist("numeros") if n.strip().isdecimal()]
     if not numeros:
         flash("Selecione ao menos um bem.", "warning")
         return volta
     if request.form.get("acao") == "desmarcar":
-        for url in inventario.desfazer_leituras(conn, id, numeros):
+        urls, apagadas = inventario.desfazer_leituras(conn, id, numeros)
+        for url in urls:
             fotos.apagar(url)
-        flash("Leitura(s) desfeita(s): os bens voltaram a pendentes.", "success")
+        if apagadas:
+            flash("Leitura(s) desfeita(s): os bens voltaram a pendentes.", "success")
+        else:
+            flash("Nenhuma leitura para desfazer.", "warning")
         return volta
     r = inventario.ler_lote(conn, id, localizacao, numeros, session.get("integrante") or "")
     msg = f"{r['lidos']} bem(ns) marcado(s) como localizado(s)."

@@ -30,7 +30,7 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    Relatório e `.xlsx` por evento. O evento fica aberto até ser encerrado; encerrar congela tudo.
    Cada evento tem **Painel** (KPIs e gráficos por situação, integrante, conservação, andar e sala —
    o andar é o texto antes do primeiro `-` no nome da sala), relatório com filtros/ordenação e `.xlsx`
-   com opção *Incluir fotos* (`=IMAGEM`). Na sala, é possível marcar bens como localizados em lote
+   com opção *Incluir fotos* (`=IMAGEM`; exige Microsoft 365 — em Excel antigo aparece `#NOME?`). Na sala, é possível marcar bens como localizados em lote
    (plaqueta ilegível) e desmarcar. Ao encerrar, os bens do evento são congelados
    (`inventario_bens_encerrados`): o relatório de um evento encerrado não muda quando a base do SPW
    é atualizada.
@@ -55,7 +55,7 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    cidade, sigla do órgão) são editáveis no menu Textos, com marcadores como `{nome}` e `{ccustos}`;
    "Restaurar padrão" volta ao texto original.
 6. **Planilha de cadastros**: Cadastros → *Exportar cadastros* gera `cadastros.xlsx` (4 abas; quando já
-   existe inventário, mais 5 abas `inv_*`). Edite no Excel e importe em *Atualizar base → Importar
+   existe inventário, mais 6 abas `inv_*`). Edite no Excel e importe em *Atualizar base → Importar
    cadastros* — substitui as 4 tabelas inteiras; as abas `inv_*` só são aceitas todas juntas (e então
    substituem o inventário inteiro) ou nenhuma (inventário preservado). A 6ª aba, `inv_bens_encerrados`,
    é o retrato dos bens de cada evento encerrado (gravado no encerramento); é opcional na importação —

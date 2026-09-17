@@ -96,6 +96,7 @@ def encerrar_evento(conn, id: int) -> None:
     if e["encerrado_em"]:
         return
     conn.execute("UPDATE inventario_eventos SET encerrado_em = ? WHERE id = ?", (_agora(), id))
+    conn.execute("DELETE FROM inventario_bens_encerrados WHERE evento_id = ?", (id,))
     conn.execute(f"""INSERT OR IGNORE INTO inventario_bens_encerrados (evento_id, {_COLS_SNAPSHOT})
         SELECT ?, {_COLS_SNAPSHOT} FROM bens
         WHERE (situacao = 'ATIVO' AND localizacao IN (SELECT localizacao FROM inventario_salas WHERE evento_id = ?))
@@ -254,20 +255,21 @@ def ler_lote(conn, evento_id: int, localizacao: str, numeros: list, integrante: 
     return {"lidos": lidos, "nao_encontrados": nao_encontrados}
 
 
-def desfazer_leituras(conn, evento_id: int, numeros: list) -> list:
+def desfazer_leituras(conn, evento_id: int, numeros: list) -> tuple[list, int]:
     """Volta os bens a "não localizado" neste evento (o "alternar status" do sistema antigo): apaga as
-    leituras. Devolve as URLs das fotos que existiam, para a rota apagar no bucket."""
+    leituras. Devolve (urls, apagadas): as URLs das fotos que existiam (para a rota apagar no bucket) e
+    a quantidade de leituras de fato apagadas (0 quando nenhum dos números tinha leitura)."""
     _evento_aberto_ou_erro(conn, evento_id)
     numeros = [int(n) for n in numeros]
     if not numeros:
-        return []
+        return [], 0
     marcas = ",".join("?" * len(numeros))
     urls = [r[0] for r in conn.execute(
         f"SELECT foto_url FROM inventario_leituras WHERE evento_id = ? AND numero IN ({marcas}) AND foto_url IS NOT NULL AND foto_url <> ''",
         (evento_id, *numeros))]
-    conn.execute(f"DELETE FROM inventario_leituras WHERE evento_id = ? AND numero IN ({marcas})", (evento_id, *numeros))
+    cur = conn.execute(f"DELETE FROM inventario_leituras WHERE evento_id = ? AND numero IN ({marcas})", (evento_id, *numeros))
     conn.commit()
-    return urls
+    return urls, cur.rowcount
 
 
 # ---------------------------------------------------------------- sobras
@@ -408,6 +410,7 @@ def _celula_foto(ws, linha: int, coluna: int, url, fotos: bool) -> None:
     if not fotos:
         return
     if url and str(url).startswith(("http://", "https://")):
+        url = str(url).replace('"', '""')
         ws.cell(row=linha, column=coluna).value = f'=_xlfn.IMAGE("{url}")'
         ws.row_dimensions[linha].height = 60
     else:
@@ -617,4 +620,4 @@ def substituir_tabelas(conn, linhas: dict) -> None:
     conn.executemany("INSERT INTO inventario_salas VALUES (?,?)", linhas["inv_salas"])
     conn.executemany("INSERT INTO inventario_leituras (evento_id, numero, localizacao, lido_em, integrante, conservacao, quem_usa, observacao, foto_url) VALUES (?,?,?,?,?,?,?,?,?)", linhas["inv_leituras"])
     conn.executemany("INSERT INTO inventario_sobras (evento_id, localizacao, descricao, complemento, observacao, foto_url, integrante, criado_em) VALUES (?,?,?,?,?,?,?,?)", linhas["inv_sobras"])
-    conn.executemany("INSERT OR IGNORE INTO inventario_bens_encerrados VALUES (?,?,?,?,?,?,?)", snapshot)
+    conn.executemany(f"INSERT OR IGNORE INTO inventario_bens_encerrados (evento_id, {_COLS_SNAPSHOT}) VALUES (?,?,?,?,?,?,?)", snapshot)

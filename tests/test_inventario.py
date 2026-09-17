@@ -201,6 +201,13 @@ def test_xlsx_cabecalho_filtros_e_fotos(dados, tmp_path):
     assert ws.cell(row=6, column=13).value == "https://x/1001.webp" and ws.row_dimensions[6].height is None
 
 
+def test_celula_foto_escapa_aspas_na_url():
+    from openpyxl import Workbook
+    ws = Workbook().active
+    inventario._celula_foto(ws, 1, 1, 'https://x/foto "1".webp', True)
+    assert ws.cell(row=1, column=1).value == '=_xlfn.IMAGE("https://x/foto ""1"".webp")'
+
+
 def test_planilha_de_cadastros_exporta_e_importa_abas_de_inventario(dados, tmp_path):
     eid = semear_inventario(dados)
     inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
@@ -297,6 +304,17 @@ def test_encerrar_grava_snapshot_e_congela_o_evento(dados):
     assert r[1001]["descricao"] == "CADEIRA" and r[1001]["situacao_inv"] == "localizado" and r[1003]["situacao_bem"] == "BAIXADO"
     assert inventario.resumo(dados, eid)["bens"] == 5
     assert [b["numero"] for b in inventario.bens_da_sala(dados, eid, "01 - SALA CCI")["bens"]] == [1001, 1002]
+    # reabrir (planilha: limpar encerrado_em e reimportar sem a aba inv_bens_encerrados), bens mudam de novo,
+    # encerrar outra vez: o snapshot velho não pode sobreviver (INSERT OR IGNORE ignoraria as linhas repetidas)
+    dados.execute("UPDATE inventario_eventos SET encerrado_em = NULL WHERE id = ?", (eid,))
+    dados.execute("UPDATE bens SET descricao = 'CADEIRA REFORMADA' WHERE numero = 1001")
+    dados.execute("DELETE FROM bens WHERE numero = 1004")          # 1002 fica: tem atribuição com FK deferida
+    dados.commit()
+    inventario.encerrar_evento(dados, eid)
+    snap2 = {r["numero"]: r["descricao"] for r in dados.execute(
+        "SELECT numero, descricao FROM inventario_bens_encerrados WHERE evento_id = ?", (eid,))}
+    assert snap2[1001] == "CADEIRA REFORMADA"
+    assert 1004 not in snap2
 
 
 def test_evento_encerrado_sem_snapshot_le_bens(dados):
@@ -358,9 +376,10 @@ def test_ler_lote_e_desfazer_leituras(dados):
     with pytest.raises(db.ErroDeNegocio):
         inventario.ler_lote(dados, eid, "01 - SALA CCI", [1002], "Ninguém")
     inventario.atualizar_leitura(dados, eid, 1001, foto_url="http://x/1001.webp")
-    assert inventario.desfazer_leituras(dados, eid, [1001, 2001, 1004]) == ["http://x/1001.webp"]   # 1004 sem leitura: ignorado
+    assert inventario.desfazer_leituras(dados, eid, [1001, 2001, 1004]) == (["http://x/1001.webp"], 2)   # 1004 sem leitura: ignorado
     assert inventario.resumo(dados, eid)["lidos"] == 0 and inventario.resumo(dados, eid)["divergentes"] == 0
-    assert inventario.desfazer_leituras(dados, eid, []) == []
+    assert inventario.desfazer_leituras(dados, eid, []) == ([], 0)
+    assert inventario.desfazer_leituras(dados, eid, [1004]) == ([], 0)   # nenhuma leitura apagada
     inventario.encerrar_evento(dados, eid)
     with pytest.raises(db.ErroDeNegocio):
         inventario.desfazer_leituras(dados, eid, [1002])
