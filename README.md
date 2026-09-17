@@ -64,6 +64,13 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
 Backup = copiar a pasta `dados/`. `dados/segredo.txt` — chave que assina a sessão do navegador, criada
 na primeira execução; na web pode vir da variável `TERMOS_SEGREDO`. Na VPS o container cria esse arquivo como root; para rodar o sistema fora do Docker na mesma pasta, defina `TERMOS_SEGREDO` no ambiente ou ajuste o dono do arquivo.
 
+## Proposta comercial
+
+`proposta/proposta.html` é uma página avulsa, sem servidor, para montar a proposta de preço a uma prefeitura:
+abre com duplo clique, calcula a mensalidade pela quantidade de bens do acervo em faixas decrescentes
+(tudo editável na própria página, com as edições guardadas no navegador) e gera o PDF pelo botão
+*Salvar em PDF*. Não faz parte do sistema hospedado.
+
 ## Desenvolvimento
 
     python -m venv .venv && .venv/bin/pip install -r requirements.txt

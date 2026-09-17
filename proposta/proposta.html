@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Proposta de hospedagem do inventário patrimonial</title>
+<style>
+  :root {
+    --tinta: #21343f;
+    --tinta-suave: #5f6f79;
+    --linha: #c9d2d8;
+    --verde: #1b6b5a;
+    --verde-claro: #dcece6;
+    --fundo-tela: #e6ebee;
+    --papel: #ffffff;
+    --aviso: #a3541c;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--fundo-tela); }
+  body {
+    margin: 0; color: var(--tinta);
+    font: 11pt/1.5 "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  .serif { font-family: Georgia, "Times New Roman", serif; }
+
+  /* ---------- barra de ferramentas (só na tela) ---------- */
+  .tela { position: sticky; top: 0; z-index: 2; background: var(--tinta); color: #fff; padding: 10px 16px;
+          display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; font-size: 10.5pt; }
+  .tela label { display: inline-flex; align-items: center; gap: 6px; }
+  .tela select, .tela button { font: inherit; border-radius: 3px; border: 1px solid #fff; padding: 4px 10px; background: transparent; color: #fff; cursor: pointer; }
+  .tela select option { color: var(--tinta); }
+  .tela button.principal { background: #fff; color: var(--tinta); font-weight: 600; }
+  .tela button:hover { background: rgba(255,255,255,.15); }
+  .tela button.principal:hover { background: #e9eef1; }
+  .tela .dica { color: #c5d0d7; margin-left: auto; }
+  :focus-visible { outline: 2px solid var(--verde); outline-offset: 2px; }
+
+  /* ---------- folha ---------- */
+  .folha { background: var(--papel); width: 210mm; min-height: 297mm; margin: 24px auto 48px; padding: 20mm 18mm 18mm;
+           box-shadow: 0 2px 14px rgba(33,52,63,.18); }
+
+  [contenteditable] { border-bottom: 1px dashed transparent; min-width: 1em; }
+  [contenteditable]:hover { border-bottom-color: var(--linha); }
+  [contenteditable]:focus { outline: none; background: #f4f8f6; border-bottom-color: var(--verde); }
+  [contenteditable]:empty::before { content: attr(data-vazio); color: #a4b0b7; }
+
+  .cabecalho { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid var(--tinta); padding-bottom: 10px; }
+  .cabecalho .empresa { font-weight: 600; font-size: 12.5pt; }
+  .cabecalho .detalhe { color: var(--tinta-suave); font-size: 9.5pt; line-height: 1.45; }
+  .cabecalho .direita { text-align: right; }
+
+  h1 { font-weight: 400; font-size: 21pt; line-height: 1.2; margin: 28px 0 6px; letter-spacing: -0.01em; }
+  .para { color: var(--tinta-suave); margin: 0 0 22px; }
+  .para b { color: var(--tinta); font-weight: 600; }
+
+  /* ---------- destaque: acervo e preço ---------- */
+  .destaque { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: end; margin-bottom: 8px; }
+  .destaque .rotulo { color: var(--tinta-suave); font-size: 9.5pt; }
+  .acervo-entrada { font-size: 30pt; line-height: 1.1; }
+  .acervo-entrada input { font: inherit; color: inherit; width: 5.2em; border: 0; border-bottom: 2px solid var(--verde); padding: 0; background: transparent; }
+  .acervo-entrada input:focus { outline: none; background: #f4f8f6; }
+  .acervo-entrada small { font-size: 12pt; color: var(--tinta-suave); }
+  .mensal { text-align: right; }
+  .mensal .valor { font-size: 30pt; line-height: 1.1; color: var(--verde); }
+  .mensal .valor small { font-size: 12pt; color: var(--tinta-suave); }
+
+  /* ---------- escadinha ---------- */
+  .escada { display: flex; align-items: flex-end; gap: 6px; height: 118px; margin: 14px 0 4px; padding-top: 22px; }
+  .degrau { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; position: relative; }
+  .degrau .barra { background: var(--verde-claro); border-top: 2px solid var(--verde); position: relative; }
+  .degrau.ativo .barra { background: var(--verde); }
+  .degrau .preco { position: absolute; top: -20px; left: 0; right: 0; font-size: 9.5pt; text-align: center; white-space: nowrap; }
+  .degrau.ativo .preco { font-weight: 600; }
+  .degrau .dentro { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; color: #fff; font-size: 9pt; }
+  .escada-legenda { display: flex; gap: 6px; margin-bottom: 18px; }
+  .escada-legenda span { flex: 1; text-align: center; font-size: 8.5pt; color: var(--tinta-suave); line-height: 1.25; }
+
+  /* ---------- tabelas ---------- */
+  h2 { font-size: 11pt; font-weight: 600; margin: 20px 0 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+  th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--linha); vertical-align: middle; }
+  th { color: var(--tinta-suave); font-weight: 600; font-size: 9pt; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td[contenteditable] { display: table-cell; }
+  tr.sem-uso td { color: #9aa6ad; }
+  tfoot td { border-bottom: 0; font-weight: 600; }
+  .faixas .ate { display: inline-block; min-width: 2.5em; }
+  .faixas .apagar { border: 0; background: none; color: var(--aviso); cursor: pointer; font-size: 12pt; line-height: 1; padding: 0 4px; }
+  .faixas .apagar:hover { text-decoration: underline; }
+  .resumo td { font-size: 10.5pt; }
+  .resumo td.n { font-size: 11.5pt; }
+  .resumo tr.total td { font-weight: 600; color: var(--verde); border-top: 2px solid var(--tinta); font-size: 12pt; }
+  .r\$ { color: var(--tinta-suave); font-size: 9pt; margin-right: 2px; }
+
+  /* ---------- texto corrido ---------- */
+  .bloco { margin-top: 6px; }
+  .bloco ul { margin: 0; padding-left: 18px; }
+  .bloco li { margin-bottom: 3px; }
+  .bloco p { margin: 0 0 6px; }
+  .nota { color: var(--tinta-suave); font-size: 9.5pt; }
+
+  /* ---------- assinaturas ---------- */
+  .assinaturas { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 44px; }
+  .assinaturas div { border-top: 1px solid var(--tinta); padding-top: 6px; font-size: 9.5pt; }
+  .assinaturas b { display: block; font-weight: 600; font-size: 10.5pt; }
+
+  @media screen and (max-width: 800px) {
+    .folha { width: auto; margin: 0; padding: 20px 16px; box-shadow: none; }
+    .destaque, .assinaturas { grid-template-columns: 1fr; }
+    .mensal { text-align: left; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .degrau .barra { transition: height .25s ease, background-color .25s ease; }
+  }
+
+  /* ---------- impressão ---------- */
+  @page { size: A4; margin: 16mm 15mm; }
+  @media print {
+    html { background: #fff; }
+    .tela, .so-tela { display: none !important; }
+    .folha { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
+    [contenteditable] { border-bottom-color: transparent !important; background: transparent !important; }
+    [contenteditable]:empty { display: none; }
+    .acervo-entrada input { border-bottom: 0; }
+    table, .escada, .assinaturas { break-inside: avoid; }
+    h2 { break-after: avoid; }
+    .degrau .barra { transition: none; }
+    h1 { margin-top: 18px; font-size: 19pt; }
+    .acervo-entrada, .mensal .valor { font-size: 26pt; }
+    .escada { height: 104px; margin-top: 10px; }
+    .escada-legenda { margin-bottom: 12px; }
+    h2 { margin-top: 14px; }
+    .assinaturas { margin-top: 36px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="tela">
+  <label>Modo das faixas
+    <select id="modo">
+      <option value="progressivo">Progressivo (cada faixa cobra só a parte que cai nela)</option>
+      <option value="unico">Preço único pela faixa alcançada</option>
+    </select>
+  </label>
+  <button type="button" id="mais-faixa">Incluir faixa</button>
+  <button type="button" id="restaurar">Restaurar padrão</button>
+  <button type="button" class="principal" id="imprimir">Salvar em PDF</button>
+  <span class="dica">Clique em qualquer texto ou número para editar. As edições ficam salvas neste navegador.</span>
+</div>
+
+<main class="folha">
+  <header class="cabecalho">
+    <div>
+      <div class="empresa" contenteditable data-k="empresa" data-vazio="Nome da sua empresa"></div>
+      <div class="detalhe">
+        <span contenteditable data-k="cnpj" data-vazio="CNPJ 00.000.000/0001-00"></span><br/>
+        <span contenteditable data-k="contato" data-vazio="e-mail · telefone · cidade"></span>
+      </div>
+    </div>
+    <div class="direita detalhe">
+      Proposta nº <span contenteditable data-k="numero" data-vazio="001/2026"></span><br/>
+      <span contenteditable data-k="data" data-vazio="data"></span><br/>
+      Válida por <span contenteditable data-k="validade" data-vazio="30 dias"></span>
+    </div>
+  </header>
+
+  <h1 class="serif" contenteditable data-k="titulo">Proposta de hospedagem e implantação do sistema de inventário patrimonial</h1>
+  <p class="para">Para <b contenteditable data-k="cliente" data-vazio="Prefeitura Municipal de ..."></b>,
+    aos cuidados de <b contenteditable data-k="responsavel" data-vazio="nome e cargo do responsável"></b>.</p>
+
+  <section class="destaque">
+    <div>
+      <div class="rotulo">Acervo patrimonial informado</div>
+      <div class="acervo-entrada serif"><input id="acervo" type="text" inputmode="numeric" value="4.300" aria-label="Quantidade de bens do acervo"/> <small>bens</small></div>
+    </div>
+    <div class="mensal">
+      <div class="rotulo">Mensalidade proposta</div>
+      <div class="valor serif"><small>R$</small> <span id="v-mensal">0,00</span> <small>por mês</small></div>
+    </div>
+  </section>
+
+  <div class="escada" id="escada" aria-hidden="true"></div>
+  <div class="escada-legenda" id="escada-legenda" aria-hidden="true"></div>
+  <p class="nota" id="explica-modo"></p>
+
+  <h2>Memória de cálculo</h2>
+  <table class="faixas">
+    <thead><tr><th>Faixa do acervo</th><th class="n">R$ por bem ao mês</th><th class="n">Bens nesta faixa</th><th class="n">Subtotal</th><th class="so-tela"></th></tr></thead>
+    <tbody id="faixas"></tbody>
+    <tfoot>
+      <tr><td>Soma das faixas</td><td></td><td class="n" id="t-bens">0</td><td class="n" id="t-faixas">R$ 0,00</td><td class="so-tela"></td></tr>
+      <tr id="linha-piso"><td>Piso mensal (aplicado quando a soma fica abaixo dele)</td><td></td><td></td><td class="n"><span class="r$">R$</span><span contenteditable data-k="piso" data-tipo="dinheiro">400,00</span></td><td class="so-tela"></td></tr>
+    </tfoot>
+  </table>
+
+  <h2>Valores</h2>
+  <table class="resumo">
+    <tbody>
+      <tr><td>Implantação, paga uma vez: migração do cadastro atual, configuração dos setores e textos, treinamento da comissão</td><td class="n"><span class="r$">R$</span><span contenteditable data-k="implantacao" data-tipo="dinheiro">3.000,00</span></td></tr>
+      <tr><td>Mensalidade de hospedagem, suporte e atualizações</td><td class="n">R$ <span class="m-mensal">0,00</span></td></tr>
+      <tr><td>Doze mensalidades</td><td class="n">R$ <span id="v-anual">0,00</span></td></tr>
+      <tr class="total"><td>Total do primeiro ano</td><td class="n">R$ <span id="v-primeiro-ano">0,00</span></td></tr>
+    </tbody>
+  </table>
+  <p class="nota">A mensalidade acompanha o acervo: a cada renovação anual a quantidade de bens é reconferida no próprio sistema e o valor é recalculado pela mesma tabela.</p>
+
+  <h2>O que está incluído</h2>
+  <div class="bloco" contenteditable data-k="incluido">
+    <ul>
+      <li>Sistema hospedado em servidor próprio, com endereço exclusivo da prefeitura e certificado de segurança.</li>
+      <li>Inventário anual pelo celular: leitura de código de barras, foto dos bens, registro de sobras e relatório por sala.</li>
+      <li>Termos de responsabilidade por setor e individuais gerados a partir do cadastro, com histórico de emissão.</li>
+      <li>Importação do export do sistema de patrimônio atual, sem redigitação.</li>
+      <li>Backup diário automático em dois locais, com retenção de 30 dias.</li>
+      <li>Suporte em dias úteis, das 8h às 18h, por e-mail e telefone.</li>
+      <li>Exportação completa dos dados em planilha a qualquer momento, inclusive ao fim do contrato.</li>
+    </ul>
+  </div>
+
+  <h2>Condições</h2>
+  <div class="bloco" contenteditable data-k="condicoes">
+    <p>Contrato de 12 meses, renovável. Faturamento mensal com nota fiscal, vencimento no dia 10.</p>
+    <p>Prazo de implantação: até 10 dias úteis após o recebimento do export do sistema de patrimônio e da lista de setores.</p>
+    <p>Os dados pertencem à prefeitura. O tratamento segue a Lei Geral de Proteção de Dados; o acesso é restrito às pessoas indicadas pela administração.</p>
+    <p>Contratação por dispensa de licitação, nos termos do art. 75, II, da Lei 14.133/2021, quando o valor anual couber no limite vigente.</p>
+  </div>
+
+  <div class="assinaturas">
+    <div><b contenteditable data-k="ass-empresa" data-vazio="Nome de quem assina"></b><span contenteditable data-k="ass-empresa-cargo" data-vazio="cargo"></span><br/><span class="nota">Pela contratada</span></div>
+    <div><b contenteditable data-k="ass-cliente" data-vazio="Nome de quem aprova"></b><span contenteditable data-k="ass-cliente-cargo" data-vazio="cargo"></span><br/><span class="nota">De acordo, pela prefeitura</span></div>
+  </div>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var CHAVE = "proposta-inventario-v1";
+  var PADRAO_FAIXAS = [
+    { ate: 2000,  preco: 0.50 },
+    { ate: 5000,  preco: 0.40 },
+    { ate: 10000, preco: 0.30 },
+    { ate: 20000, preco: 0.22 },
+    { ate: null,  preco: 0.15 }
+  ];
+  var estado = carregar();
+
+  // ---------- formatação ----------
+  function fmtInt(n) { return Math.round(n).toLocaleString("pt-BR"); }
+  function fmtDin(n) { return n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function lerNumero(texto) {
+    var t = String(texto || "").replace(/[^\d,.-]/g, "");
+    if (t.indexOf(",") >= 0) t = t.replace(/\./g, "").replace(",", ".");
+    else if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, "");
+    var n = parseFloat(t);
+    return isNaN(n) ? 0 : n;
+  }
+
+  // ---------- cálculo ----------
+  function calcular(acervo, faixas, modo, piso) {
+    var linhas = [], soma = 0, restante = acervo, anterior = 0;
+    var alcancada = faixas.length - 1;
+    for (var i = 0; i < faixas.length; i++) {
+      var f = faixas[i];
+      if (acervo > anterior && (f.ate === null || acervo <= f.ate)) { alcancada = i; }
+      anterior = f.ate === null ? Infinity : f.ate;
+    }
+    anterior = 0;
+    for (var j = 0; j < faixas.length; j++) {
+      var fx = faixas[j], largura = fx.ate === null ? Infinity : fx.ate - anterior, bens = 0;
+      if (modo === "progressivo") {
+        bens = Math.max(0, Math.min(restante, largura));
+        restante -= bens;
+      } else {
+        bens = j === alcancada ? acervo : 0;
+      }
+      var sub = bens * fx.preco;
+      soma += sub;
+      linhas.push({ de: anterior + 1, ate: fx.ate, preco: fx.preco, bens: bens, subtotal: sub, alcancada: j === alcancada });
+      anterior = fx.ate === null ? Infinity : fx.ate;
+    }
+    var mensal = Math.max(soma, piso);
+    return { linhas: linhas, soma: soma, mensal: mensal, pisoAplicado: piso > soma && acervo > 0 };
+  }
+
+  // ---------- persistência ----------
+  function carregar() {
+    var base = { faixas: PADRAO_FAIXAS.map(function (f) { return { ate: f.ate, preco: f.preco }; }), modo: "progressivo", acervo: 4300, textos: {} };
+    try {
+      var salvo = JSON.parse(localStorage.getItem(CHAVE) || "null");
+      if (salvo && salvo.faixas) return salvo;
+    } catch (e) { /* sem armazenamento: usa o padrão */ }
+    return base;
+  }
+  function salvar() {
+    try { localStorage.setItem(CHAVE, JSON.stringify(estado)); } catch (e) { /* ignora */ }
+  }
+
+  // ---------- render ----------
+  var $ = function (s) { return document.querySelector(s); };
+  var tbody = $("#faixas"), escada = $("#escada"), legenda = $("#escada-legenda");
+
+  function rotuloFaixa(l) {
+    if (l.ate === null) return "acima de " + fmtInt(l.de - 1);
+    return (l.de === 1 ? "até " : fmtInt(l.de) + " a ") + fmtInt(l.ate);
+  }
+
+  function desenharFaixas(r) {
+    tbody.innerHTML = "";
+    r.linhas.forEach(function (l, i) {
+      var tr = document.createElement("tr");
+      if (l.bens === 0) tr.className = "sem-uso";
+      var primeira = l.de === 1 ? "até " : fmtInt(l.de) + " a ";
+      var celulaFaixa = l.ate === null
+        ? 'acima de ' + fmtInt(l.de - 1) + ' <span class="so-tela nota">(sem limite; edite a faixa anterior para mudar onde começa)</span>'
+        : primeira + '<span class="ate" contenteditable data-faixa="' + i + '" data-campo="ate" aria-label="Limite superior da faixa">' + fmtInt(l.ate) + '</span>';
+      tr.innerHTML =
+        '<td>' + celulaFaixa + '</td>' +
+        '<td class="n"><span class="r$">R$</span><span contenteditable data-faixa="' + i + '" data-campo="preco" aria-label="Preço por bem">' + fmtDin(l.preco) + '</span></td>' +
+        '<td class="n">' + fmtInt(l.bens) + '</td>' +
+        '<td class="n">R$ ' + fmtDin(l.subtotal) + '</td>' +
+        '<td class="so-tela">' + (r.linhas.length > 1 ? '<button type="button" class="apagar" data-apagar="' + i + '" aria-label="Apagar faixa" title="Apagar faixa">×</button>' : '') + '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  function desenharEscada(r) {
+    escada.innerHTML = ""; legenda.innerHTML = "";
+    var maior = Math.max.apply(null, r.linhas.map(function (l) { return l.preco; })) || 1;
+    r.linhas.forEach(function (l) {
+      var d = document.createElement("div");
+      d.className = "degrau" + (l.bens > 0 ? " ativo" : "");
+      var altura = Math.max(14, Math.round(l.preco / maior * 80));
+      d.innerHTML = '<div class="barra" style="height:' + altura + 'px"><span class="preco">R$ ' + fmtDin(l.preco) + '</span>' +
+        (l.bens > 0 && altura >= 26 ? '<span class="dentro">' + fmtInt(l.bens) + '</span>' : '') + '</div>';
+      escada.appendChild(d);
+      var s = document.createElement("span"); s.textContent = rotuloFaixa(l); legenda.appendChild(s);
+    });
+  }
+
+  function render() {
+    var r = calcular(estado.acervo, estado.faixas, estado.modo, estado.piso);
+    desenharFaixas(r);
+    desenharEscada(r);
+    $("#t-bens").textContent = fmtInt(r.linhas.reduce(function (a, l) { return a + l.bens; }, 0));
+    $("#t-faixas").textContent = "R$ " + fmtDin(r.soma);
+    $("#linha-piso").style.fontWeight = r.pisoAplicado ? "600" : "";
+    $("#v-mensal").textContent = fmtDin(r.mensal);
+    document.querySelectorAll(".m-mensal").forEach(function (e) { e.textContent = fmtDin(r.mensal); });
+    $("#v-anual").textContent = fmtDin(r.mensal * 12);
+    $("#v-primeiro-ano").textContent = fmtDin(r.mensal * 12 + estado.implantacao);
+    $("#explica-modo").textContent = estado.modo === "progressivo"
+      ? "Cálculo progressivo: cada faixa cobra apenas os bens que caem nela, por isso o preço médio por bem cai conforme o acervo cresce e não há salto ao mudar de faixa."
+      : "Preço único: todo o acervo é cobrado pelo valor da faixa em que ele se encontra.";
+  }
+
+  // ---------- ligações ----------
+  function lerTextos() {
+    document.querySelectorAll("[data-k]").forEach(function (el) {
+      var k = el.dataset.k, v = estado.textos[k];
+      if (v !== undefined) { if (el.dataset.tipo === "dinheiro") el.textContent = v; else el.innerHTML = v; }
+    });
+    estado.piso = lerNumero($('[data-k="piso"]').textContent);
+    estado.implantacao = lerNumero($('[data-k="implantacao"]').textContent);
+  }
+
+  document.addEventListener("input", function (ev) {
+    var el = ev.target;
+    if (el.dataset && el.dataset.k) {
+      estado.textos[el.dataset.k] = el.dataset.tipo === "dinheiro" ? el.textContent : el.innerHTML;
+      if (el.dataset.k === "piso") estado.piso = lerNumero(el.textContent);
+      if (el.dataset.k === "implantacao") estado.implantacao = lerNumero(el.textContent);
+      if (el.dataset.tipo === "dinheiro") { salvar(); render(); return; }
+      salvar();
+    }
+  });
+  document.addEventListener("focusout", function (ev) {
+    var el = ev.target;
+    if (el.dataset && el.dataset.tipo === "dinheiro") { el.textContent = fmtDin(lerNumero(el.textContent)); estado.textos[el.dataset.k] = el.textContent; salvar(); }
+    if (el.dataset && el.dataset.faixa !== undefined) {
+      var i = +el.dataset.faixa, f = estado.faixas[i];
+      if (el.dataset.campo === "preco") f.preco = lerNumero(el.textContent);
+      else if (f.ate !== null) {
+        var novo = Math.round(lerNumero(el.textContent));
+        var minimo = i > 0 ? estado.faixas[i - 1].ate + 1 : 1;
+        var maximo = estado.faixas[i + 1] && estado.faixas[i + 1].ate !== null ? estado.faixas[i + 1].ate - 1 : Infinity;
+        f.ate = Math.min(Math.max(novo, minimo), maximo);
+      }
+      salvar(); render();
+    }
+  });
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key === "Enter" && ev.target.dataset && (ev.target.dataset.faixa !== undefined || ev.target.dataset.tipo === "dinheiro")) { ev.preventDefault(); ev.target.blur(); }
+  });
+  document.addEventListener("click", function (ev) {
+    var b = ev.target.closest("[data-apagar]");
+    if (b) { estado.faixas.splice(+b.dataset.apagar, 1); if (estado.faixas.length) estado.faixas[estado.faixas.length - 1].ate = null; salvar(); render(); }
+  });
+
+  var acervoInput = $("#acervo");
+  acervoInput.value = fmtInt(estado.acervo);
+  acervoInput.addEventListener("input", function () { estado.acervo = Math.max(0, Math.round(lerNumero(acervoInput.value))); salvar(); render(); });
+  acervoInput.addEventListener("blur", function () { acervoInput.value = fmtInt(estado.acervo); });
+
+  var modoSel = $("#modo");
+  modoSel.value = estado.modo;
+  modoSel.addEventListener("change", function () { estado.modo = modoSel.value; salvar(); render(); });
+
+  $("#mais-faixa").addEventListener("click", function () {
+    var n = estado.faixas.length, ult = estado.faixas[n - 1];
+    var base = n >= 2 && estado.faixas[n - 2].ate !== null ? estado.faixas[n - 2].ate : 0;
+    var passo = base > 0 ? base : 2000;
+    // a penúltima ganha limite; a nova vira a "acima de" com preço menor
+    ult.ate = base + passo;
+    estado.faixas.push({ ate: null, preco: Math.max(0.01, Math.round(ult.preco * 0.8 * 100) / 100) });
+    salvar(); render();
+  });
+  $("#restaurar").addEventListener("click", function () {
+    if (!confirm("Apagar todas as edições e voltar aos valores iniciais?")) return;
+    try { localStorage.removeItem(CHAVE); } catch (e) { /* ignora */ }
+    location.reload();
+  });
+  $("#imprimir").addEventListener("click", function () { window.print(); });
+
+  lerTextos();
+  var campoData = $('[data-k="data"]');
+  if (!campoData.textContent.trim()) {
+    var hoje = new Date();
+    campoData.textContent = hoje.toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" });
+  }
+  render();
+})();
+</script>
+</body>
+</html>
