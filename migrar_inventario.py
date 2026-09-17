@@ -110,6 +110,7 @@ def transformar(conn, linhas: list[dict], pular_inexistentes: bool = False) -> t
         "inv_salas": [[1, s] for s in salas],
         "inv_leituras": leituras,
         "inv_sobras": sobras,
+        "inv_bens_encerrados": [],   # evento migrado nasce aberto; snapshot só existe depois de encerrado
     }
     resumo = {"leituras": len(leituras), "sobras": len(sobras), "salas": len(salas), "integrantes": integrantes,
               "inexistentes": sorted(inexistentes), "problemas": problemas,

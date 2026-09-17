@@ -188,7 +188,7 @@ def test_planilha_de_cadastros_exporta_e_importa_abas_de_inventario(dados, tmp_p
     from openpyxl import load_workbook
     caminho = db.exportar_cadastros(dados, tmp_path / "c.xlsx")
     wb = load_workbook(caminho)
-    assert wb.sheetnames == ["responsaveis", "localizacoes", "pessoas", "atribuicoes", "inv_eventos", "inv_integrantes", "inv_salas", "inv_leituras", "inv_sobras"]
+    assert wb.sheetnames == ["responsaveis", "localizacoes", "pessoas", "atribuicoes", "inv_eventos", "inv_integrantes", "inv_salas", "inv_leituras", "inv_sobras", "inv_bens_encerrados"]
     assert list(wb["inv_leituras"].iter_rows(values_only=True))[1][:3] == (eid, 1001, "01 - SALA CCI")
     # editar: encerra o evento, acrescenta uma leitura migrada de outro sistema, e reimporta
     ws = wb["inv_eventos"]
@@ -284,3 +284,38 @@ def test_evento_encerrado_sem_snapshot_le_bens(dados):
     dados.execute("UPDATE inventario_eventos SET encerrado_em = '2026-01-01 00:00:00' WHERE id = ?", (eid,))
     dados.commit()
     assert inventario.resumo(dados, eid)["bens"] == 5 and inventario._fonte_bens(dados, eid) == "bens"
+
+
+def test_aba_inv_bens_encerrados_exporta_importa_e_valida(dados, tmp_path):
+    from openpyxl import load_workbook
+    eid = semear_inventario(dados)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    inventario.encerrar_evento(dados, eid)
+    wb = load_workbook(db.exportar_cadastros(dados, tmp_path / "c.xlsx"))
+    assert wb.sheetnames[-1] == "inv_bens_encerrados"
+    linhas = list(wb["inv_bens_encerrados"].iter_rows(values_only=True))
+    assert linhas[0] == tuple(inventario.ABAS["inv_bens_encerrados"])
+    assert linhas[1] == (eid, 1001, "ATIVO", "CADEIRA", "GIRATÓRIA", "MÓVEIS", "01 - SALA CCI") and len(linhas) == 6
+    dados.execute("DELETE FROM bens WHERE numero = 1004")          # o SPW mudou; o snapshot importado preserva 1004
+    dados.commit()
+    with open(tmp_path / "c.xlsx", "rb") as f:
+        r = db.importar_cadastros(dados, f)
+    assert r["inv_bens_encerrados"] == 5
+    assert {x["numero"] for x in inventario.relatorio(dados, eid)} == {1001, 1002, 1004, 2001, 2002}
+    # aba ausente (planilha exportada por versão anterior, com 5 abas inv_*): snapshot não é tocado
+    wb.remove(wb["inv_bens_encerrados"])
+    wb.save(tmp_path / "cinco.xlsx")
+    with open(tmp_path / "cinco.xlsx", "rb") as f:
+        r = db.importar_cadastros(dados, f)
+    assert "inv_bens_encerrados" not in r and dados.execute("SELECT count(*) FROM inventario_bens_encerrados").fetchone()[0] == 5
+    # validações: evento aberto, número inválido, repetido
+    wb = load_workbook(tmp_path / "c.xlsx")
+    wb["inv_eventos"].append([2, "Outro aberto", None, "2026-02-01 00:00:00", None])   # evento 2 existe mas não está encerrado
+    wb["inv_bens_encerrados"].append([2, 1001, "", "", "", "", ""])
+    wb["inv_bens_encerrados"].append([eid, "abc", "", "", "", "", ""])
+    wb["inv_bens_encerrados"].append([eid, 1001, "", "", "", "", ""])                  # repete a linha 2 (eid, 1001)
+    wb.save(tmp_path / "ruim.xlsx")
+    with open(tmp_path / "ruim.xlsx", "rb") as f, pytest.raises(db.ImportacaoInvalida) as ex:
+        db.importar_cadastros(dados, f)
+    msg = str(ex.value)
+    assert "não está encerrado" in msg and "número inválido" in msg and "repetido" in msg

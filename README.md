@@ -51,7 +51,9 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
 6. **Planilha de cadastros**: Cadastros → *Exportar cadastros* gera `cadastros.xlsx` (4 abas; quando já
    existe inventário, mais 5 abas `inv_*`). Edite no Excel e importe em *Atualizar base → Importar
    cadastros* — substitui as 4 tabelas inteiras; as abas `inv_*` só são aceitas todas juntas (e então
-   substituem o inventário inteiro) ou nenhuma (inventário preservado).
+   substituem o inventário inteiro) ou nenhuma (inventário preservado). A 6ª aba, `inv_bens_encerrados`,
+   é o retrato dos bens de cada evento encerrado (gravado no encerramento); é opcional na importação —
+   ausente, a tabela é mantida.
 
 Backup = copiar a pasta `dados/`. `dados/segredo.txt` — chave que assina a sessão do navegador, criada
 na primeira execução; na web pode vir da variável `TERMOS_SEGREDO`. Na VPS o container cria esse arquivo como root; para rodar o sistema fora do Docker na mesma pasta, defina `TERMOS_SEGREDO` no ambiente ou ajuste o dono do arquivo.

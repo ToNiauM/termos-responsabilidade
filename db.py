@@ -944,7 +944,7 @@ def importar_cadastros(conn, arquivo) -> dict:
         wb.close()
     if problemas:
         raise ImportacaoInvalida("Planilha de cadastros: " + "; ".join(problemas))
-    faltam = [aba for aba, v in inv_brutos.items() if v is None]
+    faltam = [aba for aba, v in inv_brutos.items() if v is None and aba != "inv_bens_encerrados"]
     if tem_inventario and faltam:
         raise ImportacaoInvalida("Planilha de cadastros: abas de inventário incompletas (faltam: " + ", ".join(faltam)
                                  + "). Envie as 5 abas inv_* ou nenhuma.")
@@ -1005,6 +1005,8 @@ def importar_cadastros(conn, arquivo) -> dict:
     if tem_inventario:
         inv_linhas, inv_problemas = inventario.validar_abas(conn, {a: (v or []) for a, v in inv_brutos.items()})
         problemas += inv_problemas
+        if inv_brutos["inv_bens_encerrados"] is None:
+            inv_linhas["inv_bens_encerrados"] = None          # aba ausente: tabela mantida
 
     if problemas:
         extra = f" (+{len(problemas) - 20})" if len(problemas) > 20 else ""
@@ -1026,7 +1028,7 @@ def importar_cadastros(conn, arquivo) -> dict:
     resultado = {"responsaveis": len(responsaveis), "localizacoes": len(localizacoes), "pessoas": len(nomes),
                 "atribuicoes": len(atribuicoes), "sem_centro": localizacoes_sem_centro(conn)}
     if tem_inventario:
-        resultado.update({aba: len(l) for aba, l in inv_linhas.items()})
+        resultado.update({aba: len(l) for aba, l in inv_linhas.items() if l is not None})
     return resultado
 
 

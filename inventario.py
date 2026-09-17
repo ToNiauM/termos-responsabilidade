@@ -313,6 +313,7 @@ ABAS = {
     "inv_salas": ["evento_id", "localizacao"],
     "inv_leituras": ["evento_id", "numero", "localizacao", "lido_em", "integrante", "conservacao", "quem_usa", "observacao", "foto_url"],
     "inv_sobras": ["evento_id", "localizacao", "descricao", "complemento", "observacao", "foto_url", "integrante", "criado_em"],
+    "inv_bens_encerrados": ["evento_id", "numero", "situacao", "descricao", "complemento", "classificacao", "localizacao"],
 }
 _TABELA = {aba: "inventario_" + aba[4:] for aba in ABAS}
 
@@ -352,7 +353,7 @@ def validar_abas(conn, brutos: dict) -> tuple[dict, list]:
     """brutos: {aba: [linhas dict com _linha]} (aba ausente = []). Devolve ({aba: [tuplas p/ INSERT]}, problemas)."""
     problemas: list[str] = []
     linhas: dict = {aba: [] for aba in ABAS}
-    ids, abertos = set(), 0
+    ids, abertos, encerrados = set(), 0, set()
     for r in brutos["inv_eventos"]:
         rot = f"inv_eventos linha {r['_linha']}"
         try:
@@ -369,6 +370,8 @@ def validar_abas(conn, brutos: dict) -> tuple[dict, list]:
         if encerrado is None and _texto(r["encerrado_em"]) == "":
             abertos += 1
         ids.add(eid)
+        if encerrado:
+            encerrados.add(eid)
         linhas["inv_eventos"].append((eid, nome, _texto(r["descricao"]) or None, aberto, encerrado))
     if abertos > 1:
         problemas.append("inv_eventos: mais de um evento aberto (sem encerrado_em)")
@@ -437,11 +440,35 @@ def validar_abas(conn, brutos: dict) -> tuple[dict, list]:
         if criado is None:
             continue
         linhas["inv_sobras"].append((eid, loc, desc, _texto(r["complemento"]) or None, obs, _texto(r["foto_url"]), integ, criado))
+
+    vistos = set()
+    for r in brutos["inv_bens_encerrados"]:
+        rot = f"inv_bens_encerrados linha {r['_linha']}"
+        eid = evento_ok(r, rot)
+        if eid is None:
+            continue
+        if eid not in encerrados:
+            problemas.append(f"{rot}: evento {eid} não está encerrado (o snapshot é só de eventos encerrados)"); continue
+        num = db._numero(r["numero"])
+        if num is None or num != int(num):
+            problemas.append(f"{rot}: número inválido ({_texto(r['numero']) or '(vazio)'})"); continue
+        num = int(num)
+        if (eid, num) in vistos:
+            problemas.append(f"{rot}: bem {num} repetido no evento {eid}"); continue
+        vistos.add((eid, num))
+        linhas["inv_bens_encerrados"].append((eid, num, *(_texto(r[c]) or None for c in ("situacao", "descricao", "complemento", "classificacao", "localizacao"))))
     return linhas, problemas
 
 
 def substituir_tabelas(conn, linhas: dict) -> None:
-    """Dentro da transação de db.importar_cadastros: apaga e regrava as 5 tabelas (ids de evento preservados)."""
+    """Dentro da transação de db.importar_cadastros: apaga e regrava as tabelas (ids de evento preservados).
+    linhas["inv_bens_encerrados"] is None = aba ausente na planilha → o snapshot atual é mantido (guardado antes do
+    DELETE em cascata e regravado depois)."""
+    snapshot = linhas.get("inv_bens_encerrados")
+    if snapshot is None:
+        snapshot = conn.execute("SELECT evento_id, numero, situacao, descricao, complemento, classificacao, localizacao FROM inventario_bens_encerrados").fetchall()
+        ids = {e[0] for e in linhas["inv_eventos"]}
+        snapshot = [r for r in snapshot if r[0] in ids]
     for aba in reversed(list(ABAS)):
         conn.execute(f"DELETE FROM {_TABELA[aba]}")
     conn.executemany("INSERT INTO inventario_eventos (id, nome, descricao, aberto_em, encerrado_em) VALUES (?,?,?,?,?)", linhas["inv_eventos"])
@@ -449,3 +476,4 @@ def substituir_tabelas(conn, linhas: dict) -> None:
     conn.executemany("INSERT INTO inventario_salas VALUES (?,?)", linhas["inv_salas"])
     conn.executemany("INSERT INTO inventario_leituras (evento_id, numero, localizacao, lido_em, integrante, conservacao, quem_usa, observacao, foto_url) VALUES (?,?,?,?,?,?,?,?,?)", linhas["inv_leituras"])
     conn.executemany("INSERT INTO inventario_sobras (evento_id, localizacao, descricao, complemento, observacao, foto_url, integrante, criado_em) VALUES (?,?,?,?,?,?,?,?)", linhas["inv_sobras"])
+    conn.executemany("INSERT OR IGNORE INTO inventario_bens_encerrados VALUES (?,?,?,?,?,?,?)", snapshot)
