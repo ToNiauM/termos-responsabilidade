@@ -46,6 +46,15 @@ def test_toda_rota_do_app_esta_na_matriz(dados):
     assert not faltam, "Rotas sem regra em permissoes.PERMISSOES: " + ", ".join(sorted(faltam))
 
 
+def test_rotas_de_escrita_do_inventario_saem_da_matriz(dados):
+    """app.ESCRITA_INVENTARIO é derivada de CONFERENCIA: uma lista só, sem cópia para desencontrar."""
+    import app as web
+    assert web.ESCRITA_INVENTARIO == {
+        "inventario.ler", "inventario.atualizar_leitura", "inventario.lote", "inventario.foto_leitura",
+        "inventario.foto_excluir", "inventario.sobra", "inventario.sobra_excluir"}
+    assert all(permissoes.PERMISSOES[(ep, "POST")] is permissoes.CONFERENCIA for ep in web.ESCRITA_INVENTARIO)
+
+
 # (endpoint GET exemplar por área, e o que cada função isolada deve receber; 302 = redirecionado ao destino inicial)
 _ROTAS_GET = {
     "/": {"admin": 200, "operador": 200, "inventariante": 302, "consulta": 200},

@@ -41,8 +41,8 @@ DSGOV_FIXO = {"SISTEMA": "Termos de Responsabilidade"}
 
 NEGADO = "Seu usuário não tem permissão para esta ação."
 
-ESCRITA_INVENTARIO = {"inventario.ler", "inventario.atualizar_leitura", "inventario.lote", "inventario.foto_leitura",
-                      "inventario.foto_excluir", "inventario.sobra", "inventario.sobra_excluir"}
+# As rotas que exigem vínculo com a comissão são exatamente as de CONFERENCIA: sai da matriz para não haver duas listas
+ESCRITA_INVENTARIO = {ep for (ep, _metodo), funcoes in permissoes.PERMISSOES.items() if funcoes is permissoes.CONFERENCIA}
 
 CSRF_INVALIDO = "Sessão expirada ou formulário inválido. Recarregue a página e tente de novo."
 

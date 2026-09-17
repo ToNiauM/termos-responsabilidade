@@ -14,8 +14,10 @@
     <div class="text-down-01 text-gray-70">localizados · divergentes · pendentes de {{ sala.total }}</div>
   </div>
 </div>
-{% if fechado %}
+{% if e.encerrado_em %}
 <div class="br-message warning mb-3"><div class="icon"><i class="fas fa-lock fa-lg" aria-hidden="true"></i></div><div class="content"><span class="message-body">Evento encerrado: somente consulta.</span></div></div>
+{% elif fechado %}
+<div class="br-message info mb-3"><div class="icon"><i class="fas fa-eye fa-lg" aria-hidden="true"></i></div><div class="content"><span class="message-body">Somente consulta: seu usuário não confere bens neste evento.</span></div></div>
 {% endif %}
 {% if not fotos_ativas %}
 <div class="br-message info mb-3"><div class="icon"><i class="fas fa-camera fa-lg" aria-hidden="true"></i></div><div class="content"><span class="message-body">Fotos desativadas: bucket não configurado. Leituras e sobras funcionam sem foto.</span></div></div>

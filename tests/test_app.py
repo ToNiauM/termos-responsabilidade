@@ -856,6 +856,37 @@ def test_inventario_comissao_por_usuarios(cliente, dados, usuarios_exemplo):
     assert cliente.get("/inventario/%d/integrante" % eid).status_code in (404, 405)
 
 
+def test_relatorio_nao_linka_ficha_do_bem_para_quem_nao_a_abre(cliente, dados):
+    """`consulta_inventarios` alcança o relatório mas não a ficha do bem (ACERVO): o número vira texto."""
+    import usuarios
+    usuarios.criar(dados, "chefe", "Chefe", SENHA_PADRAO, ["consulta_inventarios"], trocar_senha=False)
+    eid = _abrir(cliente)
+    cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+    r = cliente.get(f"/inventario/{eid}/relatorio")
+    assert r.status_code == 200 and b'href="/bem?numero=1001"' in r.data
+    cliente.post("/sair"); logar(cliente, "chefe", SENHA_PADRAO)
+    r = cliente.get(f"/inventario/{eid}/relatorio")
+    assert r.status_code == 200 and b">1001<" in r.data.split(b"<tbody>")[1] and b"/bem?numero=" not in r.data
+    assert cliente.get("/bem?numero=1001").status_code == 403
+
+
+def test_sala_somente_consulta_para_quem_nao_confere(cliente, dados):
+    """Evento ABERTO visto por quem não lê bens: controles desligados, sem dizer que o evento foi encerrado."""
+    import usuarios
+    usuarios.criar(dados, "chefe", "Chefe", SENHA_PADRAO, ["consulta_inventarios"], trocar_senha=False)
+    eid = _abrir(cliente)
+    cliente.post("/sair"); logar(cliente, "chefe", SENHA_PADRAO)
+    r = cliente.get(f"/inventario/{eid}")
+    assert r.status_code == 200 and b"Ver sala 01 - SALA CCI" in r.data and b"Conferir sala" not in r.data
+    r = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI")
+    assert r.status_code == 200 and b'id="form-lote"' not in r.data               # nada de marcar/desmarcar em lote
+    assert b'placeholder="Aproxime o leitor\xe2\x80\xa6" disabled' in r.data
+    assert "Evento encerrado".encode() not in r.data                              # o evento está aberto
+    assert "Somente consulta: seu usuário não confere bens neste evento".encode() in r.data
+    r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+    assert r.status_code == 403 and r.get_json()["erro"] == NEGADO
+
+
 def test_inventario_desktop_admin_local_entra_na_comissao(cliente_local):
     import db, inventario, usuarios
     conn = db.conectar()
