@@ -31,17 +31,22 @@ DSGOV_FIXO = {"SISTEMA": "Termos de Responsabilidade"}
 def contexto_dsgov():
     t = textos.obter(obter_conn())
     dsgov = dict(DSGOV_FIXO, ORGAO=t["orgao_nome"], SUBTITULO=t["unidade_sigla"])
+    inv = [("Eventos", url_for("inventario.eventos_tela"))]
+    if (e := inventario.evento_aberto(obter_conn())):
+        inv += [(e["nome"], url_for("inventario.evento_tela", id=e["id"])),
+                ("Painel", url_for("inventario.painel_tela", id=e["id"])),
+                ("Relatório", url_for("inventario.relatorio_tela", id=e["id"]))]
     return {"DSGOV": dsgov, "MENU": [
-        ("Início", "fa-home", url_for("home")),
-        ("Termo por centro de custo", "fa-building", url_for("centro_custos")),
-        ("Termo individual", "fa-user-check", url_for("termos_individuais")),
-        ("Termo de devolução", "fa-box-open", url_for("termo_devolucao")),
-        ("Termos emitidos", "fa-history", url_for("termos_emitidos_tela")),
-        ("Recorte", "fa-filter", url_for("recorte")),
-        ("Inventário", "fa-clipboard-check", url_for("inventario.eventos_tela")),
-        ("Cadastros", "fa-address-book", url_for("cadastros", aba="responsaveis")),
-        ("Textos", "fa-file-signature", url_for("textos_tela")),
-        ("Atualizar base", "fa-upload", url_for("upload")),
+        ("Início", "fa-home", url_for("home"), []),
+        ("Termo por centro de custo", "fa-building", url_for("centro_custos"), []),
+        ("Termo individual", "fa-user-check", url_for("termos_individuais"), []),
+        ("Termo de devolução", "fa-box-open", url_for("termo_devolucao"), []),
+        ("Termos emitidos", "fa-history", url_for("termos_emitidos_tela"), []),
+        ("Recorte", "fa-filter", url_for("recorte"), []),
+        ("Inventário", "fa-clipboard-check", url_for("inventario.eventos_tela"), inv),
+        ("Cadastros", "fa-address-book", url_for("cadastros", aba="responsaveis"), []),
+        ("Textos", "fa-file-signature", url_for("textos_tela"), []),
+        ("Atualizar base", "fa-upload", url_for("upload"), []),
     ]}
 
 

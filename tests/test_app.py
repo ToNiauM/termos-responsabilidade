@@ -759,3 +759,16 @@ def test_form_sobra_nao_e_o_proprio_br_card(cliente):
     html = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI").get_data(as_text=True)
     assert 'id="card-sobra"' in html and 'id="form-sobra"' in html
     assert 'class="br-card mt-3" id="form-sobra"' not in html   # BRCard trocaria o id do form
+
+
+def test_menu_inventario_e_grupo_com_telas_do_evento_aberto(cliente):
+    r = cliente.get("/").data
+    menu = r.split(b'id="main-navigation"')[1].split(b"menu-footer")[0]
+    assert b"menu-folder" in menu and b">Eventos<" in menu and b"/painel" not in menu
+    assert b'href="/inventario"' in menu and menu.count(b"menu-folder") == 1
+    eid = _abrir(cliente, integrante=None)
+    menu = cliente.get("/").data.split(b'id="main-navigation"')[1].split(b"menu-footer")[0]
+    assert f'href="/inventario/{eid}"'.encode() in menu and f'href="/inventario/{eid}/painel"'.encode() in menu and f'href="/inventario/{eid}/relatorio"'.encode() in menu
+    assert b">Inv<" in menu and b">Painel<" in menu and b">Relat" in menu
+    cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"})
+    assert b"/painel" not in cliente.get("/").data.split(b'id="main-navigation"')[1].split(b"menu-footer")[0]
