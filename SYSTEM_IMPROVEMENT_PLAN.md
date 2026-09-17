@@ -1,0 +1,1 @@
+Isso aqui é um teste de alteração. para ver se o git pega. Pegar vai pegar. Mas eu quero entender como funciona. 
