@@ -46,7 +46,7 @@ def test_ccusto_com_dois_paragrafos_e_sigla():
     resp = {"ccustos": "CCI", "responsavel": "JAQUELINE", "matricula": "46", "funcao": "coordenadora"}
     html = th.corpo_ccusto("CCI", resp, bens(), textos=t)
     assert "<p>Primeiro CCI.</p><p>Segundo do XYZ.</p>" in html
-    assert "coordenadora do(a) CCI do XYZ" in html
+    assert "coordenadora do(a) CCI</p>" in html and "do XYZ</p>" not in html   # assinatura sem a sigla do órgão (3e70a8b)
 
 
 def test_devolucao_usa_cidade_e_recebedor_dos_textos():
