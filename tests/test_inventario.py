@@ -319,3 +319,30 @@ def test_aba_inv_bens_encerrados_exporta_importa_e_valida(dados, tmp_path):
         db.importar_cadastros(dados, f)
     msg = str(ex.value)
     assert "não está encerrado" in msg and "número inválido" in msg and "repetido" in msg
+
+
+def test_andar():
+    assert inventario.andar("07 - COAD - SALA DE REUNIÃO") == "07"
+    assert inventario.andar("02 - CCOM") == "02"
+    assert inventario.andar("TERMOS INDIVIDUAIS") == inventario.ANDAR_SEM
+    assert inventario.andar("") == inventario.ANDAR_SEM
+    assert inventario.andar(" - X") == inventario.ANDAR_SEM
+
+
+def test_ler_lote_e_desfazer_leituras(dados):
+    eid = semear_inventario(dados)
+    r = inventario.ler_lote(dados, eid, "01 - SALA CCI", [1001, 2001, 99999], "Fulano")
+    assert r == {"lidos": 2, "nao_encontrados": [99999]}
+    assert {b["numero"]: b["situacao_inv"] for b in inventario.bens_da_sala(dados, eid, "01 - SALA CCI")["bens"]} == {1001: "localizado", 1002: "pendente"}
+    assert inventario.resumo(dados, eid)["divergentes"] == 1
+    with pytest.raises(db.ErroDeNegocio):
+        inventario.ler_lote(dados, eid, "01 - SALA CCI", [1002], "Ninguém")
+    inventario.atualizar_leitura(dados, eid, 1001, foto_url="http://x/1001.webp")
+    assert inventario.desfazer_leituras(dados, eid, [1001, 2001, 1004]) == ["http://x/1001.webp"]   # 1004 sem leitura: ignorado
+    assert inventario.resumo(dados, eid)["lidos"] == 0 and inventario.resumo(dados, eid)["divergentes"] == 0
+    assert inventario.desfazer_leituras(dados, eid, []) == []
+    inventario.encerrar_evento(dados, eid)
+    with pytest.raises(db.ErroDeNegocio):
+        inventario.desfazer_leituras(dados, eid, [1002])
+    with pytest.raises(db.ErroDeNegocio):
+        inventario.ler_lote(dados, eid, "01 - SALA CCI", [1002], "Fulano")

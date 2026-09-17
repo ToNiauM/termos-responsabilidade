@@ -8,6 +8,7 @@ from db import ErroDeNegocio, _agora, _obrigatorio, _texto, _todos, _um, acresce
 
 CONSERVACAO = ("Bom", "Regular", "Ruim", "Inservível")
 ROTULO_SITUACAO = {"localizado": "Localizado", "divergente": "Divergente", "pendente": "Não localizado"}
+ANDAR_SEM = "Sem andar"
 
 
 class BemNaoEncontrado(ErroDeNegocio):
@@ -196,6 +197,41 @@ def atualizar_leitura(conn, evento_id: int, numero: int, **campos) -> None:
         conn.execute(f"UPDATE inventario_leituras SET {campo} = ? WHERE evento_id = ? AND numero = ?",
                      (_texto(valor) or None, evento_id, numero))
     conn.commit()
+
+
+def andar(localizacao: str) -> str:
+    """"07 - COAD - SALA DE REUNIÃO" → "07" (texto antes do primeiro " - "); sem separador → ANDAR_SEM."""
+    cabeca, sep, _ = (localizacao or "").partition(" - ")
+    return cabeca.strip() if sep and cabeca.strip() else ANDAR_SEM
+
+
+def ler_lote(conn, evento_id: int, localizacao: str, numeros: list, integrante: str) -> dict:
+    """Leitura sem plaqueta de vários bens de uma vez: mesma regra de `ler` para cada número
+    (divergente e não ativo são aceitos); bem inexistente é pulado e devolvido em nao_encontrados."""
+    lidos, nao_encontrados = 0, []
+    for numero in numeros:
+        try:
+            ler(conn, evento_id, localizacao, int(numero), integrante)
+            lidos += 1
+        except BemNaoEncontrado:
+            nao_encontrados.append(int(numero))
+    return {"lidos": lidos, "nao_encontrados": nao_encontrados}
+
+
+def desfazer_leituras(conn, evento_id: int, numeros: list) -> list:
+    """Volta os bens a "não localizado" neste evento (o "alternar status" do sistema antigo): apaga as
+    leituras. Devolve as URLs das fotos que existiam, para a rota apagar no bucket."""
+    _evento_aberto_ou_erro(conn, evento_id)
+    numeros = [int(n) for n in numeros]
+    if not numeros:
+        return []
+    marcas = ",".join("?" * len(numeros))
+    urls = [r[0] for r in conn.execute(
+        f"SELECT foto_url FROM inventario_leituras WHERE evento_id = ? AND numero IN ({marcas}) AND foto_url IS NOT NULL AND foto_url <> ''",
+        (evento_id, *numeros))]
+    conn.execute(f"DELETE FROM inventario_leituras WHERE evento_id = ? AND numero IN ({marcas})", (evento_id, *numeros))
+    conn.commit()
+    return urls
 
 
 # ---------------------------------------------------------------- sobras
