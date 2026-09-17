@@ -1227,7 +1227,7 @@ def recorte(conn, f: dict, limite: int | None = 1000) -> dict:
 def exportar_recorte(conn, f: dict, destino):
     wb = Workbook()
     ws = wb.active
-    ws.title = "recorte"
+    ws.title = "analise"
     ws.append(["Número", "Descrição", "Complemento", "Classificação", "Localização", "Centro de custo", "Pessoa",
                "Situação", "Data entrada", "Valor compra", "Valor atual"])
     for b in recorte(conn, f, limite=None)["bens"]:

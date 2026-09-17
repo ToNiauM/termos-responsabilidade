@@ -1,5 +1,5 @@
-"""Cards de gráfico do painel e do recorte a partir de db.dimensoes(). Só apresentação: escolhe o tipo
-de gráfico por dimensão (spec, parte 4) e monta as URLs de drill-down para /recorte."""
+"""Cards de gráfico do painel e da análise a partir de db.dimensoes(). Só apresentação: escolhe o tipo
+de gráfico por dimensão (spec, parte 4) e monta as URLs de drill-down para /analise."""
 from flask import url_for
 
 import db
@@ -18,17 +18,17 @@ def moeda(v) -> str:
 
 
 def url_recorte(f: dict, **extra) -> str:
-    """URL de /recorte com os filtros atuais mais `extra` (drill-down acrescenta). `situacao` sempre viaja,
+    """URL de /analise com os filtros atuais mais `extra` (drill-down acrescenta). `situacao` sempre viaja,
     mesmo vazia: ausente significa ATIVO, vazia significa todas."""
     args = {k: v for k, v in {**f, **extra}.items() if v}
     args.setdefault("situacao", f.get("situacao", ""))
-    return url_for("recorte", **args)
+    return url_for("analise", **args)
 
 
 def url_recorte_xlsx(f: dict) -> str:
     args = {k: v for k, v in f.items() if v}
     args.setdefault("situacao", f.get("situacao", ""))
-    return url_for("recorte_xlsx", **args)
+    return url_for("analise_xlsx", **args)
 
 
 def _tabela(itens, f, chave, rotulo_col):

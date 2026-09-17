@@ -692,4 +692,4 @@ def test_exportar_grava_texto_literal_e_numeros_como_numeros(dados, tmp_path):
     assert linha[3].value == "=SOMA(A1)" and linha[3].data_type == "s"
     assert linha[0].data_type == "n" and linha[8].data_type == "n"       # número continua número
     wb = load_workbook(db.exportar_recorte(dados, {}, tmp_path / "recorte.xlsx"))
-    assert all(c.data_type != "f" for linha in wb["recorte"].iter_rows(min_row=2) for c in linha)
+    assert all(c.data_type != "f" for linha in wb["analise"].iter_rows(min_row=2) for c in linha)

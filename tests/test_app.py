@@ -2,6 +2,7 @@ import io
 from datetime import date
 from urllib.parse import unquote
 
+import pytest
 from openpyxl import Workbook, load_workbook
 
 import db
@@ -383,7 +384,7 @@ def test_painel_na_tela_inicial(cliente):
     assert b"dsgov-atalhos" in r.data and "Realizar inventário".encode() in r.data and b'href="/inventario"' in r.data   # carrossel de atalhos
     assert b"bens ativos" in r.data and b'data-grafico="g-centro"' in r.data and b'data-grafico="g-ano"' in r.data
     assert b"echarts.min.js" in r.data and b"echarts-dsgov.js" in r.data
-    assert b"/recorte?situacao=ATIVO&amp;ccusto=CCI" in r.data or b"/recorte?situacao=ATIVO&ccusto=CCI" in r.data
+    assert b"/analise?situacao=ATIVO&amp;ccusto=CCI" in r.data or b"/analise?situacao=ATIVO&ccusto=CCI" in r.data
     assert b"/termo/ccusto/CCI" in r.data and b"sem termo" in r.data
     assert b"Nenhuma" in r.data       # última importação: nenhuma
     assert b"sem centro nem pessoa" in r.data
@@ -408,32 +409,40 @@ def test_listas_mostram_situacao_do_termo(cliente):
 
 
 def test_recorte_tela_filtros_termo_e_xlsx(cliente):
-    r = cliente.get("/recorte")
+    r = cliente.get("/analise")
     assert r.status_code == 200 and b"Bens ATIVO" in r.data and b"1001" in r.data and b"1003" not in r.data
     assert b'data-grafico="g-situacao"' not in r.data and b'data-grafico="g-centro"' in r.data
-    r = cliente.get("/recorte?situacao=ATIVO&ccusto=CCI")
+    r = cliente.get("/analise?situacao=ATIVO&ccusto=CCI")
     assert b"centro de custo CCI" in r.data and b"/termo/ccusto/CCI" in r.data and b"sem termo" in r.data
-    assert b'data-grafico="g-centro"' not in r.data and b"/recorte?situacao=ATIVO&amp;ccusto=CCI&amp;faixa=" in r.data
-    r = cliente.get("/recorte?pessoa=ANA SILVA")
+    assert b'data-grafico="g-centro"' not in r.data and b"/analise?situacao=ATIVO&amp;ccusto=CCI&amp;faixa=" in r.data
+    r = cliente.get("/analise?pessoa=ANA SILVA")
     assert b"/termo/individual/ANA" in r.data and b"NOTEBOOK" in r.data and b"CADEIRA" not in r.data
-    r = cliente.get("/recorte?situacao=&valor_de=1.000,00&valor_ate=2000")
+    r = cliente.get("/analise?situacao=&valor_de=1.000,00&valor_ate=2000")
     assert b"NOTEBOOK" in r.data and b"CADEIRA" not in r.data and b"todas as situa" in r.data
-    r = cliente.get("/recorte?situacao=&valor_de=1.000&valor_ate=1.600")     # ponto de milhar
+    r = cliente.get("/analise?situacao=&valor_de=1.000&valor_ate=1.600")     # ponto de milhar
     assert b"NOTEBOOK" in r.data and b"CADEIRA" not in r.data
-    r = cliente.get("/recorte?situacao=&valor_de=1000.5&valor_ate=1600")     # ponto decimal
+    r = cliente.get("/analise?situacao=&valor_de=1000.5&valor_ate=1600")     # ponto decimal
     assert b"NOTEBOOK" in r.data
-    r = cliente.get("/recorte?situacao=&valor_de=1.000.000")
+    r = cliente.get("/analise?situacao=&valor_de=1.000.000")
     assert b"NOTEBOOK" not in r.data and b"Nenhum bem" in r.data
-    r = cliente.get("/recorte?valor_de=abc", follow_redirects=True)
+    r = cliente.get("/analise?valor_de=abc", follow_redirects=True)
     assert "Valor inválido".encode() in r.data
-    r = cliente.get("/recorte/xlsx?ccusto=CCI")
-    assert r.status_code == 200 and r.headers["Content-Disposition"].endswith("recorte.xlsx")
-    assert b"Recorte" in cliente.get("/").data       # menu
-    r = cliente.get("/recorte?situacao=")
+    r = cliente.get("/analise/xlsx?ccusto=CCI")
+    assert r.status_code == 200 and r.headers["Content-Disposition"].endswith("analise.xlsx")
+    assert b"An\xc3\xa1lise" in cliente.get("/").data       # menu
+    r = cliente.get("/analise?situacao=")
     assert b"ccusto=CCI&amp;situacao=" in r.data or b"ccusto=CCI&situacao=" in r.data   # drill-down mantém "todas"
-    assert b'href="/recorte/xlsx?situacao="' in r.data
-    ws = load_workbook(io.BytesIO(cliente.get("/recorte/xlsx?situacao=").data)).active
+    assert b'href="/analise/xlsx?situacao="' in r.data
+    ws = load_workbook(io.BytesIO(cliente.get("/analise/xlsx?situacao=").data)).active
     assert ws.max_row - 1 == 4     # 4 bens da semente (inclui 1003 BAIXADO); a tela mostra o mesmo total
+
+
+@pytest.mark.parametrize("sufixo", ["", "/xlsx"])
+def test_alias_preserva_query(cliente, sufixo):
+    query = "situacao=&ccusto=GEX%2BLIC&ccusto=CCI&valor_status=zero"
+    r = cliente.get("/recorte" + sufixo + "?" + query)
+    assert r.status_code == 301
+    assert r.headers["Location"] == "/analise" + sufixo + "?" + query
 
 
 def _ids(*nomes):

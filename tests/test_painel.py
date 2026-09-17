@@ -7,8 +7,8 @@ from tests.conftest import semear
 
 
 def test_graficos_helper_urls_e_tabela():
-    op = graficos.rosca([("ATIVO", 3), ("BAIXADO", 1)], total=(4, "bens"), urls={"ATIVO": "/recorte?situacao=ATIVO"})
-    assert op["series"][0]["data"][0] == {"name": "ATIVO", "value": 3, "url": "/recorte?situacao=ATIVO"}
+    op = graficos.rosca([("ATIVO", 3), ("BAIXADO", 1)], total=(4, "bens"), urls={"ATIVO": "/analise?situacao=ATIVO"})
+    assert op["series"][0]["data"][0] == {"name": "ATIVO", "value": 3, "url": "/analise?situacao=ATIVO"}
     assert op["graphic"][0]["style"]["text"] == "4\nbens"
     op = graficos.barras_horizontais(["CCI"], [3], "Bens", escala=True, urls=["/r?ccusto=CCI"])
     assert op["series"][0]["data"] == [{"value": 3, "url": "/r?ccusto=CCI"}] and "visualMap" in op
@@ -21,22 +21,22 @@ def test_macro_grafico_renderiza_json_e_tabela(dados):
     from app import app
     g = {"id": "g1", "titulo": "Teste", "subtitulo": None, "alto": False, "col": None, "resumo": "Teste: 1",
          "opcoes": {"series": [{"type": "pie", "data": [{"name": "<b>", "value": 1}]}]},
-         "tabela": graficos.tabela_dados(["Rótulo", "Bens"], [[{"valor": "CCI", "url": "/recorte?ccusto=CCI"}, 1]])}
+         "tabela": graficos.tabela_dados(["Rótulo", "Bens"], [[{"valor": "CCI", "url": "/analise?ccusto=CCI"}, 1]])}
     with app.test_request_context():
         html = render_template_string('{% from "_macros.html" import grafico %}{{ grafico(g) }}', g=g)
     assert 'data-grafico="g1"' in html and '<script type="application/json" id="g1">' in html
     assert "<b>" not in html.split('id="g1">')[1].split("</script>")[0]      # tojson escapa
-    assert 'href="/recorte?ccusto=CCI"' in html and "Ver dados" in html and "dsgov-grafico" in html
+    assert 'href="/analise?ccusto=CCI"' in html and "Ver dados" in html and "dsgov-grafico" in html
 
 
 def test_url_recorte_mantem_situacao_vazia(dados):
     from app import app
     import painel
     with app.test_request_context():
-        assert painel.url_recorte({}, ccusto="CCI") == "/recorte?ccusto=CCI&situacao="
-        assert painel.url_recorte({"situacao": "ATIVO"}, ccusto="CCI") == "/recorte?situacao=ATIVO&ccusto=CCI"
-        assert painel.url_recorte_xlsx({}) == "/recorte/xlsx?situacao="
-        assert painel.url_recorte_xlsx({"situacao": "ATIVO"}) == "/recorte/xlsx?situacao=ATIVO"
+        assert painel.url_recorte({}, ccusto="CCI") == "/analise?ccusto=CCI&situacao="
+        assert painel.url_recorte({"situacao": "ATIVO"}, ccusto="CCI") == "/analise?situacao=ATIVO&ccusto=CCI"
+        assert painel.url_recorte_xlsx({}) == "/analise/xlsx?situacao="
+        assert painel.url_recorte_xlsx({"situacao": "ATIVO"}) == "/analise/xlsx?situacao=ATIVO"
 
 
 def test_cards_graficos_tipos_urls_e_omissao(dados):
@@ -61,12 +61,12 @@ def test_cards_graficos_tipos_urls_e_omissao(dados):
         assert por["g-faixa"]["opcoes"]["series"][0]["type"] == "bar" and por["g-faixa"]["opcoes"]["yAxis"]["type"] == "category"  # 6 itens, rótulo "R$ 1.000 a 5.000" → barras
         assert por["g-faixa"]["opcoes"]["yAxis"]["data"][0] == "até R$ 100"                                                    # faixas mantêm a ordem ordinal
         assert por["g-situacao"]["subtitulo"] == "Todos os bens" and por["g-centro"]["subtitulo"] == "Bens ativos"
-        assert por["g-centro"]["opcoes"]["series"][0]["data"][0]["url"] == "/recorte?situacao=ATIVO&ccusto=-"
-        assert por["g-centro"]["opcoes"]["series"][0]["data"][1]["url"] == "/recorte?situacao=ATIVO&ccusto=CCI"
-        assert por["g-situacao"]["opcoes"]["series"][0]["data"][0]["url"] == "/recorte?situacao=ATIVO"
+        assert por["g-centro"]["opcoes"]["series"][0]["data"][0]["url"] == "/analise?situacao=ATIVO&ccusto=-"
+        assert por["g-centro"]["opcoes"]["series"][0]["data"][1]["url"] == "/analise?situacao=ATIVO&ccusto=CCI"
+        assert por["g-situacao"]["opcoes"]["series"][0]["data"][0]["url"] == "/analise?situacao=ATIVO"
         assert por["g-classificacao"]["tabela"]["linhas"][-1][0]["valor"] == "SEDE"          # imóveis por último na tabela
         assert "SEDE" in [d["name"] for d in por["g-classificacao"]["opcoes"]["series"][0]["data"]]  # mas no gráfico, como qualquer classe
-        assert por["g-ano"]["opcoes"]["series"][0]["data"][-1]["url"] == "/recorte?situacao=ATIVO&ano=2024"
+        assert por["g-ano"]["opcoes"]["series"][0]["data"][-1]["url"] == "/analise?situacao=ATIVO&ano=2024"
         assert por["g-faixa"]["tabela"]["linhas"][0][2]["valor"] == "R$ 64,54"
         cards = painel.cards_graficos(db.dimensoes(dados, {"situacao": "ATIVO", "ccusto": "CCI"}), {"situacao": "ATIVO", "ccusto": "CCI"}, omitir=("situacao", "ccusto"))
         assert "g-centro" not in [c["id"] for c in cards] and "g-situacao" not in [c["id"] for c in cards]

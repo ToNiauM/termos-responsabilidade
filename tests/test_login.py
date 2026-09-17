@@ -51,7 +51,7 @@ def test_inventariante_entra_so_no_inventario(cliente, monkeypatch):
     cliente.post("/sair")
     assert logar(cliente, "beltrana", SENHA_PADRAO).headers["Location"] == "/inventario"
     assert cliente.get("/").headers["Location"] == "/inventario"
-    for rota in ("/bem?numero=1001", "/pesquisa?q=CADEIRA", "/recorte", "/recorte/xlsx", "/centro-custos"):
+    for rota in ("/bem?numero=1001", "/pesquisa?q=CADEIRA", "/analise", "/analise/xlsx", "/centro-custos"):
         assert cliente.get(rota).status_code == 403, rota
     html = cliente.get("/inventario").get_data(as_text=True)
     assert "Nenhum inventário atribuído a você" in html

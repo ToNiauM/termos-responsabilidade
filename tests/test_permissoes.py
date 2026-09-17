@@ -143,7 +143,7 @@ def test_menu_por_funcao(cliente, usuarios_exemplo):
     cliente.post("/sair"); logar(cliente, *usuarios_exemplo["inventariante"])
     m = menu("/inventario")
     assert b">Cadastros<" not in m and b">Termo por centro de custo<" not in m and b">Invent\xc3\xa1rio<" in m
-    assert b">Recorte<" not in m and b">In\xc3\xadcio<" not in m                  # sem acesso ao acervo, sem Início
+    assert b">An\xc3\xa1lise<" not in m and b">In\xc3\xadcio<" not in m           # sem acesso ao acervo, sem Início
     cliente.post("/sair"); logar(cliente, *usuarios_exemplo["consulta"])
     m = menu()
     assert b">Termo por centro de custo<" in m and b">Textos<" not in m and b">Atualizar base<" not in m

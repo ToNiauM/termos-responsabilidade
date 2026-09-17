@@ -154,7 +154,7 @@ def contexto_dsgov():
         ("Termo individual", "fa-user-check", "termos_individuais", {}, []),
         ("Termo de devolução", "fa-box-open", "termo_devolucao", {}, []),
         ("Termos emitidos", "fa-history", "termos_emitidos_tela", {}, []),
-        ("Recorte", "fa-filter", "recorte", {}, []),
+        ("Análise", "fa-chart-bar", "analise", {}, []),
         ("Inventário", "fa-clipboard-check", "inventario.eventos_tela", {}, inv),
         ("Cadastros", "fa-address-book", "cadastros", {"aba": "responsaveis"}, []),
         ("Textos", "fa-file-signature", "textos_tela", {}, []),
@@ -247,8 +247,26 @@ def _filtros_recorte() -> dict:
     return {k: v for k, v in f.items() if v}
 
 
+def _alias_analise(endpoint):
+    """/recorte(/xlsx) é um alias permanente do endereço antigo; redireciona preservando a query string."""
+    destino = url_for(endpoint)
+    if request.query_string:
+        destino += "?" + request.query_string.decode("latin-1")
+    return redirect(destino, code=301)
+
+
 @app.route("/recorte")
 def recorte():
+    return _alias_analise("analise")
+
+
+@app.route("/recorte/xlsx")
+def recorte_xlsx():
+    return _alias_analise("analise_xlsx")
+
+
+@app.route("/analise")
+def analise():
     conn = obter_conn()
     f = _filtros_recorte()
     r = db.recorte(conn, f)
@@ -266,14 +284,14 @@ def recorte():
         "localizacoes": [r[0] for r in conn.execute("SELECT DISTINCT localizacao FROM bens WHERE localizacao <> '' ORDER BY 1")],
         "centros": [c["ccustos"] for c in db.centros(conn)], "pessoas": db.pessoas(conn), "idades": db.FAIXAS_IDADE,
     }
-    return render_template("recorte.html", f=f, r=r, cards=painel.cards_graficos(r["dimensoes"], f, omitir), termo_de=termo_de,
+    return render_template("analise.html", f=f, r=r, cards=painel.cards_graficos(r["dimensoes"], f, omitir), termo_de=termo_de,
                            descricao=painel.descrever(f, nomes), opcoes=opcoes, moeda=painel.moeda,
-                           url_xlsx=painel.url_recorte_xlsx(f), trilha=[("Recorte", None)])
+                           url_xlsx=painel.url_recorte_xlsx(f), trilha=[("Análise", None)])
 
 
-@app.route("/recorte/xlsx")
-def recorte_xlsx():
-    return _baixar(db.exportar_recorte(obter_conn(), _filtros_recorte(), io.BytesIO()), "recorte.xlsx")
+@app.route("/analise/xlsx")
+def analise_xlsx():
+    return _baixar(db.exportar_recorte(obter_conn(), _filtros_recorte(), io.BytesIO()), "analise.xlsx")
 
 
 @app.route("/bem")
