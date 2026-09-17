@@ -618,3 +618,28 @@ def test_fotos_seq_sobrevive_a_exportar_e_importar(dados, tmp_path):
         db.importar_cadastros(dados, f)
     f3 = foto_falsa(dados, eid, 1001)
     assert [x["nfoto"] for x in f3] == [1, 3]                                          # não voltou a ser 2
+
+
+def test_apagar_no_bucket_antes_do_banco(dados):
+    """apagar_foto / desfazer_leituras / excluir_sobra chamam `apagar(url)` antes do DELETE: se falhar, nada sai do banco."""
+    eid = semear_inventario(dados)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    foto_falsa(dados, eid, 1001, "https://x/1.webp"); foto_falsa(dados, eid, 1001, "https://x/2.webp")
+
+    def falha(url):
+        raise RuntimeError("bucket fora")
+    with pytest.raises(RuntimeError):
+        inventario.apagar_foto(dados, eid, 1001, 1, apagar=falha)
+    assert [f["nfoto"] for f in inventario.fotos_do_bem_no_evento(dados, eid, 1001)] == [1, 2]
+    with pytest.raises(RuntimeError):
+        inventario.desfazer_leituras(dados, eid, [1001], apagar=falha)
+    assert inventario.resumo(dados, eid)["lidos"] == 1
+    apagadas = []
+    assert inventario.apagar_foto(dados, eid, 1001, 1, apagar=apagadas.append) == "https://x/1.webp" and apagadas == ["https://x/1.webp"]
+    assert inventario.desfazer_leituras(dados, eid, [1001], apagar=apagadas.append) == (["https://x/2.webp"], 1) and apagadas[-1] == "https://x/2.webp"
+    sid = inventario.registrar_sobra(dados, eid, "01 - SALA CCI", "VENTILADOR", "", "achado", "https://x/s.webp", "Fulano")
+    with pytest.raises(RuntimeError):
+        inventario.excluir_sobra(dados, eid, sid, apagar=falha)
+    assert inventario.resumo(dados, eid)["sobras"] == 1
+    inventario.excluir_sobra(dados, eid, sid, apagar=apagadas.append)
+    assert apagadas[-1] == "https://x/s.webp" and inventario.resumo(dados, eid)["sobras"] == 0

@@ -161,9 +161,7 @@ def lote(id, localizacao):
         flash("Selecione ao menos um bem.", "warning")
         return volta
     if request.form.get("acao") == "desmarcar":
-        urls, apagadas = inventario.desfazer_leituras(conn, id, numeros)
-        for url in urls:
-            fotos.apagar(url)
+        urls, apagadas = inventario.desfazer_leituras(conn, id, numeros, apagar=_apagar_no_bucket)
         if apagadas:
             flash("Leitura(s) desfeita(s): os bens voltaram a pendentes.", "success")
         else:
@@ -175,6 +173,14 @@ def lote(id, localizacao):
         msg += " Não encontrado(s): " + ", ".join(str(n) for n in r["nao_encontrados"]) + "."
     flash(msg, "success" if r["lidos"] else "warning")
     return volta
+
+
+def _apagar_no_bucket(url):
+    """Apaga a foto no bucket ANTES de o registro sair do banco; falha vira ErroDeNegocio e nada muda."""
+    try:
+        fotos.apagar(url)
+    except Exception:
+        raise db.ErroDeNegocio("Não foi possível apagar a foto no bucket; nada foi alterado. Tente de novo.")
 
 
 def _foto_processada():
@@ -213,10 +219,9 @@ def foto_excluir(id, numero, nfoto):
     leitura = conn.execute("SELECT localizacao FROM inventario_leituras WHERE evento_id = ? AND numero = ?", (id, numero)).fetchone()
     if not leitura:
         abort(404)
-    url = inventario.apagar_foto(conn, id, numero, nfoto)
+    url = inventario.apagar_foto(conn, id, numero, nfoto, apagar=_apagar_no_bucket)
     if url is None:
         abort(404)
-    fotos.apagar(url)
     flash("Foto removida.", "success")
     return redirect(url_for("inventario.sala_tela", id=id, localizacao=request.form.get("volta") or leitura["localizacao"]))
 
@@ -247,8 +252,7 @@ def sobra(id, localizacao):
 
 @inventario_bp.route("/<int:id>/sobra/<int:sobra_id>/excluir", methods=["POST"])
 def sobra_excluir(id, sobra_id):
-    s = inventario.excluir_sobra(_conn(), id, sobra_id)
-    fotos.apagar(s["foto_url"])
+    s = inventario.excluir_sobra(_conn(), id, sobra_id, apagar=_apagar_no_bucket)
     flash("Sobra excluída.", "success")
     return redirect(url_for("inventario.sala_tela", id=id, localizacao=s["localizacao"]))
 

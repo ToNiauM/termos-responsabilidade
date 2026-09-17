@@ -96,22 +96,22 @@ def enviar(chave: str, dados: bytes) -> str:
 _PREFIXO_ANTIGO = "inventario/"
 
 
-def apagar(url: str | None) -> None:
+def apagar(url: str | None) -> bool:
     """Apaga o objeto pela chave contida na URL: URL nova = base pública + chave; URL antiga (antes da
-    Fase 3) tem "inventario/" no meio. Erro do bucket é ignorado (a URL some do banco de qualquer jeito)."""
+    Fase 3) tem "inventario/" no meio. Devolve True quando pediu a exclusão ao bucket; False quando não há
+    o que apagar (sem URL, fotos desativadas ou formato desconhecido). Erro do bucket PROPAGA: quem chama
+    (as rotas) mantém o registro no banco e avisa — nunca fica objeto órfão sem ninguém saber."""
     if not url or not configurado():
-        return
+        return False
     base = _url("")
     if url.startswith(base):
         chave = url[len(base):]
     else:
         pos = url.find(_PREFIXO_ANTIGO)
         if pos < 0:
-            return
+            return False
         chave = url[pos:]
     if not chave:
-        return
-    try:
-        _cliente().delete_object(Bucket=os.environ["R2_BUCKET_NAME"], Key=chave)
-    except Exception:
-        pass
+        return False
+    _cliente().delete_object(Bucket=os.environ["R2_BUCKET_NAME"], Key=chave)
+    return True

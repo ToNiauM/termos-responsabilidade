@@ -76,14 +76,20 @@ def test_enviar_apagar_e_configuracao(monkeypatch):
     url = fotos.enviar("inventario2026/1-1001.webp", b"webp")
     assert url == "https://fotos.exemplo.org/inventario2026/1-1001.webp"
     assert falso.enviados == [("fotos", "inventario2026/1-1001.webp", 4, "image/webp")]
-    fotos.apagar(url)
+    assert fotos.apagar(url) is True
     assert falso.apagados == [("fotos", "inventario2026/1-1001.webp")]
     # formato antigo (fotos gravadas antes da Fase 3) continua reconhecido
     fotos.apagar("https://fotos.exemplo.org/inventario/INV1_BEM_1001_20260915120000.webp")
     assert falso.apagados[-1] == ("fotos", "inventario/INV1_BEM_1001_20260915120000.webp")
-    fotos.apagar("https://outro/sem-prefixo.webp")                       # ignora
-    fotos.apagar(None)
+    assert fotos.apagar("https://outro/sem-prefixo.webp") is False       # ignora
+    assert fotos.apagar(None) is False
     assert len(falso.apagados) == 2
+    # erro do bucket propaga (a rota mantém o registro e avisa)
+    def falha(**kw): raise RuntimeError("bucket fora")
+    monkeypatch.setattr(falso, "delete_object", falha)
+    with pytest.raises(RuntimeError):
+        fotos.apagar(url)
+    monkeypatch.setattr(falso, "delete_object", lambda **kw: falso.apagados.append((kw["Bucket"], kw["Key"])))
     monkeypatch.delenv("R2_PUBLIC_URL")
     assert fotos.enviar("a/1-2.webp", b"1") == "https://acc.r2.cloudflarestorage.com/fotos/a/1-2.webp"
     fotos.apagar("https://acc.r2.cloudflarestorage.com/fotos/a/1-2.webp")

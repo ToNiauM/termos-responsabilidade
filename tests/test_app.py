@@ -786,3 +786,18 @@ def test_menu_inventario_e_grupo_com_telas_do_evento_aberto(cliente):
     assert b">Inv<" in menu and b">Painel<" in menu and b">Relat" in menu
     cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"})
     assert b"/painel" not in cliente.get("/").data.split(b'id="main-navigation"')[1].split(b"menu-footer")[0]
+
+
+def test_falha_no_bucket_mantem_a_foto_e_avisa(cliente, monkeypatch):
+    import fotos
+    eid = _abrir(cliente)
+    cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+    import db, inventario
+    inventario.adicionar_foto(db.conectar(), eid, 1001, lambda c: "https://x/1.webp")
+    monkeypatch.setattr(fotos, "apagar", lambda url: (_ for _ in ()).throw(RuntimeError("bucket fora")))
+    origem = {"Referer": f"/inventario/{eid}/sala/01 - SALA CCI"}          # o handler global volta para a página de origem
+    r = cliente.post(f"/inventario/{eid}/leitura/1001/foto/1/excluir", data={"volta": "01 - SALA CCI"}, headers=origem, follow_redirects=True)
+    assert "Não foi possível apagar a foto no bucket".encode() in r.data and b'src="https://x/1.webp"' in r.data
+    r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "desmarcar", "numeros": ["1001"]}, headers=origem, follow_redirects=True)
+    assert "Não foi possível apagar".encode() in r.data and r.data.count(b">Localizado<") == 1
+    assert [f["nfoto"] for f in inventario.fotos_do_bem_no_evento(db.conectar(), eid, 1001)] == [1]

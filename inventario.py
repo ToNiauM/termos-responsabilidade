@@ -279,12 +279,15 @@ def adicionar_foto(conn, evento_id: int, numero: int, enviar) -> list[dict]:
     return fotos_do_bem_no_evento(conn, evento_id, numero)
 
 
-def apagar_foto(conn, evento_id: int, numero: int, nfoto: int) -> str | None:
-    """Apaga a linha e devolve a url (para a rota apagar no bucket); None se não existia."""
+def apagar_foto(conn, evento_id: int, numero: int, nfoto: int, apagar=None) -> str | None:
+    """Apaga a foto e devolve a url; None se não existia. `apagar(url)` (fotos.apagar na rota) roda ANTES do
+    DELETE: se falhar, a exceção propaga e a linha fica — o objeto nunca vira órfão no bucket."""
     _evento_aberto_ou_erro(conn, evento_id)
     f = _um(conn, "SELECT url FROM inventario_fotos WHERE evento_id = ? AND numero = ? AND nfoto = ?", evento_id, numero, nfoto)
     if not f:
         return None
+    if apagar:
+        apagar(f["url"])
     conn.execute("DELETE FROM inventario_fotos WHERE evento_id = ? AND numero = ? AND nfoto = ?", (evento_id, numero, nfoto))
     conn.commit()
     return f["url"]
@@ -321,10 +324,11 @@ def ler_lote(conn, evento_id: int, localizacao: str, numeros: list, integrante: 
     return {"lidos": lidos, "nao_encontrados": nao_encontrados}
 
 
-def desfazer_leituras(conn, evento_id: int, numeros: list) -> tuple[list, int]:
+def desfazer_leituras(conn, evento_id: int, numeros: list, apagar=None) -> tuple[list, int]:
     """Volta os bens a "não localizado" neste evento (o "alternar status" do sistema antigo): apaga as
-    leituras. Devolve (urls, apagadas): as URLs das fotos que existiam (para a rota apagar no bucket) e
-    a quantidade de leituras de fato apagadas (0 quando nenhum dos números tinha leitura)."""
+    leituras (e as fotos, em cascata). Devolve (urls, apagadas): as URLs das fotos que existiam e a quantidade
+    de leituras de fato apagadas (0 quando nenhum dos números tinha leitura). `apagar(url)` roda para cada
+    foto ANTES do DELETE: se falhar, nada é apagado do banco (repetir a ação tenta o bucket de novo)."""
     _evento_aberto_ou_erro(conn, evento_id)
     numeros = [int(n) for n in numeros]
     if not numeros:
@@ -332,6 +336,9 @@ def desfazer_leituras(conn, evento_id: int, numeros: list) -> tuple[list, int]:
     marcas = ",".join("?" * len(numeros))
     urls = [r[0] for r in conn.execute(
         f"SELECT url FROM inventario_fotos WHERE evento_id = ? AND numero IN ({marcas})", (evento_id, *numeros))]
+    if apagar:
+        for url in urls:
+            apagar(url)
     cur = conn.execute(f"DELETE FROM inventario_leituras WHERE evento_id = ? AND numero IN ({marcas})", (evento_id, *numeros))
     conn.commit()
     return urls, cur.rowcount
@@ -365,12 +372,15 @@ def definir_foto_sobra(conn, sobra_id: int, foto_url: str) -> None:
     conn.commit()
 
 
-def excluir_sobra(conn, evento_id: int, sobra_id: int) -> dict:
-    """Só sobras podem ser apagadas (leituras de bens cadastrados, nunca). Devolve a sobra para apagar a foto."""
+def excluir_sobra(conn, evento_id: int, sobra_id: int, apagar=None) -> dict:
+    """Só sobras podem ser apagadas (leituras de bens cadastrados, nunca). Devolve a sobra. `apagar(foto_url)`
+    roda ANTES do DELETE: se falhar, a sobra fica."""
     _evento_aberto_ou_erro(conn, evento_id)
     s = _um(conn, "SELECT * FROM inventario_sobras WHERE evento_id = ? AND id = ?", evento_id, sobra_id)
     if not s:
         raise ErroDeNegocio("Sobra não encontrada.")
+    if apagar and s["foto_url"]:
+        apagar(s["foto_url"])
     conn.execute("DELETE FROM inventario_sobras WHERE id = ?", (sobra_id,))
     conn.commit()
     return s
