@@ -31,4 +31,15 @@
     {% else %}<p class="text-gray-70 mb-0">Nenhum termo registrado com este bem.</p>{% endfor %}
   </div></div></div>
 </div>
+{% if fotos %}
+<h2 class="text-up-01 mt-4 mb-2">Fotos do inventário</h2>
+<div class="br-card"><div class="card-content">
+  {% for g in fotos %}
+  <div class="{% if not loop.last %}mb-3{% endif %}">
+    <div class="mb-1"><strong>{{ g.evento }}</strong> <span class="text-gray-70">· aberto em {{ g.aberto_em[8:10] }}/{{ g.aberto_em[5:7] }}/{{ g.aberto_em[:4] }}{% if g.encerrado_em %} · encerrado em {{ g.encerrado_em[8:10] }}/{{ g.encerrado_em[5:7] }}/{{ g.encerrado_em[:4] }}{% endif %} · lido em {{ g.lido_em[8:10] }}/{{ g.lido_em[5:7] }}/{{ g.lido_em[:4] }} {{ g.lido_em[11:16] }}</span></div>
+    <div class="d-flex flex-wrap">{% for f in g.fotos %}<a class="mr-1 mb-1" href="{{ f.url }}" target="_blank" rel="noopener"><img src="{{ f.url }}" alt="Foto {{ f.nfoto }} do bem {{ bem.numero }} no evento {{ g.evento }}" class="dsgov-miniatura"/></a>{% endfor %}</div>
+  </div>
+  {% endfor %}
+</div></div>
+{% endif %}
 {% endblock %}

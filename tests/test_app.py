@@ -27,6 +27,27 @@ def test_home_e_busca_de_bem(cliente):
     assert "não encontrado".encode() in r.data
 
 
+def test_bem_mostra_fotos_por_evento(cliente):
+    assert b"Fotos do invent" not in cliente.get("/bem?numero=1001").data
+    eid = _abrir(cliente)
+    cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+    import db, inventario
+    conn = db.conectar()
+    inventario.adicionar_foto(conn, eid, 1001, lambda c: "https://x/a.webp")
+    inventario.adicionar_foto(conn, eid, 1001, lambda c: "https://x/b.webp")
+    cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"})
+    cliente.post("/inventario/abrir", data={"nome": "Inv 2", "integrantes": "Fulano", "escopo": "todas"})
+    eid2 = inventario.evento_aberto(conn)["id"]
+    cliente.post(f"/inventario/{eid2}/integrante", data={"integrante": "Fulano"})
+    cliente.post(f"/inventario/{eid2}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+    inventario.adicionar_foto(conn, eid2, 1001, lambda c: "https://x/c.webp")
+    r = cliente.get("/bem?numero=1001")
+    assert b"Fotos do invent" in r.data and r.data.count(b'class="dsgov-miniatura"') == 3
+    assert r.data.index(b"Inv 2") < r.data.index(b">Inv<") and r.data.index(b"https://x/c.webp") < r.data.index(b"https://x/a.webp") < r.data.index(b"https://x/b.webp")
+    assert b"encerrado em" in r.data and b"lido em" in r.data
+    assert b"Fotos do invent" not in cliente.get("/bem?numero=1002").data
+
+
 def test_termo_ccusto_documento_docx_planilha(cliente):
     cliente.post("/cadastros/processos/incluir", data={"tipo": "ccusto", "descricao": "T", "numero_sei": "1111", "vigente": "1"})
     r = cliente.post("/gerar", data={"ccusto": "CCI"})

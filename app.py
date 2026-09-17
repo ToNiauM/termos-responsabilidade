@@ -153,7 +153,7 @@ def bem():
         flash(f"Bem {numero or '(vazio)'} não encontrado.", "error")
         return redirect(url_for("home"))
     return render_template("bem.html", bem=ficha, historico=db.historico_do_bem(obter_conn(), int(numero)), rotulos=db.ROTULO_TIPO,
-                           trilha=[(f"Bem {numero}", None)])
+                           fotos=inventario.fotos_do_bem(obter_conn(), int(numero)), trilha=[(f"Bem {numero}", None)])
 
 
 @app.route("/pesquisa")
