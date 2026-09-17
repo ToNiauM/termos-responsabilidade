@@ -8,5 +8,13 @@ dist
 build
 docs
 tests
+secrets
 *.spec
 *.bat
+*.env
+*.db
+*.db-*
+*.xlsx
+*.gz
+*.md
+backup.sh
