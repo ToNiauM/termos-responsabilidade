@@ -128,6 +128,48 @@ def encerrar_evento(conn, id: int) -> None:
     conn.commit()
 
 
+_TABELAS_DO_EVENTO = ("inventario_fotos", "inventario_leituras", "inventario_sobras", "inventario_integrantes",
+                      "inventario_bens_encerrados", "inventario_salas")
+
+
+def contagem_para_exclusao(conn, evento_id: int) -> dict:
+    """O que a exclusão do evento apaga, para a tela de confirmação."""
+    def n(sql):
+        return conn.execute(sql, (evento_id,)).fetchone()[0]
+    return {"leituras": n("SELECT count(*) FROM inventario_leituras WHERE evento_id = ?"),
+            "fotos": n("SELECT count(*) FROM inventario_fotos WHERE evento_id = ?"),
+            "sobras": n("SELECT count(*) FROM inventario_sobras WHERE evento_id = ?"),
+            "sobras_com_foto": n("SELECT count(*) FROM inventario_sobras WHERE evento_id = ? AND foto_url IS NOT NULL AND foto_url <> ''"),
+            "integrantes": n("SELECT count(*) FROM inventario_integrantes WHERE evento_id = ?"),
+            "bens_encerrados": n("SELECT count(*) FROM inventario_bens_encerrados WHERE evento_id = ?"),
+            "salas": n("SELECT count(*) FROM inventario_salas WHERE evento_id = ?")}
+
+
+def urls_das_fotos(conn, evento_id: int) -> list[str]:
+    """Fotos dos bens (por número e nfoto) e depois das sobras (por id)."""
+    bens = [r[0] for r in conn.execute("SELECT url FROM inventario_fotos WHERE evento_id = ? ORDER BY numero, nfoto", (evento_id,))]
+    sobras = [r[0] for r in conn.execute("SELECT foto_url FROM inventario_sobras WHERE evento_id = ? AND foto_url IS NOT NULL AND foto_url <> '' ORDER BY id", (evento_id,))]
+    return bens + sobras
+
+
+def excluir_evento(conn, evento_id: int, nome_confirmacao, apagar=None) -> dict:
+    """Apaga o evento inteiro (aberto ou encerrado). Exige o nome digitado igual ao do evento. `apagar(url)` roda
+    para cada foto ANTES de tocar no banco: se falhar, nada é apagado. Não há desfazer."""
+    e = _um(conn, "SELECT * FROM inventario_eventos WHERE id = ?", evento_id)
+    if not e:
+        raise ErroDeNegocio("Evento de inventário não encontrado.")
+    if " ".join(_texto(nome_confirmacao).split()) != " ".join(e["nome"].split()):
+        raise ErroDeNegocio("O nome digitado não confere com o nome do evento; nada foi excluído.")
+    if apagar:
+        for url in urls_das_fotos(conn, evento_id):
+            apagar(url)
+    for tabela in _TABELAS_DO_EVENTO:
+        conn.execute(f"DELETE FROM {tabela} WHERE evento_id = ?", (evento_id,))
+    conn.execute("DELETE FROM inventario_eventos WHERE id = ?", (evento_id,))
+    conn.commit()
+    return e
+
+
 # ---------------------------------------------------------------- salas
 def salas(conn, evento_id: int) -> list[dict]:
     """Por sala do escopo: bens ativos (total), localizados aqui, divergentes lidos aqui, pendentes."""

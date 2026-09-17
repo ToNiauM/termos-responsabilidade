@@ -16,6 +16,7 @@
     </form>
     {% endif %}
     {% endif %}
+    {% if pode('inventario.excluir', 'POST') %}<a class="br-button danger ml-2" href="{{ url_for('inventario.excluir', id=e.id) }}"><i class="fas fa-trash mr-1" aria-hidden="true"></i>Excluir evento</a>{% endif %}
   </div>
 </div>
 {% if e.encerrado_em %}

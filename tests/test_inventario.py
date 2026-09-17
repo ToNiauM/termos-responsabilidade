@@ -666,3 +666,35 @@ def test_apagar_no_bucket_antes_do_banco(dados):
     assert inventario.resumo(dados, eid)["sobras"] == 1
     inventario.excluir_sobra(dados, eid, sid, apagar=apagadas.append)
     assert apagadas[-1] == "https://x/s.webp" and inventario.resumo(dados, eid)["sobras"] == 0
+
+
+def test_excluir_evento_apaga_tudo_com_fotos_primeiro(dados):
+    eid = semear_inventario(dados)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    foto_falsa(dados, eid, 1001, "https://x/1.webp")
+    foto_falsa(dados, eid, 1001, "https://x/2.webp")
+    sid = inventario.registrar_sobra(dados, eid, "01 - SALA CCI", "VENT", "", "obs", "https://x/s.webp", "Fulano")
+    inventario.registrar_sobra(dados, eid, "01 - SALA CCI", "SEM FOTO", "", "obs", "", "Fulano", exigir_foto=False)
+    c = inventario.contagem_para_exclusao(dados, eid)
+    assert c == {"leituras": 1, "fotos": 2, "sobras": 2, "sobras_com_foto": 1, "integrantes": 2, "bens_encerrados": 0, "salas": 3}
+    assert inventario.urls_das_fotos(dados, eid) == ["https://x/1.webp", "https://x/2.webp", "https://x/s.webp"]
+    with pytest.raises(db.ErroDeNegocio, match="não confere"):
+        inventario.excluir_evento(dados, eid, "Inventario 2026")
+    apagadas = []
+    def apagar_falha(url):
+        apagadas.append(url)
+        if url.endswith("2.webp"):
+            raise db.ErroDeNegocio("bucket fora")
+    with pytest.raises(db.ErroDeNegocio, match="bucket fora"):
+        inventario.excluir_evento(dados, eid, "Inventário 2026", apagar=apagar_falha)
+    assert inventario.evento(dados, eid) and inventario.contagem_para_exclusao(dados, eid)["fotos"] == 2   # nada mudou
+    apagadas.clear()
+    inventario.encerrar_evento(dados, eid)                                       # encerrado também pode ser excluído
+    assert inventario.contagem_para_exclusao(dados, eid)["bens_encerrados"] == 5
+    e = inventario.excluir_evento(dados, eid, "  Inventário  2026 ", apagar=apagadas.append)
+    assert e["id"] == eid and apagadas == ["https://x/1.webp", "https://x/2.webp", "https://x/s.webp"]
+    assert inventario.evento(dados, eid) is None and inventario.eventos(dados) == []
+    for t in ("inventario_leituras", "inventario_fotos", "inventario_sobras", "inventario_integrantes", "inventario_bens_encerrados", "inventario_salas"):
+        assert dados.execute(f"SELECT count(*) FROM {t} WHERE evento_id = ?", (eid,)).fetchone()[0] == 0, t
+    with pytest.raises(db.ErroDeNegocio, match="não encontrado"):
+        inventario.excluir_evento(dados, eid, "x")

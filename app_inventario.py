@@ -114,6 +114,28 @@ def comissao(id):
                            trilha=_trilha(e, ("Comissão", None)))
 
 
+def _apagar_fotos_do_evento(url):
+    try:
+        fotos.apagar(url)
+    except Exception:
+        raise db.ErroDeNegocio("Não foi possível apagar as fotos no bucket; o evento foi mantido. Tente de novo.")
+
+
+@inventario_bp.route("/<int:id>/excluir", methods=["GET", "POST"])
+def excluir(id):
+    conn = _conn()
+    e = _evento_ou_404(conn, id)
+    if request.method == "POST":
+        try:
+            inventario.excluir_evento(conn, id, request.form.get("nome", ""), apagar=_apagar_fotos_do_evento)
+        except db.ErroDeNegocio as erro:
+            flash(str(erro), "error")
+            return redirect(url_for("inventario.excluir", id=id))
+        flash(f"Evento {e['nome']} excluído.", "success")
+        return redirect(url_for("inventario.eventos_tela"))
+    return render_template("inventario_excluir.html", e=e, c=inventario.contagem_para_exclusao(conn, id), trilha=_trilha(e, ("Excluir", None)))
+
+
 def _json_erro(e, status=409):
     return jsonify({"erro": str(e)}), status
 

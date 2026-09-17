@@ -858,3 +858,30 @@ def test_inventario_comissao_so_em_evento_aberto(cliente):
     cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"})
     r = cliente.get(f"/inventario/{eid}/comissao", follow_redirects=True)
     assert b"encerrado" in r.data.lower()
+
+
+def test_inventario_excluir_evento(cliente, dados, monkeypatch, usuarios_exemplo):
+    import fotos, inventario
+    eid = _abrir(cliente)
+    cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+    inventario.adicionar_foto(dados, eid, 1001, lambda c: "https://x/a.webp")
+    r = cliente.get(f"/inventario/{eid}")
+    assert b"Excluir evento" in r.data
+    r = cliente.get(f"/inventario/{eid}/excluir")
+    assert r.status_code == 200 and b"1 leitura" in r.data and b"1 foto" in r.data and b'name="nome"' in r.data
+    monkeypatch.setattr(fotos, "apagar", lambda url: (_ for _ in ()).throw(RuntimeError("bucket fora")))
+    r = cliente.post(f"/inventario/{eid}/excluir", data={"nome": "Inv"}, follow_redirects=True)
+    assert "Não foi possível apagar as fotos no bucket; o evento foi mantido".encode() in r.data
+    assert inventario.evento(dados, eid) is not None
+    apagadas = []
+    monkeypatch.setattr(fotos, "apagar", apagadas.append)
+    r = cliente.post(f"/inventario/{eid}/excluir", data={"nome": "Errado"}, follow_redirects=True)
+    assert "não confere".encode() in r.data and inventario.evento(dados, eid) is not None
+    r = cliente.post(f"/inventario/{eid}/excluir", data={"nome": "Inv"}, follow_redirects=True)
+    assert "Evento Inv excluído".encode() in r.data and apagadas == ["https://x/a.webp"]
+    assert inventario.evento(dados, eid) is None and cliente.get(f"/inventario/{eid}").status_code == 404
+    eid = _abrir(cliente)
+    cliente.post("/sair"); logar(cliente, *usuarios_exemplo["operador"])
+    assert cliente.get(f"/inventario/{eid}/excluir").status_code == 403
+    assert cliente.post(f"/inventario/{eid}/excluir", data={"nome": "Inv"}).status_code == 403
+    assert b"Excluir evento" not in cliente.get(f"/inventario/{eid}").data

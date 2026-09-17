@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block titulo %}Excluir · {{ e.nome }}{% endblock %}
+{% block conteudo %}
+<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Excluir o evento {{ e.nome }}</h1></div>
+<div class="br-message danger mb-3"><div class="icon"><i class="fas fa-exclamation-triangle fa-lg" aria-hidden="true"></i></div>
+  <div class="content" role="alert"><span class="message-title">Esta ação não tem desfazer.</span><span class="message-body"> O evento {{ 'está aberto' if not e.encerrado_em else 'está encerrado' }}. Serão apagados:
+    {{ c.leituras }} leitura(s), {{ c.fotos }} foto(s) de bens{% if c.sobras_com_foto %} e {{ c.sobras_com_foto }} de sobras{% endif %} (também no bucket), {{ c.sobras }} sobra(s), {{ c.integrantes }} integrante(s) da comissão, {{ c.salas }} sala(s) do escopo{% if c.bens_encerrados %} e o retrato de {{ c.bens_encerrados }} bem(ns) congelado(s) no encerramento{% endif %}. O caminho de volta é o backup diário.</span></div></div>
+<form method="post" action="{{ url_for('inventario.excluir', id=e.id) }}" class="col-md-6">
+  <div class="br-input mb-3"><label for="nome">Digite o nome do evento para confirmar: <strong>{{ e.nome }}</strong></label><input id="nome" name="nome" type="text" autocomplete="off" required/></div>
+  <a class="br-button" href="{{ url_for('inventario.evento_tela', id=e.id) }}">Cancelar</a>
+  <button class="br-button danger ml-2" type="submit"><i class="fas fa-trash mr-1" aria-hidden="true"></i>Excluir definitivamente</button>
+</form>
+{% endblock %}
