@@ -4,6 +4,14 @@ from html.parser import HTMLParser
 from werkzeug.datastructures import MultiDict
 
 
+@pytest.fixture(autouse=True)
+def _hash_rapido(monkeypatch):
+    """scrypt é lento de propósito; nos testes basta um pbkdf2 curto (check_password_hash lê o método do hash)."""
+    from werkzeug.security import generate_password_hash
+    import usuarios
+    monkeypatch.setattr(usuarios, "generate_password_hash", lambda senha: generate_password_hash(senha, method="pbkdf2:sha256:1000"))
+
+
 def confirmar_revisao(cliente, resposta, rota):
     """Envia os campos da revisão exibida, como faria o navegador."""
     class Campos(HTMLParser):

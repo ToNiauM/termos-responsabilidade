@@ -25,7 +25,7 @@ def test_permitido_por_perfil():
     assert not usuarios.permitido("chefe", "home")
 
 
-def test_toda_rota_do_app_esta_na_matriz():
+def test_toda_rota_do_app_esta_na_matriz(dados):
     from app import app
     faltam = []
     for regra in app.url_map.iter_rules():

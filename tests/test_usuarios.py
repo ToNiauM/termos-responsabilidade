@@ -11,7 +11,7 @@ def test_criar_e_buscar(dados):
     u = usuarios.por_id(dados, uid)
     assert u["login"] == "antonio" and u["nome"] == "Antônio Sousa" and u["perfil"] == "admin"
     assert u["ativo"] == 1 and u["trocar_senha"] == 0 and u["falhas"] == 0 and u["bloqueado_ate"] is None
-    assert u["senha_hash"] != "Senha!234" and u["senha_hash"].startswith("scrypt:")
+    assert u["senha_hash"] != "Senha!234" and "$" in u["senha_hash"]
     assert usuarios.por_login(dados, "ANTONIO")["id"] == uid
     assert usuarios.por_login(dados, "ninguem") is None and usuarios.por_id(dados, 999) is None
 
