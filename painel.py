@@ -121,6 +121,38 @@ def cards_graficos(dim: dict, f: dict, omitir=()) -> list[dict]:
     return cards
 
 
+def indicadores_analise(r: dict, f: dict) -> list[dict]:
+    """Seis cards do recorte: dois totais (sem link) e quatro contagens que, quando positivas e sem
+    conflito com o filtro atual, viram um clique que ACRESCENTA uma restrição sem trocar as demais
+    (spec fase5b §3). 'Valor não informado'/'Valor zero' nunca combinam com um intervalo numérico:
+    NULL nunca satisfaz >=/<=, então essa combinação é sempre vazia; zero pode até coincidir com o
+    intervalo, mas o clique não deve propor uma mistura que pareça contraditória."""
+    def refinar(contagem, **novos):
+        if not contagem or any(f.get(k) and f[k] != v for k, v in novos.items()):
+            return None
+        if all(f.get(k) == v for k, v in novos.items()):
+            return None
+        return url_recorte(f, **novos)
+
+    def refinar_valor_status(contagem, valor):
+        if f.get("valor_de") or f.get("valor_ate"):
+            return None
+        return refinar(contagem, valor_status=valor)
+
+    return [
+      dict(rotulo='Bens no recorte', valor=r['quantidade'], detalhe=None, url=None),
+      dict(rotulo='Valor atual', valor=moeda(r['valor_total']), detalhe=None, url=None),
+      dict(rotulo='Imóveis', valor=r['imoveis'], detalhe=moeda(r['valor_imoveis']),
+           url=refinar(r['imoveis'], classificacao='imoveis')),
+      dict(rotulo='Sem centro nem pessoa', valor=r['sem_centro'], detalhe=None,
+           url=refinar(r['sem_centro'], ccusto='-', pessoa='-')),
+      dict(rotulo='Valor não informado', valor=r['valor_nao_informado'], detalhe=None,
+           url=refinar_valor_status(r['valor_nao_informado'], 'nao_informado')),
+      dict(rotulo='Valor zero', valor=r['valor_zero'], detalhe=None,
+           url=refinar_valor_status(r['valor_zero'], 'zero')),
+    ]
+
+
 def _data_br(iso: str) -> str:
     return f"{iso[8:10]}/{iso[5:7]}/{iso[:4]}"
 
@@ -146,4 +178,6 @@ def descrever(f: dict, nomes: dict | None = None) -> str:
         partes.append(f"entrada a partir de {_data_br(f['entrada_de'])}")
     elif f.get("entrada_ate"):
         partes.append(f"entrada até {_data_br(f['entrada_ate'])}")
+    if f.get("valor_status"):
+        partes.append({"nao_informado": "valor não informado", "zero": "valor zero"}[f["valor_status"]])
     return " · ".join(partes)

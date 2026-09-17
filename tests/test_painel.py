@@ -99,3 +99,116 @@ def test_grafico_tipos_pela_quantidade_de_itens(dados):
         op, sub, altura, col = painel._grafico([item(i) for i in range(15, 0, -1)], {"situacao": "ATIVO"}, "ano")
         assert op["series"][0]["type"] == "bar" and len(op["xAxis"]["data"]) == 15 and sub is None and altura == "alto" and col == "col-12"
         assert op["xAxis"]["axisLabel"]["rotate"] == 45                 # muitas colunas: rótulos inclinados
+
+
+def test_indicadores_nao_trocam_filtro(dados):
+    from app import app
+    import painel
+    r = dict(quantidade=1, valor_total=10, imoveis=0, valor_imoveis=0,
+             sem_centro=0, valor_nao_informado=0, valor_zero=0)
+    with app.test_request_context():
+        cards = painel.indicadores_analise(r, {'ccusto': 'CCI', 'classificacao': 'MÓVEIS', 'valor_de': '1'})
+    assert all(c['url'] is None for c in cards)
+
+
+def test_indicadores_valor_status_bloqueado_por_intervalo_numerico():
+    """Valor não informado nunca combina com um intervalo (NULL nunca satisfaz >=/<=); valor zero pode
+    coincidir com o intervalo, mas o clique não deve oferecer a combinação (spec: sem contradição)."""
+    from app import app
+    import painel
+    r = dict(quantidade=5, valor_total=100, imoveis=0, valor_imoveis=0,
+             sem_centro=0, valor_nao_informado=2, valor_zero=2)
+    with app.test_request_context():
+        por = {c['rotulo']: c for c in painel.indicadores_analise(r, {'valor_de': '1'})}
+        assert por['Valor não informado']['url'] is None and por['Valor zero']['url'] is None
+        por = {c['rotulo']: c for c in painel.indicadores_analise(r, {'valor_ate': '100'})}
+        assert por['Valor não informado']['url'] is None and por['Valor zero']['url'] is None
+        por = {c['rotulo']: c for c in painel.indicadores_analise(r, {})}
+        assert por['Valor não informado']['url'] is not None and por['Valor zero']['url'] is not None
+
+
+def test_indicadores_analise_valores_e_detalhe(dados):
+    """Os seis cards, na ordem da spec, com rótulo/valor/detalhe corretos e URLs de imóveis e sem
+    centro nem pessoa quando não há conflito de filtro."""
+    from app import app
+    import painel
+    r = dict(quantidade=7, valor_total=1234.5, imoveis=2, valor_imoveis=6000,
+             sem_centro=3, valor_nao_informado=1, valor_zero=1)
+    with app.test_request_context():
+        cards = painel.indicadores_analise(r, {'situacao': 'ATIVO'})
+    assert [c['rotulo'] for c in cards] == ['Bens no recorte', 'Valor atual', 'Imóveis',
+                                             'Sem centro nem pessoa', 'Valor não informado', 'Valor zero']
+    por = {c['rotulo']: c for c in cards}
+    assert por['Bens no recorte']['valor'] == 7 and por['Bens no recorte']['url'] is None
+    assert por['Valor atual']['valor'] == 'R$ 1.234,50' and por['Valor atual']['url'] is None
+    assert por['Imóveis']['valor'] == 2 and por['Imóveis']['detalhe'] == 'R$ 6.000,00'
+    assert por['Imóveis']['url'] == '/analise?situacao=ATIVO&classificacao=imoveis'
+    assert por['Sem centro nem pessoa']['url'] == '/analise?situacao=ATIVO&ccusto=-&pessoa=-'
+    assert por['Valor não informado']['url'] == '/analise?situacao=ATIVO&valor_status=nao_informado'
+    assert por['Valor zero']['url'] == '/analise?situacao=ATIVO&valor_status=zero'
+
+
+def test_indicadores_analise_clique_completo(dados):
+    """Clique num indicador positivo: decodifica a URL do card e confirma que db.recorte com esses
+    filtros traz a mesma contagem. Cobre situacao=, centro, pessoa, imóvel, intervalo, NULL, zero e
+    filtros já fixados (onde o card correto deixa de oferecer link)."""
+    from urllib.parse import urlparse, parse_qs
+    from app import app
+    from tests.conftest import semear
+    import db, painel
+    semear(dados)
+    dados.execute("INSERT INTO bens VALUES (5001,'ATIVO','TERRENO','','TERRENOS','','01/01/2000',1,1000)")
+    dados.execute("INSERT INTO bens VALUES (5002,'ATIVO','TV','','EQUIPAMENTOS','01 - SALA CCI','01/01/2020',NULL,NULL)")
+    dados.execute("INSERT INTO bens VALUES (5003,'ATIVO','TV2','','EQUIPAMENTOS','01 - SALA CCI','01/01/2020',0,0)")
+    dados.commit()
+
+    def clicar(f):
+        with app.test_request_context():
+            r = db.recorte(dados, f)
+            cards = painel.indicadores_analise(r, f)
+        for c in cards:
+            if c['url'] is None or not isinstance(c['valor'], int):
+                continue
+            q = parse_qs(urlparse(c['url']).query, keep_blank_values=True)
+            f2 = {k: v[0] for k, v in q.items() if k in db.FILTROS}
+            assert db.recorte(dados, f2)['quantidade'] == c['valor'], (c['rotulo'], c['url'], f2)
+        return r, {c['rotulo']: c for c in cards}
+
+    # situacao= (todas as situações): imóvel e sem centro nem pessoa aparecem
+    r, por = clicar({'situacao': ''})
+    assert r['imoveis'] == 1 and r['sem_centro'] == 2
+
+    # situacao padrão (ATIVO)
+    clicar({'situacao': 'ATIVO'})
+
+    # centro já fixado
+    clicar({'situacao': 'ATIVO', 'ccusto': 'CCI'})
+
+    # pessoa já fixada
+    clicar({'situacao': 'ATIVO', 'pessoa': 'ANA SILVA'})
+
+    # classificação de imóvel já fixada: sem novo refinamento de imóveis
+    r, por = clicar({'situacao': 'ATIVO', 'classificacao': 'imoveis'})
+    assert por['Imóveis']['url'] is None
+
+    # intervalo numérico ativo: bloqueia os dois cards de situação do valor
+    r, por = clicar({'situacao': 'ATIVO', 'valor_de': '0'})
+    assert por['Valor não informado']['url'] is None and por['Valor zero']['url'] is None
+
+    # NULL já isolado
+    r, por = clicar({'situacao': 'ATIVO', 'valor_status': 'nao_informado'})
+    assert por['Valor não informado']['url'] is None
+
+    # zero já isolado
+    r, por = clicar({'situacao': 'ATIVO', 'valor_status': 'zero'})
+    assert por['Valor zero']['url'] is None
+
+    # sem centro nem pessoa já fixado
+    r, por = clicar({'situacao': 'ATIVO', 'ccusto': '-', 'pessoa': '-'})
+    assert por['Sem centro nem pessoa']['url'] is None
+
+
+def test_descrever_valor_status(dados):
+    import painel
+    assert painel.descrever({'situacao': 'ATIVO', 'valor_status': 'nao_informado'}) == 'Bens ATIVO · valor não informado'
+    assert painel.descrever({'situacao': 'ATIVO', 'valor_status': 'zero'}) == 'Bens ATIVO · valor zero'

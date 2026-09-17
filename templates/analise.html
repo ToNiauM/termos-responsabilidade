@@ -22,6 +22,9 @@
   <div class="col-md-3 mb-3"><div class="br-input"><label for="valor_ate">Valor até (R$)</label><input id="valor_ate" name="valor_ate" type="text" inputmode="decimal" value="{{ f.get('valor_ate', '') }}"/></div></div>
   <div class="col-md-3 mb-3"><div class="br-input"><label for="entrada_de">Entrada de</label><input id="entrada_de" name="entrada_de" type="date" value="{{ f.get('entrada_de', '') }}"/></div></div>
   <div class="col-md-3 mb-3"><div class="br-input"><label for="entrada_ate">Entrada até</label><input id="entrada_ate" name="entrada_ate" type="date" value="{{ f.get('entrada_ate', '') }}"/></div></div>
+  <div class="col-md-3 mb-3">{{ select('valor_status', 'Situação do valor',
+    [('', 'Todos'), ('nao_informado', 'Valor não informado'), ('zero', 'Valor zero')],
+    selecionado=f.get('valor_status', ''), obrigatorio=False) }}</div>
   {% if f.get('ano') %}<input type="hidden" name="ano" value="{{ f.ano }}"/>{% endif %}
   {% if f.get('faixa') %}<input type="hidden" name="faixa" value="{{ f.faixa }}"/>{% endif %}
   <div class="col-md-6 mb-3 d-flex align-items-end">
@@ -31,8 +34,17 @@
 </div></form>
 
 <div class="row mb-2">
-  <div class="col-sm-6 col-md-3 mb-3"><div class="br-card h-100"><div class="card-content"><div class="text-up-03 text-weight-bold">{{ r.quantidade }}</div><div class="text-down-01 text-gray-70">bens no recorte</div></div></div></div>
-  <div class="col-sm-6 col-md-3 mb-3"><div class="br-card h-100"><div class="card-content"><div class="text-up-03 text-weight-bold">{{ moeda(r.valor_total) }}</div><div class="text-down-01 text-gray-70">valor atual</div></div></div></div>
+{% for k in indicadores %}
+  <div class="col-sm-6 col-lg-4 mb-3">
+    {% if k.url %}<a class="br-card h-100 dsgov-kpi" href="{{ k.url }}">
+    {% else %}<div class="br-card h-100 dsgov-kpi">{% endif %}
+      <div class="card-content"><div class="valor">{{ k.valor }}</div>
+        {% if k.detalhe %}<div class="detalhe">{{ k.detalhe }}</div>{% endif %}
+        <div class="text-down-01 text-gray-70">{{ k.rotulo }}</div>
+      </div>
+    {% if k.url %}</a>{% else %}</div>{% endif %}
+  </div>
+{% endfor %}
 </div>
 
 <div class="row">{% for g in cards %}{{ grafico(g) }}{% endfor %}</div>
@@ -45,7 +57,7 @@
   <thead><tr><th scope="col">Número</th><th scope="col">Descrição</th><th scope="col">Complemento</th><th scope="col">Localização</th><th scope="col">Centro</th><th scope="col">Pessoa</th><th scope="col">Classificação</th><th scope="col">Entrada</th><th scope="col" class="dsgov-numero">Valor</th></tr></thead>
   <tbody>
   {% for b in r.bens %}
-  <tr><td><a href="{{ url_for('bem', numero=b.numero) }}">{{ b.numero }}</a></td><td>{{ b.descricao }}</td><td>{{ b.complemento or '' }}</td><td>{{ b.localizacao or '' }}</td><td>{{ b.ccustos or '' }}</td><td>{{ b.pessoa or '' }}</td><td>{{ b.classificacao or '' }}</td><td>{{ b.data_entrada or '' }}</td><td class="dsgov-numero">{{ moeda(b.valor_atual) }}</td></tr>
+  <tr><td><a href="{{ url_for('bem', numero=b.numero) }}">{{ b.numero }}</a></td><td>{{ b.descricao }}</td><td>{{ b.complemento or '' }}</td><td>{{ b.localizacao or '' }}</td><td>{{ b.ccustos or '' }}</td><td>{{ b.pessoa or '' }}</td><td>{{ b.classificacao or '' }}</td><td>{{ b.data_entrada or '' }}</td><td class="dsgov-numero">{{ 'Não informado' if b.valor_atual is none else moeda(b.valor_atual) }}</td></tr>
   {% else %}<tr><td colspan="9">Nenhum bem neste recorte.</td></tr>
   {% endfor %}
   </tbody>

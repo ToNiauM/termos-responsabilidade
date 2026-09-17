@@ -285,6 +285,7 @@ def analise():
         "centros": [c["ccustos"] for c in db.centros(conn)], "pessoas": db.pessoas(conn), "idades": db.FAIXAS_IDADE,
     }
     return render_template("analise.html", f=f, r=r, cards=painel.cards_graficos(r["dimensoes"], f, omitir), termo_de=termo_de,
+                           indicadores=painel.indicadores_analise(r, f),
                            descricao=painel.descrever(f, nomes), opcoes=opcoes, moeda=painel.moeda,
                            url_xlsx=painel.url_recorte_xlsx(f), trilha=[("Análise", None)])
 
