@@ -1196,7 +1196,6 @@ def painel(conn) -> dict:
         "ultima_importacao": (importacoes(conn, 1) or [None])[0],
         "centros": situacoes_centros(conn),
         "pessoas": situacoes_pessoas(conn),
-        "dimensoes": dimensoes(conn, {"situacao": "ATIVO"}),
     }
     d.update({
         "valor_nao_informado": um(f"SELECT count(*) FROM bens b WHERE {ativo} AND b.valor_atual IS NULL"),

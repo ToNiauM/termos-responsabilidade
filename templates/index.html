@@ -1,37 +1,23 @@
 {% extends "base.html" %}
-{% from "_macros.html" import grafico, tag_termo, cabecalho_tabela %}
 {% block titulo %}Início{% endblock %}
 {% block conteudo %}
 <div class="d-flex align-items-center mb-4"><h1 class="mb-0">Início</h1></div>
 {# Atalhos em carrossel (rolagem horizontal com snap), no estilo das homes gov.br #}
 <div class="dsgov-atalhos mb-4" role="list" aria-label="Acesso rápido">
-  {% for rotulo, icone, descricao, endpoint in [
-    ('Termo por centro de custo', 'fa-building', 'Bens sob guarda de um setor', 'centro_custos'),
-    ('Termo individual', 'fa-user-check', 'Bens atribuídos a uma pessoa', 'termos_individuais'),
-    ('Termo de devolução', 'fa-box-open', 'Devolução de bens ao patrimônio', 'termo_devolucao'),
-    ('Termos emitidos', 'fa-history', 'Histórico e documentos SEI', 'termos_emitidos_tela'),
-    ('Realizar inventário', 'fa-clipboard-check', 'Leitura por sala com código de barras', 'inventario.eventos_tela'),
-  ] if pode(endpoint) %}
-  <a class="br-card dsgov-atalho" href="{{ url_for(endpoint) }}" role="listitem">
-    <div class="card-content">
-      <div class="dsgov-atalho-icone"><i class="fas {{ icone }}" aria-hidden="true"></i></div>
-      <div class="text-weight-semi-bold text-up-01">{{ rotulo }}</div>
-      <div class="text-down-01 text-gray-70">{{ descricao }}</div>
-    </div>
-  </a>
-  {% endfor %}
-</div>
-<div class="br-card mb-4">
-  <div class="card-header"><div class="text-weight-semi-bold text-up-01">Pesquisar</div></div>
-  <div class="card-content">
-    <form method="get" action="{{ url_for('pesquisa') }}" class="d-flex align-items-end">
-      <div class="br-input mr-3 flex-fill">
-        <label for="q">Número do patrimônio, descrição, nome ou centro de custo</label>
-        <input id="q" name="q" type="text" placeholder="Ex.: 14359, computador, GEX* ou Antônio" required/>
-      </div>
-      <button class="br-button primary" type="submit"><i class="fas fa-search mr-1" aria-hidden="true"></i>Pesquisar</button>
-    </form>
-  </div>
+{% for rotulo,icone,descricao,ep,permissao,metodo in [
+ ('Termo por centro de custo','fa-building','Bens sob guarda de um setor','centro_custos','centro_custos','GET'),
+ ('Termo individual','fa-user-check','Bens atribuídos a uma pessoa','termos_individuais','termos_individuais','GET'),
+ ('Termo de devolução','fa-box-open','Devolução de bens ao patrimônio','termo_devolucao','termo_devolucao','GET'),
+ ('Termos emitidos','fa-history','Histórico e documentos SEI','termos_emitidos_tela','termos_emitidos_tela','GET'),
+ ('Realizar inventário','fa-clipboard-check','Conferência de bens por sala','inventario.eventos_tela','inventario.ler','POST'),
+ ('Análise','fa-chart-bar','Filtros, gráficos e exportação do acervo','analise','analise','GET')
+] %}
+{% if pode(permissao,metodo) %}
+<a class="br-card dsgov-atalho" href="{{ url_for(ep) }}" role="listitem"><div class="card-content">
+  <div class="dsgov-atalho-icone"><i class="fas {{ icone }}" aria-hidden="true"></i></div>
+  <div class="text-weight-semi-bold text-up-01">{{ rotulo }}</div><div class="text-down-01 text-gray-70">{{ descricao }}</div>
+</div></a>
+{% endif %}{% endfor %}
 </div>
 
 {% if p.valor_nao_informado %}
@@ -73,27 +59,13 @@
   {% endif %}
 </div>
 
-<div class="row">
-  {% for g in cards %}{{ grafico(g) }}{% endfor %}
-</div>
-
-<div class="mt-3">
-{{ cabecalho_tabela('Termos por centro de custo', 'centros') }}
-  <thead><tr><th scope="col">Centro</th><th scope="col">Responsável</th><th scope="col" class="dsgov-numero">Bens</th><th scope="col" class="dsgov-numero">Valor</th><th scope="col">Situação</th><th scope="col" class="dsgov-acoes">Ações</th></tr></thead>
-  <tbody>
-  {% for c in p.centros %}
-  <tr>
-    <td><a href="{{ url_recorte(f, ccusto=c.ccustos) }}">{{ c.ccustos }}</a></td><td>{{ c.responsavel }}</td>
-    <td class="dsgov-numero">{{ c.quantidade }}</td><td class="dsgov-numero">{{ moeda(c.valor) }}</td>
-    <td>{{ tag_termo(c) }}</td>
-    <td class="dsgov-acoes"><a class="br-button circle small" href="{{ url_for('termo', tipo='ccusto', chave=c.ccustos) }}" aria-label="Termo de {{ c.ccustos }}"><i class="fas fa-file-alt" aria-hidden="true"></i></a></td>
-  </tr>
-  {% endfor %}
-  </tbody>
-</table></div>
-</div>
-{% endblock %}
-{% block scripts %}
-<script src="{{ url_for('static', filename='dsgov/vendor/echarts/echarts.min.js') }}"></script>
-<script src="{{ url_for('static', filename='dsgov/js/echarts-dsgov.js') }}"></script>
+<section class="br-card mt-4" aria-labelledby="sobre-patrimonio">
+  <div class="card-header"><h2 class="text-up-02" id="sobre-patrimonio">Sobre o patrimônio</h2></div>
+  <div class="card-content">
+    <p>Este sistema reúne o cadastro dos bens do Conselho Federal de Contabilidade, os responsáveis por sua guarda, os termos de responsabilidade e o inventário.</p>
+    <p>O Termo de Responsabilidade registra a guarda dos bens por um centro de custo ou por uma pessoa. O Termo de Devolução registra a devolução dos bens. Os documentos são preparados aqui para uso no SEI.</p>
+    <p>Use os atalhos para suas atividades e a pesquisa do cabeçalho para localizar bens, pessoas ou centros de custo. O guia explica as funções disponíveis para você.</p>
+    <a class="br-button secondary" href="{{ url_for('ajuda') }}">Ver guia</a>
+  </div>
+</section>
 {% endblock %}

@@ -579,7 +579,7 @@ def test_painel_cards(dados):
     assert round(p["valor_sem_imoveis"], 2) == 64.54 + 1500 + 250.5 + 3500 + 800
     assert p["sem_centro"] == 2 and p["valor_nao_informado"] == 0 and p["valor_zero"] == 0 and p["ultima_importacao"] is None
     assert p["a_emitir_centros"] == 1 and p["a_emitir_pessoas"] == 1
-    assert p["centros"][0]["ccustos"] == "CCI" and "dimensoes" in p
+    assert p["centros"][0]["ccustos"] == "CCI" and "dimensoes" not in p
     assert db.recorte(dados, {"situacao": "ATIVO", "ccusto": "-", "pessoa": "-"})["quantidade"] == p["sem_centro"]
 
 

@@ -19,6 +19,18 @@ def test_home_e_busca_de_bem(cliente):
     assert "não encontrado".encode() in r.data
 
 
+def test_inicio_nao_calcula_graficos(cliente, monkeypatch):
+    import db
+    def proibido(*args, **kwargs): raise AssertionError('Início não usa dimensões')
+    monkeypatch.setattr(db, 'dimensoes', proibido)
+    html = cliente.get('/').get_data(as_text=True)
+    conteudo = html.split('id="main-content"', 1)[1].split('</main>', 1)[0]
+    assert '<form' not in conteudo
+    assert 'echarts.min.js' not in html
+    assert 'Termos por centro de custo' not in conteudo
+    assert 'Sobre o patrimônio' in conteudo and 'Ver guia' in conteudo
+
+
 def test_bem_mostra_fotos_por_evento(cliente):
     assert b"Fotos do invent" not in cliente.get("/bem?numero=1001").data
     eid = _abrir(cliente)
@@ -382,12 +394,37 @@ def test_painel_na_tela_inicial(cliente):
     r = cliente.get("/")
     assert r.status_code == 200
     assert b"dsgov-atalhos" in r.data and "Realizar inventário".encode() in r.data and b'href="/inventario"' in r.data   # carrossel de atalhos
-    assert b"bens ativos" in r.data and b'data-grafico="g-centro"' in r.data and b'data-grafico="g-ano"' in r.data
-    assert b"echarts.min.js" in r.data and b"echarts-dsgov.js" in r.data
-    assert b"/analise?situacao=ATIVO&amp;ccusto=CCI" in r.data or b"/analise?situacao=ATIVO&ccusto=CCI" in r.data
-    assert b"/termo/ccusto/CCI" in r.data and b"sem termo" in r.data
+    assert b"bens ativos" in r.data
     assert b"Nenhuma" in r.data       # última importação: nenhuma
     assert b"sem centro nem pessoa" in r.data
+    assert "Sobre o patrimônio".encode() in r.data and b'href="/ajuda"' in r.data and b"Ver guia" in r.data
+
+
+def test_atalhos_do_inicio_seguem_as_permissoes(cliente, usuarios_exemplo):
+    """Admin recebe os seis atalhos; Operador e Consulta não recebem 'Realizar inventário' (exige
+    inventario.ler); Consulta não recebe o indicador de importação (exige importacao_tela)."""
+    r = cliente.get("/")
+    for rotulo in ("Termo por centro de custo", "Termo individual", "Termo de devolução",
+                   "Termos emitidos", "Realizar inventário", "Análise"):
+        assert rotulo.encode() in r.data
+    assert r.data.count(b'class="br-card dsgov-atalho"') == 6
+
+    cliente.post("/sair"); logar(cliente, *usuarios_exemplo["operador"])
+    r = cliente.get("/")
+    assert r.data.count(b'class="br-card dsgov-atalho"') == 5
+    assert "Realizar inventário".encode() not in r.data
+    assert "Nenhuma importação registrada".encode() in r.data   # operador continua com o KPI de importação
+
+    cliente.post("/sair"); logar(cliente, *usuarios_exemplo["consulta"])
+    r = cliente.get("/")
+    assert r.data.count(b'class="br-card dsgov-atalho"') == 5
+    assert "Realizar inventário".encode() not in r.data
+    assert "Nenhuma importação registrada".encode() not in r.data   # consulta não recebe o KPI de importação
+
+
+def test_inventariante_sozinho_e_redirecionada_do_inicio(cliente):
+    cliente.post("/sair"); logar(cliente, "beltrana", SENHA_PADRAO)
+    assert cliente.get("/").headers["Location"] == "/inventario"
 
 
 def test_listas_mostram_situacao_do_termo(cliente):

@@ -201,7 +201,7 @@ def home():
     f = {"situacao": "ATIVO"}
     a = _evento_aberto_visivel(g.usuario) if usuarios.permitido(g.usuario["funcoes"], "inventario.eventos_tela") else None
     inventario_aberto = inventario.evento(obter_conn(), a["id"]) if a else None
-    return render_template("index.html", p=p, cards=painel.cards_graficos(p["dimensoes"], f), f=f,
+    return render_template("index.html", p=p, f=f,
                            moeda=painel.moeda, url_recorte=painel.url_recorte, trilha=[], inventario_aberto=inventario_aberto)
 
 
