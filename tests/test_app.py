@@ -2,21 +2,11 @@ import io
 from datetime import date
 from urllib.parse import unquote
 
-import pytest
 from openpyxl import Workbook, load_workbook
 
 import db
-from tests.conftest import semear, confirmar_revisao
+from tests.conftest import semear, confirmar_revisao, logar, ADMIN_LOGIN, ADMIN_NOME, ADMIN_SENHA
 from tests.test_db import CABECALHO
-
-
-@pytest.fixture
-def cliente(dados):
-    semear(dados)
-    from app import app
-    app.config["TESTING"] = True
-    with app.test_client() as c:
-        yield c
 
 
 def test_home_e_busca_de_bem(cliente):

@@ -25,6 +25,17 @@
           <div class="header-sign">{{ DSGOV.ORGAO }}</div>
         </div>
         <div class="header-actions">
+          {% if USUARIO and USUARIO.id %}
+          <div class="header-login">
+            <div class="header-sign-in d-flex align-items-center">
+              <span class="text-down-01 mr-2"><i class="fas fa-user-circle mr-1" aria-hidden="true"></i>{{ USUARIO.nome }} · {{ ROTULO_PERFIL[USUARIO.perfil] }}</span>
+              <a class="br-button small" href="{{ url_for('usuarios.senha') }}">Trocar senha</a>
+              <form method="post" action="{{ url_for('usuarios.sair') }}" class="d-inline ml-1">
+                <button class="br-button small secondary" type="submit"><i class="fas fa-sign-out-alt mr-1" aria-hidden="true"></i>Sair</button>
+              </form>
+            </div>
+          </div>
+          {% endif %}
           <div class="header-search-trigger">
             <button class="br-button circle" type="button" aria-label="Abrir pesquisa" data-toggle="search" data-target=".header-search"><i class="fas fa-search" aria-hidden="true"></i></button>
           </div>

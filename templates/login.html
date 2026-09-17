@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Entrar — {{ DSGOV.SISTEMA }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/css/fontes.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/vendor/govbr-ds/core.min.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/vendor/fontawesome/css/all.min.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/css/dsgov.css') }}"/>
+</head>
+<body>
+<main class="container-lg d-flex justify-content-center align-items-center" style="min-height: 100vh">
+  <div class="br-card" style="width: 100%; max-width: 420px">
+    <div class="card-header">
+      <div class="d-flex align-items-center"><img src="{{ url_for('static', filename='logo.png') }}" alt="{{ DSGOV.ORGAO }}" style="height: 40px" class="mr-3"/>
+        <div><div class="text-weight-semi-bold text-up-01">{{ DSGOV.SISTEMA }}</div><div class="text-down-01 text-gray-70">{{ DSGOV.ORGAO }}</div></div></div>
+    </div>
+    <div class="card-content">
+      {% if sem_usuarios %}
+      <div class="br-message warning"><div class="icon"><i class="fas fa-exclamation-triangle fa-lg" aria-hidden="true"></i></div>
+        <div class="content" role="alert"><span class="message-title">Nenhum usuário cadastrado.</span><span class="message-body"> Crie o primeiro administrador no servidor:
+          <code>python usuarios.py criar-admin &lt;login&gt; "&lt;Nome&gt;"</code> (na VPS: <code>docker compose exec web python usuarios.py criar-admin …</code>).</span></div></div>
+      {% else %}
+      {% if erro %}<div class="br-message danger mb-3"><div class="icon"><i class="fas fa-times-circle fa-lg" aria-hidden="true"></i></div>
+        <div class="content" role="alert"><span class="message-body">{{ erro }}</span></div></div>{% endif %}
+      <form method="post" action="{{ url_for('usuarios.login', proximo=proximo) if proximo else url_for('usuarios.login') }}">
+        <div class="br-input mb-3"><label for="login">Usuário</label><input id="login" name="login" type="text" autocomplete="username" autocapitalize="none" value="{{ login }}" required autofocus/></div>
+        <div class="br-input mb-4"><label for="senha">Senha</label><input id="senha" name="senha" type="password" autocomplete="current-password" required/></div>
+        <button class="br-button primary block" type="submit"><i class="fas fa-sign-in-alt mr-1" aria-hidden="true"></i>Entrar</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</main>
+</body>
+</html>

@@ -64,3 +64,9 @@ def chave_secreta() -> str:
         raise RuntimeError(f"Sem permissão para ler {caminho} (criado pelo Docker como root?). "
                            "Ajuste o dono do arquivo ou defina TERMOS_SEGREDO.") from None
     raise RuntimeError(f"{caminho} continua vazio: apague o arquivo e abra o programa de novo.")
+
+
+def exigir_login() -> bool:
+    """Web (compose.yml define TERMOS_LOGIN=1): pede usuário e senha. Desktop e testes por padrão: entra direto
+    como administrador local."""
+    return os.environ.get("TERMOS_LOGIN") == "1"

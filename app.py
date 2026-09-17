@@ -1,18 +1,21 @@
 """Termos de Responsabilidade — CFC. Rotas Flask; dados em db.py; documentos em termos_html.py e nos geradores."""
 import io
 import re
+from datetime import timedelta
 
 from flask import Flask, abort, flash, g, redirect, render_template, request, send_file, session, url_for
 
 from app_inventario import inventario_bp
 from app_cadastros import registrar_cadastros
+from app_usuarios import usuarios_bp
 import config
 import db
 import inventario
 import painel
 import termos_html
 import textos
-from urllib.parse import quote
+import usuarios
+from urllib.parse import quote, urlencode
 from Script_Termo_Individual import criar_termo_responsabilidade
 from Termo_de_Responsabilidade import gerar_planilha_centro, gerar_termo_centro
 from termo_devolucao import gerar_termo_devolucao
@@ -20,6 +23,10 @@ from termo_devolucao import gerar_termo_devolucao
 app = Flask(__name__, template_folder=str(config.pasta_recursos() / "templates"),
             static_folder=str(config.pasta_recursos() / "static"))
 app.secret_key = config.chave_secreta()   # por instalação: TERMOS_SEGREDO ou dados/segredo.txt
+app.config.update(PERMANENT_SESSION_LIFETIME=timedelta(hours=12), SESSION_COOKIE_HTTPONLY=True,
+                  SESSION_COOKIE_SAMESITE="Lax", SESSION_COOKIE_SECURE=config.exigir_login())   # site é só https
+app.register_blueprint(usuarios_bp)
+ROTAS_JSON = {"inventario.ler", "inventario.atualizar_leitura", "inventario.foto_leitura", "termo_registrar"}
 app.register_blueprint(inventario_bp)
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024   # mesmo limite do nginx (client_max_body_size 20m)
 app.template_filter("moeda")(painel.moeda)   # R$ 1.234,56 em todas as telas
@@ -27,8 +34,35 @@ app.template_filter("moeda")(painel.moeda)   # R$ 1.234,56 em todas as telas
 DSGOV_FIXO = {"SISTEMA": "Termos de Responsabilidade"}
 
 
+@app.before_request
+def resolver_usuario():
+    """Quem está usando: sessão (web, TERMOS_LOGIN=1) ou o administrador local (desktop). Sem sessão válida
+    → /login. Com senha temporária → /senha até trocar."""
+    ep = request.endpoint
+    if ep is None or ep == "static":
+        return None
+    if not config.exigir_login():
+        g.usuario = usuarios.USUARIO_LOCAL
+        return None
+    u = usuarios.por_id(obter_conn(), session.get("usuario_id")) if session.get("usuario_id") else None
+    if u is None or not u["ativo"]:
+        session.clear()
+        g.usuario = None
+        if ep == "usuarios.login":
+            return None
+        if request.method == "GET":
+            proximo = urlencode({"proximo": request.full_path.rstrip("?")})
+            return redirect(f"{url_for('usuarios.login')}?{proximo}")
+        return redirect(url_for("usuarios.login"))
+    g.usuario = u
+    if u["trocar_senha"] and ep not in ("usuarios.senha", "usuarios.sair", "usuarios.login"):
+        return redirect(url_for("usuarios.senha"))
+    return None
+
+
 @app.context_processor
 def contexto_dsgov():
+    usuario = getattr(g, "usuario", None)
     t = textos.obter(obter_conn())
     dsgov = dict(DSGOV_FIXO, ORGAO=t["orgao_nome"], SUBTITULO=t["unidade_sigla"])
     inv = [("Eventos", url_for("inventario.eventos_tela"))]
@@ -36,7 +70,7 @@ def contexto_dsgov():
         inv += [(e["nome"], url_for("inventario.evento_tela", id=e["id"])),
                 ("Painel", url_for("inventario.painel_tela", id=e["id"])),
                 ("Relatório", url_for("inventario.relatorio_tela", id=e["id"]))]
-    return {"DSGOV": dsgov, "MENU": [
+    return {"DSGOV": dsgov, "USUARIO": usuario, "ROTULO_PERFIL": usuarios.ROTULO_PERFIL, "MENU": [
         ("Início", "fa-home", url_for("home"), []),
         ("Termo por centro de custo", "fa-building", url_for("centro_custos"), []),
         ("Termo individual", "fa-user-check", url_for("termos_individuais"), []),

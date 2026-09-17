@@ -8,15 +8,6 @@ import db
 from tests.conftest import semear, confirmar_revisao
 
 
-@pytest.fixture
-def cliente(dados):
-    semear(dados)
-    from app import app
-    app.config['TESTING'] = True
-    with app.test_client() as client:
-        yield client
-
-
 def test_busca_filtra_antes_de_paginar_e_normaliza_acentos(cliente, dados):
     for n in range(25):
         db.incluir_pessoa(dados, f'PESSOA {n:02}')

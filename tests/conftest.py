@@ -35,6 +35,57 @@ def dados(tmp_path, monkeypatch):
     conn.close()
 
 
+ADMIN_LOGIN, ADMIN_NOME, ADMIN_SENHA = "admin", "Fulano", "Senha!234"
+SENHA_PADRAO = "Senha!234"
+
+
+def logar(cliente, login, senha):
+    """POST no /login como o formulário faria; devolve a resposta (302 para / no acerto)."""
+    return cliente.post("/login", data={"login": login, "senha": senha})
+
+
+def _app_de_teste():
+    from app import app
+    app.config["TESTING"] = True
+    app.config["SESSION_COOKIE_SECURE"] = False     # o test client fala http
+    return app
+
+
+@pytest.fixture
+def cliente(dados, monkeypatch):
+    """Login ligado (como na web), admin 'Fulano' criado e logado, mais a inventariante 'Beltrana'
+    (os dois nomes que os testes do inventário sempre usaram como comissão)."""
+    import usuarios
+    semear(dados)
+    monkeypatch.setenv("TERMOS_LOGIN", "1")
+    usuarios.criar(dados, ADMIN_LOGIN, ADMIN_NOME, ADMIN_SENHA, "admin", trocar_senha=False)
+    usuarios.criar(dados, "beltrana", "Beltrana", SENHA_PADRAO, "inventariante", trocar_senha=False)
+    app = _app_de_teste()
+    with app.test_client() as c:
+        assert logar(c, ADMIN_LOGIN, ADMIN_SENHA).status_code == 302
+        yield c
+
+
+@pytest.fixture
+def cliente_local(dados, monkeypatch):
+    """Modo desktop: sem TERMOS_LOGIN, sem usuários; tudo como Administrador local."""
+    semear(dados)
+    monkeypatch.delenv("TERMOS_LOGIN", raising=False)
+    app = _app_de_teste()
+    with app.test_client() as c:
+        yield c
+
+
+@pytest.fixture
+def usuarios_exemplo(dados):
+    """Um usuário de cada perfil além do admin: login → (login, senha)."""
+    import usuarios
+    usuarios.criar(dados, "op", "Operador Teste", SENHA_PADRAO, "operador", trocar_senha=False)
+    usuarios.criar(dados, "leitor", "Consulta Teste", SENHA_PADRAO, "consulta", trocar_senha=False)
+    return {"admin": (ADMIN_LOGIN, ADMIN_SENHA), "operador": ("op", SENHA_PADRAO),
+            "inventariante": ("beltrana", SENHA_PADRAO), "consulta": ("leitor", SENHA_PADRAO)}
+
+
 def semear(conn):
     """Cenário mínimo: 1 centro (CCI), 1 sala mapeada, 4 bens, 1 pessoa com 1 bem atribuído."""
     conn.execute("INSERT INTO responsaveis VALUES ('CCI','JAQUELINE PORTELA','j@cfc.org.br','46','coordenadora')")
