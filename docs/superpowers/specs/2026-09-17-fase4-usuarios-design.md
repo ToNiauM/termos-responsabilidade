@@ -292,9 +292,9 @@ primary`); cabeçalho usa `header-login` com `br-sign-in` (avatar com iniciais, 
 `tests/conftest.py`: a fixture `app`/`cliente` passa a ligar `TERMOS_LOGIN=1`, semear um admin
 (`admin`/`Senha!234`) e logar antes de devolver o cliente, para que os 216 testes atuais continuem valendo
 sem mudança. Um helper `logar(cliente, login, senha)` e uma fixture `usuarios_exemplo` (um de cada perfil)
-servem aos testes novos. Para os POSTs, o helper `postar(cliente, rota, dados)` injeta o token CSRF lido
-da sessão (`cliente.session_transaction()`); os testes existentes que fazem `cliente.post(...)` direto passam
-a chamar `postar`, e `confirmar_revisao` continua funcionando porque já reenvia os campos ocultos da página.
+servem aos testes novos. Para os POSTs, o cliente de teste é uma subclasse de `FlaskClient` que injeta o token
+CSRF da sessão em todo POST (campo `csrf` no formulário ou cabeçalho `X-CSRF`), então os 153 `cliente.post(...)`
+existentes não mudam; o teste do CSRF usa um cliente cru para provar o 400.
 
 - **Matriz de permissões** (`test_permissoes.py`): para cada `(endpoint, metodo)` de `app.url_map` e cada
   perfil, a resposta é 200/302 (permitido) ou 403 (negado) conforme `PERMISSOES`; endpoint fora da matriz
