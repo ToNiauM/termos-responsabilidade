@@ -3,7 +3,6 @@ A conexão por request e o errorhandler de ErroDeNegocio são os de app.py (g.co
 import io
 
 from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, send_file, session, url_for
-from markupsafe import Markup, escape
 
 import db
 import fotos
@@ -231,11 +230,8 @@ def relatorio_tela(id):
     e = _evento_ou_404(conn, id)
     f = _filtros_relatorio()
     linhas = inventario.relatorio(conn, id, **f)
-    # descrição em HTML seguro: escapa cada valor de filtro (vindo da querystring) antes de compor a frase,
-    # preservando as aspas literais que a própria frase usa em torno da busca (só perigosas em atributo, não em texto)
-    f_seguro = {k: (str(escape(v)) if isinstance(v, str) else v) for k, v in f.items()}
     return render_template("inventario_relatorio.html", e=e, linhas=linhas, f=f, ativos={k: v for k, v in f.items() if v},
-                           descricao=Markup(inventario.descrever_filtros(f_seguro)), n_fotos=inventario.contar_fotos(linhas),
+                           descricao=inventario.descrever_filtros(f), n_fotos=inventario.contar_fotos(linhas),
                            salas=[s["localizacao"] for s in inventario.salas(conn, id)], rotulos=inventario.ROTULO_SITUACAO,
                            conservacao=inventario.CONSERVACAO, colunas_ordem=inventario.COLUNAS_ORDEM, trilha=_trilha(e, ("Relatório", None)))
 
