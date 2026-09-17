@@ -538,6 +538,21 @@ def test_inventario_relatorio_xlsx_e_card_do_painel(cliente):
     assert r.status_code == 200 and r.headers["Content-Disposition"].endswith(".xlsx")
 
 
+def test_inventario_painel(cliente):
+    eid = _abrir(cliente)
+    cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+    r = cliente.get(f"/inventario/{eid}/painel")
+    assert r.status_code == 200 and b'id="g-situacao"' in r.data and b'id="g-andares"' in r.data and b'id="g-salas"' not in r.data
+    assert b"bens no escopo" in r.data and b"echarts-dsgov.js" in r.data and f"/inventario/{eid}/painel?andar=01".encode() in r.data
+    assert b"1 (33.3%)" in r.data                                                       # localizados com % (1 de 3 bens ativos no escopo)
+    r = cliente.get(f"/inventario/{eid}/painel?andar=01")
+    assert b'id="g-salas"' in r.data and b"Salas do andar 01" in r.data and b"todos os andares" in r.data
+    assert cliente.get("/inventario/999/painel").status_code == 404
+    assert f"/inventario/{eid}/painel".encode() in cliente.get(f"/inventario/{eid}").data    # botão Painel
+    cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"})
+    assert b"Evento encerrado" in cliente.get(f"/inventario/{eid}/painel").data
+
+
 def test_pessoa_com_email_e_matricula(cliente):
     r = cliente.post("/cadastros/pessoas/incluir", data={"nome": "bruno lima", "email": "nao-e-email", "matricula": "1"})
     assert b"Informe um e-mail v" in r.data

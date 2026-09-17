@@ -7,6 +7,7 @@ from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template
 import db
 import fotos
 import inventario
+import painel_inventario
 
 inventario_bp = Blueprint("inventario", __name__, url_prefix="/inventario")
 
@@ -242,4 +243,9 @@ def xlsx(id):
 
 @inventario_bp.route("/<int:id>/painel")
 def painel_tela(id):
-    abort(501)
+    conn = _conn()
+    e = _evento_ou_404(conn, id)
+    andar = request.args.get("andar") or None
+    dados = inventario.painel(conn, id, andar)
+    return render_template("inventario_painel.html", e=e, r=dados["resumo"], andar=andar,
+                           cards=painel_inventario.cards(dados, id, andar), trilha=_trilha(e, ("Painel", None)))

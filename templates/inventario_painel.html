@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "_macros.html" import grafico %}
+{% block titulo %}Painel — {{ e.nome }}{% endblock %}
+{% block conteudo %}
+<div class="d-flex align-items-center mb-3">
+  <h1 class="mb-0">Painel · {{ e.nome }}</h1>
+  <div class="ml-auto">
+    <a class="br-button secondary" href="{{ url_for('inventario.relatorio_tela', id=e.id) }}"><i class="fas fa-table mr-1" aria-hidden="true"></i>Relatório</a>
+    <a class="br-button ml-2" href="{{ url_for('inventario.evento_tela', id=e.id) }}"><i class="fas fa-door-open mr-1" aria-hidden="true"></i>Salas</a>
+  </div>
+</div>
+{% if e.encerrado_em %}
+<div class="br-message warning mb-3"><div class="icon"><i class="fas fa-lock fa-lg" aria-hidden="true"></i></div>
+  <div class="content"><span class="message-title">Evento encerrado</span><span class="message-body"> em {{ e.encerrado_em[8:10] }}/{{ e.encerrado_em[5:7] }}/{{ e.encerrado_em[:4] }}. Números congelados no encerramento.</span></div></div>
+{% endif %}
+<div class="row mb-2">
+  {% for valor, rotulo in [(r.bens, 'bens no escopo'), (r.lidos ~ ' (' ~ r.pct_bens ~ '%)', 'localizados'), (r.divergentes, 'divergentes'),
+                           (r.pendentes, 'pendentes'), (r.sobras, 'sobras'), (r.salas_iniciadas ~ ' de ' ~ r.salas, 'salas iniciadas')] %}
+  <div class="col-sm-6 col-md-2 mb-3"><div class="br-card h-100"><div class="card-content"><div class="text-up-03 text-weight-bold">{{ valor }}</div><div class="text-down-01 text-gray-70">{{ rotulo }}</div></div></div></div>
+  {% endfor %}
+</div>
+{% if andar %}<p class="text-gray-70">Andar <strong>{{ andar }}</strong> · <a href="{{ url_for('inventario.painel_tela', id=e.id) }}">todos os andares</a></p>{% endif %}
+<div class="row">{% for g in cards %}{{ grafico(g) }}{% endfor %}</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='dsgov/vendor/echarts/echarts.min.js') }}"></script>
+<script src="{{ url_for('static', filename='dsgov/js/echarts-dsgov.js') }}"></script>
+{% endblock %}

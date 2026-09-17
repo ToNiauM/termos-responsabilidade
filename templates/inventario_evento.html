@@ -5,7 +5,8 @@
 <div class="d-flex align-items-center mb-3">
   <h1 class="mb-0">{{ e.nome }}</h1>
   <div class="ml-auto">
-    <a class="br-button secondary" href="{{ url_for('inventario.relatorio_tela', id=e.id) }}"><i class="fas fa-table mr-1" aria-hidden="true"></i>Relatório</a>
+    <a class="br-button secondary" href="{{ url_for('inventario.painel_tela', id=e.id) }}"><i class="fas fa-chart-pie mr-1" aria-hidden="true"></i>Painel</a>
+    <a class="br-button secondary ml-2" href="{{ url_for('inventario.relatorio_tela', id=e.id) }}"><i class="fas fa-table mr-1" aria-hidden="true"></i>Relatório</a>
     {% if not e.encerrado_em %}
     <form method="post" action="{{ url_for('inventario.encerrar', id=e.id) }}" class="d-inline ml-2">
       {% if confirmar == 'encerrar' %}<input type="hidden" name="confirmar" value="1"/><button class="br-button primary" type="submit"><i class="fas fa-check mr-1" aria-hidden="true"></i>Confirmar encerramento</button>
