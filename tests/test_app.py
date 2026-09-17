@@ -796,18 +796,36 @@ def test_form_sobra_nao_e_o_proprio_br_card(cliente):
     assert 'class="br-card mt-3" id="form-sobra"' not in html   # BRCard trocaria o id do form
 
 
+def _grupo(menu, rotulo):
+    """Isola o <div class="menu-folder">...</div> cujo título (primeiro <span class="content">) é `rotulo`.
+    Sem divs aninhadas dentro de um grupo: o primeiro `</div>` depois do título fecha o próprio grupo."""
+    for parte in menu.split(b'<div class="menu-folder')[1:]:
+        titulo = parte.split(b'<span class="content">', 2)[1].split(b'</span>')[0]
+        if titulo == rotulo.encode():
+            fim = parte.index(b'</div>')
+            return b'<div class="menu-folder' + parte[:fim + len(b'</div>')]
+    raise AssertionError(f"grupo {rotulo!r} não encontrado no menu")
+
+
 def test_menu_inventario_e_grupo_com_telas_do_evento_aberto(cliente):
     r = cliente.get("/").data
     menu = r.split(b'id="main-navigation"')[1].split(b"menu-footer")[0]
-    assert b"menu-folder" in menu and b">Eventos<" in menu and b"/painel" not in menu
-    assert b'href="/inventario"' in menu and menu.count(b"menu-folder") == 1
-    assert b'<a class="menu-item" href="javascript:void(0)" role="treeitem">' in menu   # título é link: pasta fecha/abre ao clicar (drop-menu do DSGov)
+    # Termos de Responsabilidade, Inventário e Cadastros viraram grupos na árvore por função (5C)
+    assert menu.count(b"menu-folder") == 3
+    inv = _grupo(menu, "Inventário")
+    assert b">Eventos<" in inv and b"/painel" not in inv
+    assert b'href="/inventario"' in inv
+    # a Home não pertence ao grupo Inventário: pasta fechada, sem a classe active
+    assert b'<div class="menu-folder">' in menu and b'aria-expanded="false"' in inv
+    assert b'href="javascript:void(0)" role="treeitem" aria-expanded=' in inv   # título é link: pasta fecha/abre ao clicar (drop-menu do DSGov)
     eid = _abrir(cliente)
     menu = cliente.get("/").data.split(b'id="main-navigation"')[1].split(b"menu-footer")[0]
-    assert f'href="/inventario/{eid}"'.encode() in menu and f'href="/inventario/{eid}/painel"'.encode() in menu and f'href="/inventario/{eid}/relatorio"'.encode() in menu
-    assert b">Inv<" in menu and b">Painel<" in menu and b">Relat" in menu
+    inv = _grupo(menu, "Inventário")
+    assert f'href="/inventario/{eid}"'.encode() in inv and f'href="/inventario/{eid}/painel"'.encode() in inv and f'href="/inventario/{eid}/relatorio"'.encode() in inv
+    assert b">Inv<" in inv and b">Painel<" in inv and b">Relat" in inv
     cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"})
-    assert b"/painel" not in cliente.get("/").data.split(b'id="main-navigation"')[1].split(b"menu-footer")[0]
+    menu = cliente.get("/").data.split(b'id="main-navigation"')[1].split(b"menu-footer")[0]
+    assert b"/painel" not in _grupo(menu, "Inventário")
 
 
 def test_falha_no_bucket_mantem_a_foto_e_avisa(cliente, monkeypatch):

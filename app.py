@@ -145,31 +145,10 @@ def contexto_dsgov():
     contexto["SECOES_AJUDA"] = menu.secoes_ajuda(funcoes, config.exigir_login())
     contexto["AJUDA_ANCORA"] = menu.ancora_ajuda(funcoes, request.endpoint, request.view_args,
                                                  config.exigir_login())
-    inv = []
-    if pode("inventario.eventos_tela"):
-        inv.append(("Eventos", url_for("inventario.eventos_tela")))
-        if (e := _evento_aberto_visivel(usuario)):
-            inv.append((e["nome"], url_for("inventario.evento_tela", id=e["id"])))
-            if pode("inventario.painel_tela"):
-                inv += [("Painel", url_for("inventario.painel_tela", id=e["id"])),
-                        ("Relatório", url_for("inventario.relatorio_tela", id=e["id"]))]
-    itens = [
-        ("Início", "fa-home", "home", {}, []),
-        ("Termo por centro de custo", "fa-building", "centro_custos", {}, []),
-        ("Termo individual", "fa-user-check", "termos_individuais", {}, []),
-        ("Termo de devolução", "fa-box-open", "termo_devolucao", {}, []),
-        ("Termos emitidos", "fa-history", "termos_emitidos_tela", {}, []),
-        ("Análise", "fa-chart-bar", "analise", {}, []),
-        ("Inventário", "fa-clipboard-check", "inventario.eventos_tela", {}, inv),
-        ("Cadastros", "fa-address-book", "cadastros", {"aba": "responsaveis"}, []),
-        ("Textos", "fa-file-signature", "textos_tela", {}, []),
-        ("Atualizar base", "fa-upload", "upload", {}, []),
-        ("Usuários", "fa-users", "usuarios.lista", {}, []),
-    ]
-    # `home` é de todas as funções (é o destino de quem não tem outro), mas Início só faz sentido para o acervo
-    so_com = {"home": bool(set(funcoes) & permissoes.ACERVO), "usuarios.lista": config.exigir_login()}
-    contexto["MENU"] = [(rotulo, icone, url_for(endpoint, **kw), filhos) for rotulo, icone, endpoint, kw, filhos in itens
-                        if pode(endpoint) and so_com.get(endpoint, True)]
+    visiveis = comissoes.eventos_visiveis(obter_conn(), usuario) if pode("inventario.eventos_tela") else []
+    aberto = next((e for e in visiveis if not e["encerrado_em"]), None)
+    contexto["MENU"] = menu.montar(usuario["funcoes"], aberto, request.endpoint, request.view_args,
+                                    config.exigir_login())
     return contexto
 
 
