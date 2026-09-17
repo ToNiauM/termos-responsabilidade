@@ -85,8 +85,8 @@ def cliente(dados, monkeypatch):
     import usuarios
     semear(dados)
     monkeypatch.setenv("TERMOS_LOGIN", "1")
-    usuarios.criar(dados, ADMIN_LOGIN, ADMIN_NOME, ADMIN_SENHA, "admin", trocar_senha=False)
-    usuarios.criar(dados, "beltrana", "Beltrana", SENHA_PADRAO, "inventariante", trocar_senha=False)
+    usuarios.criar(dados, ADMIN_LOGIN, ADMIN_NOME, ADMIN_SENHA, ["admin"], trocar_senha=False)
+    usuarios.criar(dados, "beltrana", "Beltrana", SENHA_PADRAO, ["inventariante"], trocar_senha=False)
     app = _app_de_teste()
     with app.test_client() as c:
         assert logar(c, ADMIN_LOGIN, ADMIN_SENHA).status_code == 302
@@ -107,8 +107,8 @@ def cliente_local(dados, monkeypatch):
 def usuarios_exemplo(dados):
     """Um usuário de cada perfil além do admin: login → (login, senha)."""
     import usuarios
-    usuarios.criar(dados, "op", "Operador Teste", SENHA_PADRAO, "operador", trocar_senha=False)
-    usuarios.criar(dados, "leitor", "Consulta Teste", SENHA_PADRAO, "consulta", trocar_senha=False)
+    usuarios.criar(dados, "op", "Operador Teste", SENHA_PADRAO, ["operador"], trocar_senha=False)
+    usuarios.criar(dados, "leitor", "Consulta Teste", SENHA_PADRAO, ["consulta"], trocar_senha=False)
     return {"admin": (ADMIN_LOGIN, ADMIN_SENHA), "operador": ("op", SENHA_PADRAO),
             "inventariante": ("beltrana", SENHA_PADRAO), "consulta": ("leitor", SENHA_PADRAO)}
 

@@ -51,7 +51,7 @@ def test_login_inativo_e_bloqueado(cliente, dados, monkeypatch):
     relogio["agora"] = datetime(2026, 9, 17, 10, 16)
     assert cliente.post("/login", data={"login": "beltrana", "senha": SENHA_PADRAO}).status_code == 302
     cliente.post("/sair")
-    usuarios.editar(dados, usuarios.por_login(dados, "beltrana")["id"], "Beltrana", "inventariante", ativo=False)
+    usuarios.editar(dados, usuarios.por_login(dados, "beltrana")["id"], "Beltrana", ["inventariante"], ativo=False)
     r = cliente.post("/login", data={"login": "beltrana", "senha": SENHA_PADRAO})
     assert "inválidos".encode() in r.data
 
@@ -59,7 +59,7 @@ def test_login_inativo_e_bloqueado(cliente, dados, monkeypatch):
 def test_usuario_inativado_com_sessao_aberta_cai_no_login(cliente, dados):
     logar(cliente, "beltrana", SENHA_PADRAO)
     assert cliente.get("/").status_code == 200
-    usuarios.editar(dados, usuarios.por_login(dados, "beltrana")["id"], "Beltrana", "inventariante", ativo=False)
+    usuarios.editar(dados, usuarios.por_login(dados, "beltrana")["id"], "Beltrana", ["inventariante"], ativo=False)
     assert cliente.get("/").headers["Location"].startswith("/login")
 
 
@@ -114,7 +114,7 @@ def test_sem_usuarios_cadastrados_tela_de_login_orienta(dados, monkeypatch):
 
 
 def test_login_por_email(cliente, dados):
-    usuarios.editar(dados, usuarios.por_login(dados, "beltrana")["id"], "Beltrana", "inventariante", ativo=True, email="beltrana@cfc.org.br")
+    usuarios.editar(dados, usuarios.por_login(dados, "beltrana")["id"], "Beltrana", ["inventariante"], ativo=True, email="beltrana@cfc.org.br")
     cliente.post("/sair")
     assert "Usuário ou e-mail".encode() in cliente.get("/login").data
     assert logar(cliente, "Beltrana@CFC.org.br", SENHA_PADRAO).status_code == 302

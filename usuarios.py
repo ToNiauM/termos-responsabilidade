@@ -7,10 +7,8 @@ from datetime import datetime, timedelta
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from db import ErroDeNegocio, _agora, _obrigatorio, _todos, _um
+from permissoes import FUNCOES, PERMISSOES, ROTULOS, permitido
 
-PERFIS = ("admin", "operador", "inventariante", "consulta")
-ROTULO_PERFIL = {"admin": "Administrador", "operador": "Operador", "inventariante": "Inventariante", "consulta": "Consulta"}
-PERFIS_COMISSAO = ("admin", "operador", "inventariante")
 SENHA_MINIMA = 8
 MAX_FALHAS = 5
 BLOQUEIO_MINUTOS = 15
@@ -19,13 +17,13 @@ _LOGIN = re.compile(r"[a-z0-9._-]{2,30}")
 _FORMATO = "%Y-%m-%d %H:%M:%S"
 
 # Modo desktop (sem TERMOS_LOGIN): quem usa o programa Windows é o administrador da instalação.
-USUARIO_LOCAL = {"id": None, "login": "local", "nome": "Administrador local", "perfil": "admin", "ativo": 1, "trocar_senha": 0}
+USUARIO_LOCAL = {"id": None, "login": "local", "nome": "Administrador local", "funcoes": ("admin",), "ativo": 1, "trocar_senha": 0}
 
 # Hash fictício calculado uma vez na importação: usado para gastar o mesmo tempo de um check_password_hash
 # real quando o login não existe (ou está inativo), para não dar pista por tempo de resposta.
 _HASH_FALSO = generate_password_hash("senha-falsa-para-tempo-constante")
 
-_COLUNAS_LISTA = "id, login, email, nome, perfil, ativo, trocar_senha, falhas, bloqueado_ate, criado_em, ultimo_acesso"
+_COLUNAS_LISTA = "id, login, email, nome, ativo, trocar_senha, falhas, bloqueado_ate, criado_em, ultimo_acesso"
 _MANTER = object()     # editar(): "não mexer no e-mail"
 
 
@@ -66,136 +64,118 @@ def _email_livre(conn, email, excluir_id=None) -> None:
         raise ErroDeNegocio(f"Este e-mail já está em uso por {outro['login']}.")
 
 
-def _validar_perfil(perfil) -> str:
-    if perfil not in PERFIS:
-        raise ErroDeNegocio("Perfil inválido.")
-    return perfil
+def _validar_funcoes(funcoes):
+    if isinstance(funcoes, str):
+        raise ErroDeNegocio("Selecione as funções do usuário.")
+    valores = set(funcoes or ())
+    if not valores or not valores <= set(FUNCOES):
+        raise ErroDeNegocio("Selecione ao menos uma função válida.")
+    return tuple(f for f in FUNCOES if f in valores)
 
 
-def criar(conn, login, nome, senha, perfil, trocar_senha=True, email=None) -> int:
-    login = _validar_login(login)
-    nome = _obrigatorio(nome, "Nome")
-    senha = _validar_senha(senha)
-    perfil = _validar_perfil(perfil)
-    email = _validar_email(email)
-    _email_livre(conn, email)
-    if por_login(conn, login):
-        raise ErroDeNegocio(f"O login {login} já existe.")
-    cur = conn.execute("INSERT INTO usuarios (login, email, nome, senha_hash, perfil, trocar_senha, criado_em) VALUES (?,?,?,?,?,?,?)",
-                       (login, email, nome, generate_password_hash(senha), perfil, 1 if trocar_senha else 0, _agora()))
-    conn.commit()
-    return cur.lastrowid
+def _com_funcoes(conn, u):
+    if u is None:
+        return None
+    atribuida = {r[0] for r in conn.execute(
+        "SELECT funcao FROM usuarios_funcoes WHERE usuario_id=?", (u["id"],))}
+    return dict(u, funcoes=tuple(f for f in FUNCOES if f in atribuida))
+
+
+def _gravar_funcoes(conn, uid, funcoes):
+    conn.execute("DELETE FROM usuarios_funcoes WHERE usuario_id=?", (uid,))
+    conn.executemany("INSERT INTO usuarios_funcoes VALUES (?,?)", [(uid, f) for f in funcoes])
 
 
 def por_id(conn, id) -> dict | None:
-    return _um(conn, "SELECT * FROM usuarios WHERE id = ?", id) if id is not None else None
+    return _com_funcoes(conn, _um(conn, "SELECT * FROM usuarios WHERE id=?", id)) if id is not None else None
 
 
 def por_login(conn, login) -> dict | None:
-    return _um(conn, "SELECT * FROM usuarios WHERE login = ?", str(login or "").strip().lower())
+    return _com_funcoes(conn, _um(conn, "SELECT * FROM usuarios WHERE login=?", str(login or "").strip().lower()))
 
 
 def por_email(conn, email) -> dict | None:
     v = str(email or "").strip().lower()
-    return _um(conn, "SELECT * FROM usuarios WHERE email = ?", v) if v else None
+    return _com_funcoes(conn, _um(conn, "SELECT * FROM usuarios WHERE email=?", v)) if v else None
 
 
-def listar(conn, busca="", perfil=None, inativos=False) -> list[dict]:
-    """Sem senha_hash. busca casa em login, e-mail e nome (sem caixa); inativos=False esconde os inativos."""
+def criar(conn, login, nome, senha, funcoes, trocar_senha=True, email=None) -> int:
+    login, nome = _validar_login(login), _obrigatorio(nome, "Nome")
+    senha, funcoes = _validar_senha(senha), _validar_funcoes(funcoes)
+    email = _validar_email(email)
+    _email_livre(conn, email)
+    if por_login(conn, login):
+        raise ErroDeNegocio(f"O login {login} já existe.")
+    with conn:
+        cur = conn.execute("""INSERT INTO usuarios
+          (login,email,nome,senha_hash,trocar_senha,criado_em) VALUES (?,?,?,?,?,?)""",
+          (login, email, nome, generate_password_hash(senha), int(bool(trocar_senha)), _agora()))
+        _gravar_funcoes(conn, cur.lastrowid, funcoes)
+    return cur.lastrowid
+
+
+def listar(conn, busca="", funcao=None, inativos=False) -> list[dict]:
+    """Sem senha_hash. busca casa em login, e-mail e nome (sem caixa); inativos=False esconde os inativos;
+    funcao filtra por presença dessa função (um usuário pode ter mais de uma)."""
     sql, p = f"SELECT {_COLUNAS_LISTA} FROM usuarios WHERE 1=1", []
     if not inativos:
-        sql += " AND ativo = 1"
-    if perfil:
-        sql += " AND perfil = ?"
-        p.append(perfil)
+        sql += " AND ativo=1"
+    if funcao:
+        sql += " AND EXISTS(SELECT 1 FROM usuarios_funcoes f WHERE f.usuario_id=usuarios.id AND f.funcao=?)"
+        p.append(funcao)
     if busca and busca.strip():
-        sql += " AND (lower(login) LIKE ? OR lower(nome) LIKE ? OR lower(coalesce(email, '')) LIKE ?)"
+        sql += " AND (lower(login) LIKE ? OR lower(nome) LIKE ? OR lower(coalesce(email,'')) LIKE ?)"
         termo = f"%{busca.strip().lower()}%"
         p += [termo, termo, termo]
-    return _todos(conn, sql + " ORDER BY login", *p)
+    return [_com_funcoes(conn, u) for u in _todos(conn, sql + " ORDER BY login", *p)]
 
 
 def _admins_ativos(conn) -> int:
-    return conn.execute("SELECT count(*) FROM usuarios WHERE perfil = 'admin' AND ativo = 1").fetchone()[0]
+    return conn.execute("""SELECT count(*) FROM usuarios u WHERE u.ativo=1
+      AND EXISTS(SELECT 1 FROM usuarios_funcoes f WHERE f.usuario_id=u.id AND f.funcao='admin')""").fetchone()[0]
 
 
-def editar(conn, id, nome, perfil, ativo, logado_id=None, email=_MANTER) -> None:
-    """Nome, perfil, ativo e e-mail (omitido = mantém; vazio = apaga). Login não muda. Travas: o próprio logado não se inativa nem se rebaixa; o último
-    administrador ativo não é inativado nem rebaixado."""
-    u = por_id(conn, id)
-    if not u:
-        raise ErroDeNegocio("Usuário não encontrado.")
+def editar(conn, id, nome, funcoes, ativo, logado_id=None, email=_MANTER) -> None:
+    """Nome, funções, ativo e e-mail (e-mail omitido = mantém; vazio = apaga). Login não muda. Travas: o próprio
+    logado não se inativa nem perde a função admin; o último administrador ativo não é inativado nem rebaixado.
+
+    Transação: exige conexão SEM transação pendente. `editar` abre sua própria `BEGIN IMMEDIATE` (reserva a
+    escrita antes de contar admins, para duas requisições concorrentes não conseguirem remover o último admin
+    ao mesmo tempo) e finaliza com commit/rollback próprios. O sqlite3 do Python abre uma transação implícita
+    a partir do primeiro DML de uma conexão (isolation_level padrão); quem grava algo nessa mesma conexão antes
+    de chamar `editar` (inclusive fixtures/rotas de teste que fazem `conn.execute('UPDATE ...')` fora deste
+    módulo) precisa dar `conn.commit()` antes, senão o BEGIN IMMEDIATE falha com "cannot start a transaction
+    within a transaction"."""
+    funcoes = _validar_funcoes(funcoes)
     nome = _obrigatorio(nome, "Nome")
-    perfil = _validar_perfil(perfil)
-    ativo = 1 if ativo else 0
-    perde_admin = u["perfil"] == "admin" and u["ativo"] and (perfil != "admin" or not ativo)
-    if perde_admin and logado_id is not None and int(logado_id) == int(id):
-        raise ErroDeNegocio("Você não pode rebaixar nem inativar a própria conta.")
-    if perde_admin and _admins_ativos(conn) <= 1:
-        raise ErroDeNegocio("Este é o último administrador ativo: não pode ser rebaixado nem inativado.")
-    if email is _MANTER:
-        email = u["email"]
-    else:
-        email = _validar_email(email)
-        _email_livre(conn, email, excluir_id=u["id"])
-    conn.execute("UPDATE usuarios SET nome = ?, perfil = ?, ativo = ?, email = ? WHERE id = ?", (nome, perfil, ativo, email, id))
-    conn.commit()
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        u = por_id(conn, id)
+        if not u:
+            raise ErroDeNegocio("Usuário não encontrado.")
+        perde_admin = "admin" in u["funcoes"] and u["ativo"] and ("admin" not in funcoes or not ativo)
+        if perde_admin and logado_id is not None and int(logado_id) == int(id):
+            raise ErroDeNegocio("Você não pode rebaixar nem inativar a própria conta.")
+        if perde_admin and _admins_ativos(conn) <= 1:
+            raise ErroDeNegocio("Este é o último administrador ativo: não pode ser rebaixado nem inativado.")
+        email = u["email"] if email is _MANTER else _validar_email(email)
+        _email_livre(conn, email, excluir_id=id)
+        conn.execute("UPDATE usuarios SET nome=?,ativo=?,email=? WHERE id=?", (nome, int(bool(ativo)), email, id))
+        _gravar_funcoes(conn, id, funcoes)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def elegiveis_comissao(conn) -> list[dict]:
-    """Usuários ativos que podem compor a comissão de um inventário (admin, operador, inventariante), por nome."""
-    marcas = ",".join("?" * len(PERFIS_COMISSAO))
-    return _todos(conn, f"SELECT {_COLUNAS_LISTA} FROM usuarios WHERE ativo = 1 AND perfil IN ({marcas}) ORDER BY nome, login",
-                  *PERFIS_COMISSAO)
+    """Usuários ativos que podem compor a comissão de um inventário (têm função admin ou inventariante), por nome."""
+    return sorted((u for u in listar(conn) if set(u["funcoes"]) & {"admin", "inventariante"}),
+                  key=lambda u: (u["nome"], u["login"]))
 
 
 # ---------------------------------------------------------------- permissões (nega por padrão)
-TODOS = frozenset(PERFIS)
-GESTAO = frozenset({"admin", "operador"})
-ADMIN = frozenset({"admin"})
-LEITURA = frozenset({"admin", "operador", "inventariante"})     # ler no inventário: exige ainda estar na comissão
-TERMOS_VER = frozenset({"admin", "operador", "consulta"})       # telas de termos: inventariante não vê
-
-# Chave = endpoint Flask; "<endpoint>:POST" quando o POST tem regra diferente do GET. Rota ausente = 403 para todos
-# (tests/test_permissoes.py garante que toda rota do app está aqui).
-PERMISSOES = {
-    # consulta geral
-    "home": TODOS, "bem": TODOS, "pesquisa": TODOS, "recorte": TODOS, "recorte_xlsx": TODOS,
-    # termos: ver para admin, operador e consulta; emitir/registrar só gestão
-    "centro_custos": TERMOS_VER, "termos_individuais": TERMOS_VER, "termo": TERMOS_VER, "termo_documento": TERMOS_VER,
-    "termo_devolucao": TERMOS_VER, "termo_devolucao:POST": GESTAO,
-    "termos_emitidos_tela": TERMOS_VER, "termo_emitido_tela": TERMOS_VER,
-    "gerar": GESTAO, "gerar_individual": GESTAO, "termo_docx": GESTAO, "termo_planilha": GESTAO, "termo_registrar": GESTAO,
-    "termo_emitido_documento": GESTAO, "termo_emitido_email": GESTAO,
-    # cadastros: gestão inclui/edita; só admin exclui
-    "cadastros": GESTAO, "cadastro_novo": GESTAO,
-    "responsaveis_incluir": GESTAO, "responsaveis_editar": GESTAO, "responsaveis_excluir": ADMIN,
-    "pessoas_incluir": GESTAO, "pessoas_editar": GESTAO, "pessoas_excluir": ADMIN,
-    "pessoas_atribuir": GESTAO, "pessoas_desatribuir": GESTAO,
-    "localizacoes_incluir": GESTAO, "localizacoes_alterar": GESTAO, "localizacoes_mover": GESTAO, "localizacoes_excluir": ADMIN,
-    "processos_incluir": GESTAO, "processos_vigente": GESTAO, "processos_encerrar": GESTAO, "processos_excluir": ADMIN,
-    "cadastros_exportar": GESTAO, "importar_cadastros": ADMIN,
-    # textos e base
-    "textos_tela": GESTAO, "textos_salvar": GESTAO,
-    "upload": GESTAO, "bens_exportar": GESTAO, "importacao_tela": GESTAO,
-    # inventário
-    "inventario.eventos_tela": TODOS, "inventario.evento_tela": TODOS, "inventario.sala_tela": TODOS,
-    "inventario.relatorio_tela": TODOS, "inventario.xlsx": TODOS, "inventario.painel_tela": TODOS,
-    "inventario.abrir": ADMIN, "inventario.encerrar": ADMIN, "inventario.comissao": ADMIN, "inventario.excluir": ADMIN,
-    "inventario.ler": LEITURA, "inventario.atualizar_leitura": LEITURA, "inventario.lote": LEITURA,
-    "inventario.foto_leitura": LEITURA, "inventario.foto_excluir": LEITURA, "inventario.sobra": LEITURA, "inventario.sobra_excluir": LEITURA,
-    # conta e usuários
-    "usuarios.login": TODOS, "usuarios.sair": TODOS, "usuarios.senha": TODOS,
-    "usuarios.lista": ADMIN, "usuarios.novo": ADMIN, "usuarios.incluir": ADMIN, "usuarios.editar": ADMIN, "usuarios.nova_senha": ADMIN,
-}
-
-
-def permitido(perfil, endpoint, metodo="GET") -> bool:
-    metodo = "GET" if metodo in ("GET", "HEAD") else metodo
-    regra = PERMISSOES.get(f"{endpoint}:{metodo}") if metodo != "GET" else None
-    if regra is None:
-        regra = PERMISSOES.get(endpoint)
-    return regra is not None and perfil in regra
+# FUNCOES, ROTULOS, PERMISSOES e permitido vêm de permissoes.py (matriz por endpoint Flask).
 
 
 # ---------------------------------------------------------------- autenticação e senhas
@@ -257,13 +237,14 @@ def criar_admin(conn, login, nome, senha, email=None) -> int:
     desbloqueia (o nome não muda; o e-mail só muda se informado)."""
     u = por_login(conn, login)
     if not u:
-        return criar(conn, login, nome, senha, "admin", trocar_senha=False, email=email)
+        return criar(conn, login, nome, senha, ["admin"], trocar_senha=False, email=email)
     senha = _validar_senha(senha)
     email = _validar_email(email) or u["email"]
     _email_livre(conn, email, excluir_id=u["id"])
-    conn.execute("""UPDATE usuarios SET senha_hash = ?, perfil = 'admin', ativo = 1, trocar_senha = 0, falhas = 0,
-                    bloqueado_ate = NULL, email = ? WHERE id = ?""", (generate_password_hash(senha), email, u["id"]))
-    conn.commit()
+    with conn:
+        conn.execute("""UPDATE usuarios SET senha_hash = ?, ativo = 1, trocar_senha = 0, falhas = 0,
+                        bloqueado_ate = NULL, email = ? WHERE id = ?""", (generate_password_hash(senha), email, u["id"]))
+        _gravar_funcoes(conn, u["id"], ["admin"])
     return u["id"]
 
 

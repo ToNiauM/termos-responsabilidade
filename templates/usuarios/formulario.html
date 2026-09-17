@@ -20,8 +20,14 @@
     <p class="text-down-01 text-gray-70 mt-1">Opcional. Também serve para entrar no sistema; não pode repetir.</p></div>
   <div class="br-input mb-3"><label for="nome">Nome <span class="text-danger" aria-hidden="true">*</span></label><input id="nome" name="nome" type="text" value="{{ valores.nome or '' }}" required/>
     <p class="text-down-01 text-gray-70 mt-1">Aparece no cabeçalho e nas leituras do inventário.</p></div>
-  <div class="mb-3"><div class="text-weight-semi-bold mb-2">Perfil <span class="text-danger" aria-hidden="true">*</span></div>
-    {% for p in perfis %}<div class="br-radio mb-1"><input id="perfil-{{ p }}" name="perfil" type="radio" value="{{ p }}"{% if valores.perfil == p %} checked{% endif %} required/><label for="perfil-{{ p }}">{{ rotulos[p] }}</label></div>{% endfor %}</div>
+  <fieldset class="mb-3">
+    <legend class="text-weight-semi-bold">Funções do usuário</legend>
+    <p class="text-down-01 text-gray-70">Selecione somente as funções necessárias. Os acessos selecionados se somam.</p>
+    {% for f in funcoes %}<div class="br-checkbox mb-1">
+      <input id="funcao-{{ f }}" name="funcoes" type="checkbox" value="{{ f }}"{% if f in valores.funcoes %} checked{% endif %}/>
+      <label for="funcao-{{ f }}">{{ rotulos[f] }}</label>
+    </div>{% endfor %}
+  </fieldset>
   {% if u %}
   <div class="br-checkbox mb-3"><input id="ativo" name="ativo" type="checkbox" value="1"{% if valores.ativo %} checked{% endif %}/><label for="ativo">Ativo (desmarque para inativar; usuários não são excluídos)</label></div>
   {% else %}

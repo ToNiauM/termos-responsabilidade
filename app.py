@@ -15,6 +15,7 @@ import config
 import db
 import inventario
 import painel
+import permissoes
 import termos_html
 import textos
 import usuarios
@@ -33,6 +34,7 @@ ROTAS_JSON = {"inventario.ler", "inventario.atualizar_leitura", "inventario.foto
 app.register_blueprint(inventario_bp)
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024   # mesmo limite do nginx (client_max_body_size 20m)
 app.template_filter("moeda")(painel.moeda)   # R$ 1.234,56 em todas as telas
+app.add_template_filter(permissoes.ROTULOS.__getitem__, "rotulo_funcao")
 
 DSGOV_FIXO = {"SISTEMA": "Termos de Responsabilidade"}
 
@@ -67,7 +69,7 @@ def _negado():
 @app.before_request
 def resolver_usuario():
     """Quem está usando: sessão (web, TERMOS_LOGIN=1) ou o administrador local (desktop). Sem sessão válida
-    → /login. Com senha temporária → /senha até trocar. Fora da matriz de permissões do perfil → 403."""
+    → /login. Com senha temporária → /senha até trocar. Fora da matriz de permissões das funções → 403."""
     ep = request.endpoint
     if ep is None or ep == "static":
         return None
@@ -77,7 +79,7 @@ def resolver_usuario():
             return _csrf_invalido()
     if not config.exigir_login():
         g.usuario = usuarios.USUARIO_LOCAL
-        return None if usuarios.permitido("admin", ep, request.method) else _negado()
+        return None if usuarios.permitido(usuarios.USUARIO_LOCAL["funcoes"], ep, request.method) else _negado()
     u = usuarios.por_id(obter_conn(), session.get("usuario_id")) if session.get("usuario_id") else None
     if u is None or not u["ativo"]:
         session.clear()
@@ -91,7 +93,7 @@ def resolver_usuario():
     g.usuario = u
     if u["trocar_senha"] and ep not in ("usuarios.senha", "usuarios.sair", "usuarios.login"):
         return redirect(url_for("usuarios.senha"))
-    if not usuarios.permitido(g.usuario["perfil"], ep, request.method):
+    if not usuarios.permitido(g.usuario["funcoes"], ep, request.method):
         return _negado()
     return None
 
@@ -101,14 +103,13 @@ def contexto_dsgov():
     t = textos.obter(obter_conn())
     dsgov = dict(DSGOV_FIXO, ORGAO=t["orgao_nome"], SUBTITULO=t["unidade_sigla"])
     usuario = getattr(g, "usuario", None)
-    contexto = {"DSGOV": dsgov, "USUARIO": usuario, "ROTULO_PERFIL": usuarios.ROTULO_PERFIL, "MENU": [],
-                "CSRF": _csrf_token()}
+    contexto = {"DSGOV": dsgov, "USUARIO": usuario, "MENU": [], "CSRF": _csrf_token()}
     if not usuario:
         return contexto
-    perfil = usuario["perfil"]
+    funcoes = usuario["funcoes"]
 
     def pode(endpoint, metodo="GET"):
-        return usuarios.permitido(perfil, endpoint, metodo)
+        return usuarios.permitido(funcoes, endpoint, metodo)
 
     contexto["pode"] = pode
     inv = [("Eventos", url_for("inventario.eventos_tela"))]

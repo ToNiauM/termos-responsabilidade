@@ -6,7 +6,7 @@
 <form method="post" action="{{ url_for('inventario.comissao', id=e.id) }}" class="col-md-6">{{ csrf_campo() }}
   {% for u in elegiveis %}
   <div class="br-checkbox mb-2"><input id="int-{{ loop.index }}" name="integrantes" type="checkbox" value="{{ u.nome }}"{% if u.nome in e.integrantes or u.id is none %} checked{% endif %}{% if u.id is none %} disabled{% endif %}/>
-    <label for="int-{{ loop.index }}">{{ u.nome }} <span class="text-gray-70 text-down-01">· {{ ROTULO_PERFIL[u.perfil] }}{% if u.nome in com_leituras %} · já tem leituras neste evento{% endif %}</span></label></div>
+    <label for="int-{{ loop.index }}">{{ u.nome }} <span class="text-gray-70 text-down-01">· {{ u.funcoes|map('rotulo_funcao')|join(', ') }}{% if u.nome in com_leituras %} · já tem leituras neste evento{% endif %}</span></label></div>
   {% endfor %}
   {% for nome in e.integrantes if nome not in elegiveis|map(attribute='nome')|list %}
   <div class="br-checkbox mb-2"><input id="ant-{{ loop.index }}" name="integrantes" type="checkbox" value="{{ nome }}" checked/>

@@ -29,7 +29,7 @@
           {% if USUARIO and USUARIO.id %}
           <div class="header-login">
             <div class="header-sign-in d-flex align-items-center">
-              <span class="text-down-01 mr-2"><i class="fas fa-user-circle mr-1" aria-hidden="true"></i>{{ USUARIO.nome }} · {{ ROTULO_PERFIL[USUARIO.perfil] }}</span>
+              <span class="text-down-01 mr-2"><i class="fas fa-user-circle mr-1" aria-hidden="true"></i>{{ USUARIO.nome }} · {{ USUARIO.funcoes|map('rotulo_funcao')|join(', ') }}</span>
               <a class="br-button small" href="{{ url_for('usuarios.senha') }}">Trocar senha</a>
               <form method="post" action="{{ url_for('usuarios.sair') }}" class="d-inline ml-1">
                 {{ csrf_campo() }}

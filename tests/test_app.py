@@ -815,7 +815,7 @@ def test_inventario_comissao_por_usuarios(cliente, dados, usuarios_exemplo):
 def test_inventario_desktop_admin_local_entra_na_comissao(cliente_local):
     import db, inventario, usuarios
     conn = db.conectar()
-    usuarios.criar(conn, "xis", "Xis", "Senha!234", "inventariante")
+    usuarios.criar(conn, "xis", "Xis", "Senha!234", ["inventariante"])
     r = cliente_local.post("/inventario/abrir", data={"nome": "Inv", "integrantes": ["Xis"], "escopo": "todas"}, follow_redirects=True)
     assert r.status_code == 200
     eid = inventario.evento_aberto(conn)["id"]

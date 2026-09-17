@@ -14,7 +14,7 @@ def _cru(dados, monkeypatch):
     from tests.conftest import _app_de_teste, ADMIN_NOME
     semear(dados)
     monkeypatch.setenv("TERMOS_LOGIN", "1")
-    usuarios.criar(dados, ADMIN_LOGIN, ADMIN_NOME, ADMIN_SENHA, "admin", trocar_senha=False)
+    usuarios.criar(dados, ADMIN_LOGIN, ADMIN_NOME, ADMIN_SENHA, ["admin"], trocar_senha=False)
     return FlaskClient(_app_de_teste())
 
 

@@ -8,7 +8,7 @@ from tests.conftest import ADMIN_LOGIN, SENHA_PADRAO, logar
 def test_lista_busca_filtro_e_inativos(cliente, dados, usuarios_exemplo):
     r = cliente.get("/usuarios")
     assert r.status_code == 200 and b">admin<" in r.data and b">op<" in r.data and b"Operador" in r.data
-    usuarios.editar(dados, usuarios.por_login(dados, "leitor")["id"], "Consulta Teste", "consulta", ativo=False)
+    usuarios.editar(dados, usuarios.por_login(dados, "leitor")["id"], "Consulta Teste", ["consulta"], ativo=False)
     assert b">leitor<" not in cliente.get("/usuarios").data
     assert b">leitor<" in cliente.get("/usuarios?inativos=1").data
     r = cliente.get("/usuarios?q=oper")
