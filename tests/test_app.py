@@ -494,34 +494,67 @@ def test_inventario_fotos_e_sobras(cliente, monkeypatch, tmp_path):
         monkeypatch.setenv(v, "x")
     monkeypatch.setenv("R2_PUBLIC_URL", "https://f.exemplo.org")
     enviados = []
-    monkeypatch.setattr(fotos, "enviar", lambda nome, dados: enviados.append(nome) or f"https://f.exemplo.org/inventario/{nome}")
+    monkeypatch.setattr(fotos, "enviar", lambda chave, dados: enviados.append(chave) or f"https://f.exemplo.org/{chave}")
     apagados = []
     monkeypatch.setattr(fotos, "apagar", lambda url: apagados.append(url))
     r = cliente.post(f"/inventario/{eid}/leitura/1001/foto", data={"foto": (io.BytesIO(imagem), "a.png")}, content_type="multipart/form-data")
-    assert r.status_code == 200 and r.get_json()["foto_url"].startswith("https://f.exemplo.org/inventario/INV") and enviados[-1].startswith(f"INV{eid}_BEM_1001_")
-    r = cliente.post(f"/inventario/{eid}/leitura/1001/foto/excluir", follow_redirects=True)
-    assert apagados and b"Foto removida" in r.data
+    assert r.status_code == 200 and [f["nfoto"] for f in r.get_json()["fotos"]] == [1] and enviados == ["inv/1-1001.webp"]
+    r = cliente.post(f"/inventario/{eid}/leitura/1001/foto", data={"foto": (io.BytesIO(imagem), "a.png")}, content_type="multipart/form-data")
+    assert [f["url"] for f in r.get_json()["fotos"]] == ["https://f.exemplo.org/inv/1-1001.webp", "https://f.exemplo.org/inv/2-1001.webp"]
+    r = cliente.post(f"/inventario/{eid}/leitura/1002/foto", data={"foto": (io.BytesIO(imagem), "a.png")}, content_type="multipart/form-data")
+    assert r.status_code == 409 and "Leia o bem" in r.get_json()["erro"]                  # 1002 não foi lido
+    r = cliente.post(f"/inventario/{eid}/leitura/1001/foto/1/excluir", data={"volta": "01 - SALA CCI"}, follow_redirects=True)
+    assert apagados == ["https://f.exemplo.org/inv/1-1001.webp"] and b"Foto removida" in r.data
+    assert cliente.post(f"/inventario/{eid}/leitura/1001/foto/1/excluir", follow_redirects=True).status_code == 404
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/sobra", data={"descricao": "CADEIRA VELHA", "observacao": "x"}, follow_redirects=True)
     assert "precisa de foto".encode() in r.data
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/sobra", data={"descricao": "CADEIRA VELHA", "observacao": "x", "foto": (io.BytesIO(imagem), "b.jpg")}, content_type="multipart/form-data", follow_redirects=True)
-    assert b"CADEIRA VELHA" in r.data and enviados[-1].startswith(f"INV{eid}_SOBRA_")
-    # falha no envio: sobra não fica registrada
-    monkeypatch.setattr(fotos, "enviar", lambda nome, dados: (_ for _ in ()).throw(RuntimeError("bucket fora")))
+    assert b"CADEIRA VELHA" in r.data and enviados[-1].startswith("inv/sobra-") and enviados[-1].endswith(".webp")
+    # falha no envio: sobra não fica registrada; foto de bem não fica registrada
+    monkeypatch.setattr(fotos, "enviar", lambda chave, dados: (_ for _ in ()).throw(RuntimeError("bucket fora")))
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/sobra", data={"descricao": "MESA VELHA", "observacao": "x", "foto": (io.BytesIO(imagem), "c.jpg")}, content_type="multipart/form-data", follow_redirects=True)
     assert b"MESA VELHA" not in r.data and "não registrada".encode() in r.data
+    r = cliente.post(f"/inventario/{eid}/leitura/1001/foto", data={"foto": (io.BytesIO(imagem), "a.png")}, content_type="multipart/form-data")
+    assert r.status_code == 409 and "Falha ao enviar" in r.get_json()["erro"]
     import db, inventario
+    assert [f["nfoto"] for f in inventario.fotos_do_bem_no_evento(db.conectar(), eid, 1001)] == [2]
     sobras = inventario.bens_da_sala(db.conectar(), eid, "01 - SALA CCI")["sobras"]
     assert [s["descricao"] for s in sobras] == ["CADEIRA VELHA", "VENTILADOR"]
     r = cliente.post(f"/inventario/{eid}/sobra/{sobras[0]['id']}/excluir", follow_redirects=True)
     assert b"CADEIRA VELHA" not in r.data and len(apagados) == 2
     # evento encerrado: não mexe em foto no bucket nem aceita novo envio
-    monkeypatch.setattr(fotos, "enviar", lambda nome, dados: enviados.append(nome) or f"https://f.exemplo.org/inventario/{nome}")
+    monkeypatch.setattr(fotos, "enviar", lambda chave, dados: enviados.append(chave) or f"https://f.exemplo.org/{chave}")
     cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"})
     n_apagados, n_enviados = len(apagados), len(enviados)
-    cliente.post(f"/inventario/{eid}/leitura/1001/foto/excluir", follow_redirects=True)
-    assert len(apagados) == n_apagados
+    r = cliente.post(f"/inventario/{eid}/leitura/1001/foto/2/excluir", follow_redirects=True)
+    assert len(apagados) == n_apagados and b"Evento encerrado" in r.data
     r = cliente.post(f"/inventario/{eid}/leitura/1001/foto", data={"foto": (io.BytesIO(imagem), "d.png")}, content_type="multipart/form-data")
     assert r.status_code == 409 and len(enviados) == n_enviados
+
+
+def test_sala_mostra_varias_fotos_e_camera(cliente, monkeypatch):
+    import fotos
+    eid = _abrir(cliente)
+    for v in fotos.VARIAVEIS:
+        monkeypatch.setenv(v, "x")
+    cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+    import db, inventario
+    conn = db.conectar()
+    inventario.adicionar_foto(conn, eid, 1001, lambda c: "https://x/1.webp")
+    inventario.adicionar_foto(conn, eid, 1001, lambda c: "https://x/2.webp")
+    r = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI")
+    linha = r.data.split(b'data-numero="1001"')[1].split(b"</tr>")[0]
+    assert linha.count(b'class="dsgov-miniatura"') == 2 and b'src="https://x/2.webp"' in linha
+    assert f"/inventario/{eid}/leitura/1001/foto/1/excluir".encode() in linha and f"/foto/2/excluir".encode() in linha
+    assert b'class="foto-input"' in linha and b"foto-input\" hidden disabled" not in linha         # câmera continua, habilitada
+    linha2 = r.data.split(b'data-numero="1002"')[1].split(b"</tr>")[0]
+    assert b"dsgov-miniatura" not in linha2 and b'class="foto-input" hidden disabled' in linha2      # não lido: câmera desabilitada
+    assert b"/foto/0/excluir" in r.data                                                              # molde da URL para o JS
+    assert b"as fotos s" in r.data                                                                   # confirm do Desmarcar fala em fotos
+    cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"})
+    r = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI")
+    linha = r.data.split(b'data-numero="1001"')[1].split(b"</tr>")[0]
+    assert linha.count(b'class="dsgov-miniatura"') == 2 and b"/excluir" not in linha and b"foto-input" not in linha   # (o JS da página ainda cita foto-input; por isso a checagem é só na linha)
 
 
 def test_inventario_relatorio_xlsx_e_card_do_painel(cliente):
@@ -545,7 +578,7 @@ def test_inventario_relatorio_filtros_ordem_modal_e_xlsx_com_fotos(cliente):
     cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
     cliente.post(f"/inventario/{eid}/leitura/1001", json={"quem_usa": "José"})
     import db, inventario
-    inventario.atualizar_leitura(db.conectar(), eid, 1001, foto_url="https://x/1001.webp")
+    inventario.adicionar_foto(db.conectar(), eid, 1001, lambda chave: "https://x/1001.webp")
     r = cliente.get(f"/inventario/{eid}/relatorio?integrante=Fulano&busca=jose&ordem=numero&dir=desc")
     corpo = r.data.split(b"<tbody>")[1]
     assert r.status_code == 200 and b">1001<" in corpo and b">1002<" not in corpo
@@ -591,7 +624,7 @@ def test_inventario_lote_marcar_e_desmarcar(cliente, monkeypatch):
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "marcar"}, follow_redirects=True)
     assert b"Selecione ao menos um bem" in r.data
     import db, inventario
-    inventario.atualizar_leitura(db.conectar(), eid, 1001, foto_url="https://x/1001.webp")
+    inventario.adicionar_foto(db.conectar(), eid, 1001, lambda chave: "https://x/1001.webp")
     apagadas = []
     monkeypatch.setattr(fotos, "apagar", apagadas.append)
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "desmarcar", "numeros": ["1001"]}, follow_redirects=True)

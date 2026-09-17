@@ -52,9 +52,8 @@
     <td><select class="campo" data-campo="conservacao"{% if fechado or not b.lido_em %} disabled{% endif %}><option value="">—</option>{% for c in conservacao %}<option{% if b.conservacao == c %} selected{% endif %}>{{ c }}</option>{% endfor %}</select></td>
     <td><input class="campo" data-campo="quem_usa" type="text" value="{{ b.quem_usa or '' }}"{% if fechado or not b.lido_em %} disabled{% endif %}/></td>
     <td><input class="campo" data-campo="observacao" type="text" value="{{ b.observacao or '' }}"{% if fechado or not b.lido_em %} disabled{% endif %}/></td>
-    <td class="foto">{% if b.foto_url %}<a href="{{ b.foto_url }}" target="_blank" rel="noopener"><img src="{{ b.foto_url }}" alt="Foto do bem {{ b.numero }}" class="dsgov-miniatura"/></a>
-      {% if not fechado %}<form method="post" action="{{ url_for('inventario.foto_excluir', id=e.id, numero=b.numero) }}" class="d-inline"><input type="hidden" name="volta" value="{{ localizacao }}"/><button class="br-button circle small" type="submit" aria-label="Excluir foto"><i class="fas fa-trash" aria-hidden="true"></i></button></form>{% endif %}
-      {% elif fotos_ativas and not fechado %}<label class="br-button circle small{% if not b.lido_em %} disabled{% endif %}" aria-label="Foto do bem {{ b.numero }}"><i class="fas fa-camera" aria-hidden="true"></i><input type="file" accept="image/*" capture="environment" class="foto-input" hidden{% if not b.lido_em %} disabled{% endif %}/></label>{% endif %}</td>
+    <td class="foto">{% for f in b.fotos %}<span class="d-inline-block mr-1"><a href="{{ f.url }}" target="_blank" rel="noopener"><img src="{{ f.url }}" alt="Foto {{ f.nfoto }} do bem {{ b.numero }}" class="dsgov-miniatura"/></a>{% if not fechado %}<form method="post" action="{{ url_for('inventario.foto_excluir', id=e.id, numero=b.numero, nfoto=f.nfoto) }}" class="d-inline"><input type="hidden" name="volta" value="{{ localizacao }}"/><button class="br-button circle small" type="submit" aria-label="Excluir foto {{ f.nfoto }}"><i class="fas fa-trash" aria-hidden="true"></i></button></form>{% endif %}</span>{% endfor %}
+      {% if fotos_ativas and not fechado %}<label class="br-button circle small{% if not b.lido_em %} disabled{% endif %}" aria-label="Nova foto do bem {{ b.numero }}"><i class="fas fa-camera" aria-hidden="true"></i><input type="file" accept="image/*" capture="environment" class="foto-input" hidden{% if not b.lido_em %} disabled{% endif %}/></label>{% endif %}</td>
   </tr>
   {% endfor %}
   </tbody>
@@ -98,7 +97,7 @@
 (function () {
   var URL_LER = {{ url_for('inventario.ler', id=e.id, localizacao=localizacao)|tojson }};
   var URL_LEITURA = {{ url_for('inventario.atualizar_leitura', id=e.id, numero=0)|tojson }};   // troca o 0 pelo número
-  var URL_FOTO_EXCLUIR = {{ url_for('inventario.foto_excluir', id=e.id, numero=0)|tojson }};   // troca o 0 pelo número
+  var URL_FOTO_EXCLUIR = {{ url_for('inventario.foto_excluir', id=e.id, numero=0, nfoto=0)|tojson }};   // troca os 0 por número e nfoto
   var SALA = {{ localizacao|tojson }};
   var campo = document.getElementById("leitura"), aviso = document.getElementById("aviso"), avisoTexto = document.getElementById("aviso-texto");
   var btnSobra = document.getElementById("btn-sobra"), cardSobra = document.getElementById("card-sobra"), formSobra = document.getElementById("form-sobra");
@@ -109,7 +108,7 @@
   if (formLote) formLote.addEventListener("submit", function (ev) {
     var n = document.querySelectorAll('input[name="numeros"]:checked').length;
     if (!n) { ev.preventDefault(); mostrar("warning", "Selecione ao menos um bem na lista."); return; }
-    if (ev.submitter && ev.submitter.value === "desmarcar" && !confirm("Desfazer a leitura de " + n + " bem(ns)? Eles voltam a pendentes e a foto é apagada.")) ev.preventDefault();
+    if (ev.submitter && ev.submitter.value === "desmarcar" && !confirm("Desfazer a leitura de " + n + " bem(ns)? Eles voltam a pendentes e as fotos são apagadas.")) ev.preventDefault();
   });
 
   function focar() { if (!campo.disabled) { campo.value = ""; campo.focus(); } }
@@ -132,18 +131,25 @@
     span.appendChild(inner);
     return span;
   }
-  function preencherFoto(td, url, numero) {
+  function preencherFoto(td, fotosLista, numero) {
     td.textContent = "";
-    var a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener";
-    var img = document.createElement("img"); img.src = url; img.alt = "Foto"; img.className = "dsgov-miniatura";
-    a.appendChild(img); td.appendChild(a);
-    var form = document.createElement("form"); form.method = "post"; form.className = "d-inline";
-    form.action = URL_FOTO_EXCLUIR.replace(/\/0\/foto\/excluir$/, "/" + numero + "/foto/excluir");
-    var input = document.createElement("input"); input.type = "hidden"; input.name = "volta"; input.value = SALA;
-    var btn = document.createElement("button"); btn.className = "br-button circle small"; btn.type = "submit"; btn.setAttribute("aria-label", "Excluir foto");
-    btn.innerHTML = '<i class="fas fa-trash" aria-hidden="true"></i>';
-    form.appendChild(input); form.appendChild(btn);
-    td.appendChild(form);
+    fotosLista.forEach(function (f) {
+      var wrap = document.createElement("span"); wrap.className = "d-inline-block mr-1";
+      var a = document.createElement("a"); a.href = f.url; a.target = "_blank"; a.rel = "noopener";
+      var img = document.createElement("img"); img.src = f.url; img.alt = "Foto " + f.nfoto; img.className = "dsgov-miniatura";
+      a.appendChild(img); wrap.appendChild(a);
+      var form = document.createElement("form"); form.method = "post"; form.className = "d-inline";
+      form.action = URL_FOTO_EXCLUIR.replace(/\/0\/foto\/0\/excluir$/, "/" + numero + "/foto/" + f.nfoto + "/excluir");
+      var input = document.createElement("input"); input.type = "hidden"; input.name = "volta"; input.value = SALA;
+      var btn = document.createElement("button"); btn.className = "br-button circle small"; btn.type = "submit"; btn.setAttribute("aria-label", "Excluir foto " + f.nfoto);
+      btn.innerHTML = '<i class="fas fa-trash" aria-hidden="true"></i>';
+      form.appendChild(input); form.appendChild(btn); wrap.appendChild(form);
+      td.appendChild(wrap);
+    });
+    var label = document.createElement("label"); label.className = "br-button circle small"; label.setAttribute("aria-label", "Nova foto do bem " + numero);
+    label.innerHTML = '<i class="fas fa-camera" aria-hidden="true"></i>';
+    var inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*"; inp.setAttribute("capture", "environment"); inp.className = "foto-input"; inp.hidden = true;
+    label.appendChild(inp); td.appendChild(label);
   }
   function aplicar(j) {
     var tr = document.querySelector('#tabela-bens tr[data-numero="' + j.numero + '"]');
@@ -222,7 +228,7 @@
         .then(function (r) { return r.json().then(function (j) { return {ok: r.ok, j: j}; }); })
         .then(function (res) {
           if (!res.ok) { mostrar("danger", res.j.erro || "Erro ao salvar."); return; }
-          preencherFoto(tr.querySelector(".foto"), res.j.foto_url, tr.dataset.numero);
+          preencherFoto(tr.querySelector(".foto"), res.j.fotos, tr.dataset.numero);
           mostrar("success", "Foto enviada.");
         })
         .catch(function () { mostrar("danger", "Sem conexão; alteração não salva."); });

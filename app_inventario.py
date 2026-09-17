@@ -189,30 +189,36 @@ def _foto_processada():
 
 @inventario_bp.route("/<int:id>/leitura/<int:numero>/foto", methods=["POST"])
 def foto_leitura(id, numero):
+    """Mais uma foto do bem neste evento. Devolve a lista completa (nfoto, url) para a tela redesenhar a célula."""
     conn = _conn()
     try:
         inventario._evento_aberto_ou_erro(conn, id)
         dados = _foto_processada()
-        try:
-            url = fotos.enviar(fotos.nome_bem(id, numero), dados)
-        except Exception:
-            return _json_erro("Falha ao enviar a foto.")
-        inventario.atualizar_leitura(conn, id, numero, foto_url=url)
+
+        def enviar(chave):
+            try:
+                return fotos.enviar(chave, dados)
+            except Exception:
+                raise db.ErroDeNegocio("Falha ao enviar a foto.")
+
+        lista = inventario.adicionar_foto(conn, id, numero, enviar)
     except db.ErroDeNegocio as e:
         return _json_erro(e)
-    return jsonify({"foto_url": url})
+    return jsonify({"fotos": lista})
 
 
-@inventario_bp.route("/<int:id>/leitura/<int:numero>/foto/excluir", methods=["POST"])
-def foto_excluir(id, numero):
+@inventario_bp.route("/<int:id>/leitura/<int:numero>/foto/<int:nfoto>/excluir", methods=["POST"])
+def foto_excluir(id, numero, nfoto):
     conn = _conn()
-    atual = conn.execute("SELECT foto_url, localizacao FROM inventario_leituras WHERE evento_id = ? AND numero = ?", (id, numero)).fetchone()
-    if not atual:
+    leitura = conn.execute("SELECT localizacao FROM inventario_leituras WHERE evento_id = ? AND numero = ?", (id, numero)).fetchone()
+    if not leitura:
         abort(404)
-    inventario.atualizar_leitura(conn, id, numero, foto_url="")
-    fotos.apagar(atual["foto_url"])
+    url = inventario.apagar_foto(conn, id, numero, nfoto)
+    if url is None:
+        abort(404)
+    fotos.apagar(url)
     flash("Foto removida.", "success")
-    return redirect(url_for("inventario.sala_tela", id=id, localizacao=request.form.get("volta") or atual["localizacao"]))
+    return redirect(url_for("inventario.sala_tela", id=id, localizacao=request.form.get("volta") or leitura["localizacao"]))
 
 
 @inventario_bp.route("/<int:id>/sala/<path:localizacao>/sobra", methods=["POST"])
@@ -230,7 +236,7 @@ def sobra(id, localizacao):
                                      f.get("observacao", ""), "", integrante, exigir_foto=False)
     if exigir:
         try:
-            url = fotos.enviar(fotos.nome_sobra(id, sid), dados)
+            url = fotos.enviar(fotos.chave_sobra(inventario.pasta_do_evento(conn, id), sid), dados)
         except Exception:
             inventario.excluir_sobra(conn, id, sid)
             raise db.ErroDeNegocio("Falha ao enviar a foto; sobra não registrada. Tente de novo.")
