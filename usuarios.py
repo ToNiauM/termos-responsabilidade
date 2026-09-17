@@ -114,6 +114,56 @@ def elegiveis_comissao(conn) -> list[dict]:
                   *PERFIS_COMISSAO)
 
 
+# ---------------------------------------------------------------- permissões (nega por padrão)
+TODOS = frozenset(PERFIS)
+GESTAO = frozenset({"admin", "operador"})
+ADMIN = frozenset({"admin"})
+LEITURA = frozenset({"admin", "operador", "inventariante"})     # ler no inventário: exige ainda estar na comissão
+TERMOS_VER = frozenset({"admin", "operador", "consulta"})       # telas de termos: inventariante não vê
+
+# Chave = endpoint Flask; "<endpoint>:POST" quando o POST tem regra diferente do GET. Rota ausente = 403 para todos
+# (tests/test_permissoes.py garante que toda rota do app está aqui).
+PERMISSOES = {
+    # consulta geral
+    "home": TODOS, "bem": TODOS, "pesquisa": TODOS, "recorte": TODOS, "recorte_xlsx": TODOS,
+    # termos: ver para admin, operador e consulta; emitir/registrar só gestão
+    "centro_custos": TERMOS_VER, "termos_individuais": TERMOS_VER, "termo": TERMOS_VER, "termo_documento": TERMOS_VER,
+    "termo_devolucao": TERMOS_VER, "termo_devolucao:POST": GESTAO,
+    "termos_emitidos_tela": TERMOS_VER, "termo_emitido_tela": TERMOS_VER,
+    "gerar": GESTAO, "gerar_individual": GESTAO, "termo_docx": GESTAO, "termo_planilha": GESTAO, "termo_registrar": GESTAO,
+    "termo_emitido_documento": GESTAO, "termo_emitido_email": GESTAO,
+    # cadastros: gestão inclui/edita; só admin exclui
+    "cadastros": GESTAO, "cadastro_novo": GESTAO,
+    "responsaveis_incluir": GESTAO, "responsaveis_editar": GESTAO, "responsaveis_excluir": ADMIN,
+    "pessoas_incluir": GESTAO, "pessoas_editar": GESTAO, "pessoas_excluir": ADMIN,
+    "pessoas_atribuir": GESTAO, "pessoas_desatribuir": GESTAO,
+    "localizacoes_incluir": GESTAO, "localizacoes_alterar": GESTAO, "localizacoes_mover": GESTAO, "localizacoes_excluir": ADMIN,
+    "processos_incluir": GESTAO, "processos_vigente": GESTAO, "processos_encerrar": GESTAO, "processos_excluir": ADMIN,
+    "cadastros_exportar": GESTAO, "importar_cadastros": ADMIN,
+    # textos e base
+    "textos_tela": GESTAO, "textos_salvar": GESTAO,
+    "upload": GESTAO, "bens_exportar": GESTAO, "importacao_tela": GESTAO,
+    # inventário
+    "inventario.eventos_tela": TODOS, "inventario.evento_tela": TODOS, "inventario.sala_tela": TODOS,
+    "inventario.relatorio_tela": TODOS, "inventario.xlsx": TODOS, "inventario.painel_tela": TODOS,
+    "inventario.abrir": ADMIN, "inventario.encerrar": ADMIN, "inventario.comissao": ADMIN, "inventario.excluir": ADMIN,
+    "inventario.ler": LEITURA, "inventario.atualizar_leitura": LEITURA, "inventario.lote": LEITURA,
+    "inventario.foto_leitura": LEITURA, "inventario.foto_excluir": LEITURA, "inventario.sobra": LEITURA, "inventario.sobra_excluir": LEITURA,
+    "inventario.integrante": LEITURA,  # temporário: rota sai na Task 7
+    # conta e usuários
+    "usuarios.login": TODOS, "usuarios.sair": TODOS, "usuarios.senha": TODOS,
+    "usuarios.lista": ADMIN, "usuarios.novo": ADMIN, "usuarios.incluir": ADMIN, "usuarios.editar": ADMIN, "usuarios.nova_senha": ADMIN,
+}
+
+
+def permitido(perfil, endpoint, metodo="GET") -> bool:
+    metodo = "GET" if metodo in ("GET", "HEAD") else metodo
+    regra = PERMISSOES.get(f"{endpoint}:{metodo}") if metodo != "GET" else None
+    if regra is None:
+        regra = PERMISSOES.get(endpoint)
+    return regra is not None and perfil in regra
+
+
 # ---------------------------------------------------------------- autenticação e senhas
 _INVALIDO = "Usuário ou senha inválidos."
 
