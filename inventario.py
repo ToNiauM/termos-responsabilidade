@@ -45,6 +45,19 @@ def _evento_aberto_ou_erro(conn, id: int) -> dict:
     return e
 
 
+_COLS_SNAPSHOT = "numero, situacao, descricao, complemento, classificacao, localizacao"
+
+
+def _fonte_bens(conn, evento_id: int) -> str:
+    """De onde vêm os bens do evento: `bens` (aberto, ou encerrado antes de existir snapshot) ou a subconsulta
+    do snapshot gravado no encerramento. evento_id é int e vai inline no SQL (não há injeção)."""
+    e = _um(conn, "SELECT encerrado_em FROM inventario_eventos WHERE id = ?", evento_id)
+    if not e or not e["encerrado_em"] or not conn.execute(
+            "SELECT 1 FROM inventario_bens_encerrados WHERE evento_id = ? LIMIT 1", (evento_id,)).fetchone():
+        return "bens"
+    return f"(SELECT {_COLS_SNAPSHOT} FROM inventario_bens_encerrados WHERE evento_id = {int(evento_id)})"
+
+
 def abrir_evento(conn, nome: str, descricao, integrantes: list, salas: list | None = None) -> int:
     """Um evento aberto por vez. salas=None → todas as localizações com bens ATIVO; lista → amostragem."""
     nome = _obrigatorio(nome, "Nome do evento")
@@ -67,24 +80,32 @@ def abrir_evento(conn, nome: str, descricao, integrantes: list, salas: list | No
 
 
 def encerrar_evento(conn, id: int) -> None:
+    """Grava encerrado_em e congela os bens do evento (ativos das salas do escopo + todo bem lido) em
+    inventario_bens_encerrados, para o relatório não mudar quando o export do SPW seguinte for carregado."""
     e = _um(conn, "SELECT * FROM inventario_eventos WHERE id = ?", id)
     if not e:
         raise ErroDeNegocio("Evento de inventário não encontrado.")
-    if not e["encerrado_em"]:
-        conn.execute("UPDATE inventario_eventos SET encerrado_em = ? WHERE id = ?", (_agora(), id))
-        conn.commit()
+    if e["encerrado_em"]:
+        return
+    conn.execute("UPDATE inventario_eventos SET encerrado_em = ? WHERE id = ?", (_agora(), id))
+    conn.execute(f"""INSERT OR IGNORE INTO inventario_bens_encerrados (evento_id, {_COLS_SNAPSHOT})
+        SELECT ?, {_COLS_SNAPSHOT} FROM bens
+        WHERE (situacao = 'ATIVO' AND localizacao IN (SELECT localizacao FROM inventario_salas WHERE evento_id = ?))
+           OR numero IN (SELECT numero FROM inventario_leituras WHERE evento_id = ?)""", (id, id, id))
+    conn.commit()
 
 
 # ---------------------------------------------------------------- salas
 def salas(conn, evento_id: int) -> list[dict]:
     """Por sala do escopo: bens ativos (total), localizados aqui, divergentes lidos aqui, pendentes."""
-    linhas = _todos(conn, """
+    B = _fonte_bens(conn, evento_id)
+    linhas = _todos(conn, f"""
         SELECT s.localizacao, l.ccustos,
-          (SELECT count(*) FROM bens b WHERE b.localizacao = s.localizacao AND b.situacao = 'ATIVO') AS total,
-          (SELECT count(*) FROM inventario_leituras r JOIN bens b ON b.numero = r.numero
+          (SELECT count(*) FROM {B} b WHERE b.localizacao = s.localizacao AND b.situacao = 'ATIVO') AS total,
+          (SELECT count(*) FROM inventario_leituras r JOIN {B} b ON b.numero = r.numero
              WHERE r.evento_id = s.evento_id AND r.localizacao = s.localizacao
                AND b.localizacao = s.localizacao AND b.situacao = 'ATIVO') AS localizados,
-          (SELECT count(*) FROM inventario_leituras r JOIN bens b ON b.numero = r.numero
+          (SELECT count(*) FROM inventario_leituras r JOIN {B} b ON b.numero = r.numero
              WHERE r.evento_id = s.evento_id AND r.localizacao = s.localizacao AND b.localizacao <> s.localizacao
                AND b.situacao = 'ATIVO') AS divergentes
         FROM inventario_salas s LEFT JOIN localizacoes l ON l.localizacao = s.localizacao
@@ -144,14 +165,15 @@ def ler(conn, evento_id: int, localizacao: str, numero: int, integrante: str) ->
 def bens_da_sala(conn, evento_id: int, localizacao: str) -> dict:
     """bens: ativos cadastrados na sala (com a leitura do evento, se houver) e situacao_inv;
     trazidos: leituras feitas nesta sala de bens de outra sala ou não ativos; sobras: desta sala."""
+    B = _fonte_bens(conn, evento_id)
     bens = _todos(conn, f"""
-        SELECT b.*, {_LEITURA} FROM bens b
+        SELECT b.*, {_LEITURA} FROM {B} b
         LEFT JOIN inventario_leituras r ON r.numero = b.numero AND r.evento_id = ?
         WHERE b.localizacao = ? AND b.situacao = 'ATIVO' ORDER BY b.numero""", evento_id, localizacao)
     for b in bens:
         b["situacao_inv"] = "pendente" if not b["lido_em"] else ("localizado" if b["lido_em_sala"] == localizacao else "divergente")
     trazidos = _todos(conn, f"""
-        SELECT b.*, {_LEITURA} FROM inventario_leituras r JOIN bens b ON b.numero = r.numero
+        SELECT b.*, {_LEITURA} FROM inventario_leituras r JOIN {B} b ON b.numero = r.numero
         WHERE r.evento_id = ? AND r.localizacao = ? AND (b.localizacao <> ? OR b.situacao <> 'ATIVO')
         ORDER BY r.lido_em DESC""", evento_id, localizacao, localizacao)
     sobras = _todos(conn, "SELECT * FROM inventario_sobras WHERE evento_id = ? AND localizacao = ? ORDER BY id DESC",
@@ -229,6 +251,7 @@ def relatorio(conn, evento_id: int, localizacao: str | None = None, situacao: st
     do escopo (ou de bens que deixaram de estar ATIVO). situacao filtra por localizado | divergente | pendente."""
     if not _um(conn, "SELECT id FROM inventario_eventos WHERE id = ?", evento_id):
         raise ErroDeNegocio("Evento de inventário não encontrado.")
+    B = _fonte_bens(conn, evento_id)
     filtro_sala = ""
     params = [evento_id]
     if localizacao:
@@ -240,13 +263,13 @@ def relatorio(conn, evento_id: int, localizacao: str | None = None, situacao: st
     linhas = _todos(conn, f"""
         SELECT {_CAMPOS_REL},
           CASE WHEN r.id IS NULL THEN 'pendente' WHEN r.localizacao = b.localizacao THEN 'localizado' ELSE 'divergente' END AS situacao_inv
-        FROM inventario_salas s JOIN bens b ON b.localizacao = s.localizacao AND b.situacao = 'ATIVO'
+        FROM inventario_salas s JOIN {B} b ON b.localizacao = s.localizacao AND b.situacao = 'ATIVO'
         LEFT JOIN inventario_leituras r ON r.evento_id = s.evento_id AND r.numero = b.numero
         WHERE s.evento_id = ?{filtro_sala}
         UNION ALL
         SELECT {_CAMPOS_REL},
           CASE WHEN r.localizacao = b.localizacao THEN 'localizado' ELSE 'divergente' END AS situacao_inv
-        FROM inventario_leituras r JOIN bens b ON b.numero = r.numero
+        FROM inventario_leituras r JOIN {B} b ON b.numero = r.numero
         WHERE r.evento_id = ? AND (b.localizacao NOT IN (SELECT localizacao FROM inventario_salas WHERE evento_id = r.evento_id) OR b.situacao <> 'ATIVO')
           {"AND r.localizacao = ?" if localizacao else ""}
         ORDER BY local_sistema, numero""", *params)

@@ -130,6 +130,16 @@ CREATE TABLE IF NOT EXISTS inventario_sobras (
   integrante  TEXT NOT NULL,
   criado_em   TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS inventario_bens_encerrados (
+  evento_id     INTEGER NOT NULL REFERENCES inventario_eventos(id) ON DELETE CASCADE,
+  numero        INTEGER NOT NULL,
+  situacao      TEXT,
+  descricao     TEXT,
+  complemento   TEXT,
+  classificacao TEXT,
+  localizacao   TEXT,
+  PRIMARY KEY (evento_id, numero)
+);
 """
 
 

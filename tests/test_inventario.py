@@ -254,3 +254,33 @@ def test_titulo_do_xlsx_do_inventario_e_texto_literal(dados, tmp_path):
     wb = load_workbook(inventario.exportar_xlsx(dados, eid, tmp_path / "inv.xlsx"))
     assert wb["Bens"]["A1"].data_type == "s" and wb["Bens"]["A1"].value.startswith("=1+1")
     assert wb["Sobras"]["A1"].data_type == "s"
+
+
+def test_encerrar_grava_snapshot_e_congela_o_evento(dados):
+    eid = semear_inventario(dados)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    inventario.ler(dados, eid, "01 - SALA CCI", 1003, "Fulano")          # BAIXADO lido: entra no snapshot por ter leitura
+    inventario.encerrar_evento(dados, eid)
+    snap = {r[0] for r in dados.execute("SELECT numero FROM inventario_bens_encerrados WHERE evento_id = ?", (eid,))}
+    assert snap == {1001, 1002, 1003, 1004, 2001, 2002}
+    inventario.encerrar_evento(dados, eid)                                 # idempotente: não regrava
+    assert dados.execute("SELECT count(*) FROM inventario_bens_encerrados").fetchone()[0] == 6
+    # o export do SPW do ano seguinte muda `bens`; o evento encerrado não muda
+    dados.execute("UPDATE bens SET localizacao = '02 - SALA B', descricao = 'CADEIRA NOVA' WHERE numero = 1001")
+    dados.execute("DELETE FROM bens WHERE numero = 2002")
+    dados.execute("INSERT INTO bens VALUES (3001,'ATIVO','TV','LG','EQUIPAMENTOS','01 - SALA CCI','01/01/2027',1,1)")
+    dados.commit()
+    assert [(s["localizacao"], s["total"], s["localizados"]) for s in inventario.salas(dados, eid)] == \
+        [("01 - SALA CCI", 2, 1), ("02 - SALA B", 2, 0), ("99 - SEM MAPA", 1, 0)]
+    r = {x["numero"]: x for x in inventario.relatorio(dados, eid)}
+    assert set(r) == {1001, 1002, 1003, 1004, 2001, 2002}
+    assert r[1001]["descricao"] == "CADEIRA" and r[1001]["situacao_inv"] == "localizado" and r[1003]["situacao_bem"] == "BAIXADO"
+    assert inventario.resumo(dados, eid)["bens"] == 5
+    assert [b["numero"] for b in inventario.bens_da_sala(dados, eid, "01 - SALA CCI")["bens"]] == [1001, 1002]
+
+
+def test_evento_encerrado_sem_snapshot_le_bens(dados):
+    eid = semear_inventario(dados)
+    dados.execute("UPDATE inventario_eventos SET encerrado_em = '2026-01-01 00:00:00' WHERE id = ?", (eid,))
+    dados.commit()
+    assert inventario.resumo(dados, eid)["bens"] == 5 and inventario._fonte_bens(dados, eid) == "bens"
