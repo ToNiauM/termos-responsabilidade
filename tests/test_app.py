@@ -1,4 +1,5 @@
 import io
+from datetime import date
 from urllib.parse import unquote
 
 import pytest
@@ -68,7 +69,7 @@ def test_termo_com_processo_registra_ao_baixar_e_ao_copiar(cliente):
     r = cliente.get("/termo/ccusto/CCI")
     assert "Último termo registrado".encode() in r.data and b"Bens iguais aos de hoje" in r.data
     j = cliente.post("/termo/ccusto/CCI/registrar").get_json()
-    assert j["id"] and j["emitido_em"][:4] == "2026"
+    assert j["id"] and j["emitido_em"][:4] == str(date.today().year)
     assert len(db.termos_emitidos(db.conectar())) == 1     # docx + registrar no mesmo dia = 1 registro
 
 
@@ -598,3 +599,13 @@ def test_devolucao_sugere_bens_da_pessoa_sem_travar(cliente):
         s.pop("nome_devolucao", None)
     r = cliente.post("/termo_devolucao", data={"nome": ""}, follow_redirects=True)
     assert b"Escolha a pessoa que devolve" in r.data
+
+
+def test_docx_tipo_invalido_da_404_e_head_nao_registra(cliente):
+    assert cliente.get("/termo/xyz/CCI/docx").status_code == 404
+    assert cliente.get("/termo/xyz/CCI").status_code == 404
+    db.incluir_processo(db.conectar(), "ccusto", "Termos", "1111")
+    assert cliente.head("/termo/ccusto/CCI/docx").status_code == 200
+    assert db.termos_emitidos(db.conectar()) == []
+    assert cliente.get("/termo/ccusto/CCI/docx").status_code == 200
+    assert len(db.termos_emitidos(db.conectar())) == 1

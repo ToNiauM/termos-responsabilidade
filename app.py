@@ -213,6 +213,8 @@ def gerar_individual():
 
 def _exigir_processo(conn, tipo, chave):
     """Sem processo SEI vigente do tipo não há emissão: flash + volta à tela do termo."""
+    if tipo not in db.TIPOS_TERMO:
+        abort(404)
     if db.processo_vigente(conn, tipo):
         return None
     flash(f"Cadastre um processo SEI vigente para {db.ROTULO_TIPO[tipo]} em Cadastros → Processos SEI.", "error")
@@ -243,6 +245,8 @@ def termo_docx(tipo, chave):
     conn = obter_conn()
     if (volta := _exigir_processo(conn, tipo, chave)):
         return volta
+    if request.method == "HEAD":     # navegadores/antivírus sondam o link: não gera nem registra
+        return "", 200
     _, _, bens, extra = _bens_do_termo(conn, tipo, chave)
     t = textos.obter(conn)
     arquivo = io.BytesIO()   # gerado em memória: nada fica gravado no servidor
