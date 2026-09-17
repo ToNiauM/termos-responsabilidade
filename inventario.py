@@ -4,6 +4,7 @@ planilhas. Só dados: toda função recebe `conn` primeiro e não importa Flask 
 Regras (spec 2026-09-15): `bens` é espelho do SPW e nunca muda aqui; "local sistema" = bens.localizacao,
 "local inventário" = sala onde o bem foi lido; divergente = os dois diferem (calculado, nunca gravado)."""
 import db
+import fotos
 from db import ErroDeNegocio, _agora, _obrigatorio, _texto, _todos, _um, acrescentar_linha
 
 CONSERVACAO = ("Bom", "Regular", "Ruim", "Inservível")
@@ -69,6 +70,10 @@ def _fonte_bens(conn, evento_id: int) -> str:
 def abrir_evento(conn, nome: str, descricao, integrantes: list, salas: list | None = None) -> int:
     """Um evento aberto por vez. salas=None → todas as localizações com bens ATIVO; lista → amostragem."""
     nome = _obrigatorio(nome, "Nome do evento")
+    nova = fotos.pasta(nome, 0)
+    for outro in eventos(conn):
+        if fotos.pasta(outro["nome"], outro["id"]) == nova:
+            raise ErroDeNegocio(f"Já existe um evento com esse nome (pasta de fotos '{nova}'); escolha outro nome.")
     if evento_aberto(conn):
         raise ErroDeNegocio("Já existe um evento de inventário aberto; encerre-o antes de abrir outro.")
     nomes = sorted({" ".join(_texto(n).split()) for n in integrantes if _texto(n).strip()})
@@ -173,7 +178,9 @@ def painel(conn, evento_id: int, andar_sel: str | None = None) -> dict:
 
 
 # ---------------------------------------------------------------- leituras
-_LEITURA = "r.localizacao AS lido_em_sala, r.lido_em, r.integrante, r.conservacao, r.quem_usa, r.observacao, r.foto_url"
+_FOTO_SQL = """(SELECT f.url FROM inventario_fotos f WHERE f.evento_id = r.evento_id AND f.numero = r.numero ORDER BY f.nfoto LIMIT 1) AS foto_url,
+        (SELECT COUNT(*) FROM inventario_fotos f WHERE f.evento_id = r.evento_id AND f.numero = r.numero) AS n_fotos"""
+_LEITURA = f"r.localizacao AS lido_em_sala, r.lido_em, r.integrante, r.conservacao, r.quem_usa, r.observacao, {_FOTO_SQL}"
 
 
 def ler(conn, evento_id: int, localizacao: str, numero: int, integrante: str) -> dict:
@@ -216,13 +223,15 @@ def bens_da_sala(conn, evento_id: int, localizacao: str) -> dict:
         ORDER BY r.lido_em DESC""", evento_id, localizacao, localizacao)
     sobras = _todos(conn, "SELECT * FROM inventario_sobras WHERE evento_id = ? AND localizacao = ? ORDER BY id DESC",
                     evento_id, localizacao)
+    for b in bens + trazidos:
+        b["fotos"] = fotos_do_bem_no_evento(conn, evento_id, b["numero"]) if b["lido_em"] else []
     return {"bens": bens, "trazidos": trazidos, "sobras": sobras}
 
 
 def atualizar_leitura(conn, evento_id: int, numero: int, **campos) -> None:
-    """Campos: conservacao, quem_usa, observacao, foto_url (só os presentes são gravados; '' vira NULL)."""
+    """Campos: conservacao, quem_usa, observacao (só os presentes são gravados; '' vira NULL)."""
     _evento_aberto_ou_erro(conn, evento_id)
-    permitidos = {"conservacao", "quem_usa", "observacao", "foto_url"}
+    permitidos = {"conservacao", "quem_usa", "observacao"}
     extra = set(campos) - permitidos
     if extra:
         raise ErroDeNegocio(f"Campo desconhecido: {', '.join(sorted(extra))}.")
@@ -234,6 +243,62 @@ def atualizar_leitura(conn, evento_id: int, numero: int, **campos) -> None:
         conn.execute(f"UPDATE inventario_leituras SET {campo} = ? WHERE evento_id = ? AND numero = ?",
                      (_texto(valor) or None, evento_id, numero))
     conn.commit()
+
+
+# ---------------------------------------------------------------- fotos dos bens
+def pasta_do_evento(conn, evento_id: int) -> str:
+    e = _um(conn, "SELECT id, nome FROM inventario_eventos WHERE id = ?", evento_id)
+    if not e:
+        raise ErroDeNegocio("Evento de inventário não encontrado.")
+    return fotos.pasta(e["nome"], e["id"])
+
+
+def fotos_do_bem_no_evento(conn, evento_id: int, numero: int) -> list[dict]:
+    return _todos(conn, "SELECT nfoto, url, criado_em FROM inventario_fotos WHERE evento_id = ? AND numero = ? ORDER BY nfoto",
+                  evento_id, numero)
+
+
+def adicionar_foto(conn, evento_id: int, numero: int, enviar) -> list[dict]:
+    """Mais uma foto do bem neste evento. `enviar(chave) -> url` grava no bucket (fotos.enviar com os bytes já
+    comprimidos, ou um callable falso nos testes) e roda ANTES do INSERT: se falhar, nada é gravado.
+    nfoto = maior já usado (na tabela ou em inventario_leituras.fotos_seq, guardado a cada foto) + 1: nunca
+    reaproveitado, mesmo depois de apagar a última foto."""
+    _evento_aberto_ou_erro(conn, evento_id)
+    leitura = _um(conn, "SELECT fotos_seq FROM inventario_leituras WHERE evento_id = ? AND numero = ?", evento_id, numero)
+    if not leitura:
+        raise ErroDeNegocio("Leia o bem antes de fotografar.")
+    maior_gravado = conn.execute("SELECT COALESCE(MAX(nfoto), 0) FROM inventario_fotos WHERE evento_id = ? AND numero = ?",
+                                 (evento_id, numero)).fetchone()[0]
+    nfoto = max(leitura["fotos_seq"], maior_gravado) + 1
+    url = enviar(fotos.chave_bem(pasta_do_evento(conn, evento_id), nfoto, numero))
+    conn.execute("INSERT INTO inventario_fotos (evento_id, numero, nfoto, url, criado_em) VALUES (?,?,?,?,?)",
+                 (evento_id, numero, nfoto, url, _agora()))
+    conn.execute("UPDATE inventario_leituras SET fotos_seq = ? WHERE evento_id = ? AND numero = ?", (nfoto, evento_id, numero))
+    conn.commit()
+    return fotos_do_bem_no_evento(conn, evento_id, numero)
+
+
+def apagar_foto(conn, evento_id: int, numero: int, nfoto: int) -> str | None:
+    """Apaga a linha e devolve a url (para a rota apagar no bucket); None se não existia."""
+    _evento_aberto_ou_erro(conn, evento_id)
+    f = _um(conn, "SELECT url FROM inventario_fotos WHERE evento_id = ? AND numero = ? AND nfoto = ?", evento_id, numero, nfoto)
+    if not f:
+        return None
+    conn.execute("DELETE FROM inventario_fotos WHERE evento_id = ? AND numero = ? AND nfoto = ?", (evento_id, numero, nfoto))
+    conn.commit()
+    return f["url"]
+
+
+def fotos_do_bem(conn, numero: int) -> list[dict]:
+    """Para o cadastro do bem: um bloco por evento em que o bem tem foto, do mais recente para o mais antigo."""
+    grupos = _todos(conn, """
+        SELECT e.id AS evento_id, e.nome AS evento, e.aberto_em, e.encerrado_em, r.lido_em
+        FROM inventario_eventos e JOIN inventario_leituras r ON r.evento_id = e.id AND r.numero = ?
+        WHERE EXISTS (SELECT 1 FROM inventario_fotos f WHERE f.evento_id = e.id AND f.numero = r.numero)
+        ORDER BY e.aberto_em DESC, e.id DESC""", numero)
+    for g in grupos:
+        g["fotos"] = [{"nfoto": f["nfoto"], "url": f["url"]} for f in fotos_do_bem_no_evento(conn, g["evento_id"], numero)]
+    return grupos
 
 
 def andar(localizacao: str) -> str:
@@ -265,8 +330,7 @@ def desfazer_leituras(conn, evento_id: int, numeros: list) -> tuple[list, int]:
         return [], 0
     marcas = ",".join("?" * len(numeros))
     urls = [r[0] for r in conn.execute(
-        f"SELECT foto_url FROM inventario_leituras WHERE evento_id = ? AND numero IN ({marcas}) AND foto_url IS NOT NULL AND foto_url <> ''",
-        (evento_id, *numeros))]
+        f"SELECT url FROM inventario_fotos WHERE evento_id = ? AND numero IN ({marcas})", (evento_id, *numeros))]
     cur = conn.execute(f"DELETE FROM inventario_leituras WHERE evento_id = ? AND numero IN ({marcas})", (evento_id, *numeros))
     conn.commit()
     return urls, cur.rowcount
@@ -346,8 +410,8 @@ def descrever_filtros(f: dict) -> str:
 COLUNAS_XLSX = ["Patrimônio", "Descrição", "Complemento", "Classificação", "Local sistema", "Local inventário",
                 "Situação", "Conservação", "Quem usa", "Observação", "Integrante", "Data/hora", "Foto", "Situação do bem"]
 COLUNAS_SOBRAS = ["Sala", "Descrição", "Complemento", "Observação", "Integrante", "Data/hora", "Foto"]
-_CAMPOS_REL = """b.numero AS numero, b.descricao, b.complemento, b.classificacao, b.localizacao AS local_sistema,
-        r.localizacao AS local_inventario, r.lido_em, r.integrante, r.conservacao, r.quem_usa, r.observacao, r.foto_url,
+_CAMPOS_REL = f"""b.numero AS numero, b.descricao, b.complemento, b.classificacao, b.localizacao AS local_sistema,
+        r.localizacao AS local_inventario, r.lido_em, r.integrante, r.conservacao, r.quem_usa, r.observacao, {_FOTO_SQL},
         b.situacao AS situacao_bem"""
 
 
@@ -455,10 +519,12 @@ ABAS = {
     "inv_eventos": ["id", "nome", "descricao", "aberto_em", "encerrado_em"],
     "inv_integrantes": ["evento_id", "nome"],
     "inv_salas": ["evento_id", "localizacao"],
-    "inv_leituras": ["evento_id", "numero", "localizacao", "lido_em", "integrante", "conservacao", "quem_usa", "observacao", "foto_url"],
+    "inv_leituras": ["evento_id", "numero", "localizacao", "lido_em", "integrante", "conservacao", "quem_usa", "observacao"],
     "inv_sobras": ["evento_id", "localizacao", "descricao", "complemento", "observacao", "foto_url", "integrante", "criado_em"],
     "inv_bens_encerrados": ["evento_id", "numero", "situacao", "descricao", "complemento", "classificacao", "localizacao"],
+    "inv_fotos": ["evento_id", "numero", "nfoto", "url", "criado_em"],
 }
+ABAS_OPCIONAIS = ("inv_bens_encerrados", "inv_fotos")   # podem faltar mesmo quando as 5 originais vêm
 _TABELA = {aba: "inventario_" + aba[4:] for aba in ABAS}
 
 
@@ -519,6 +585,12 @@ def validar_abas(conn, brutos: dict) -> tuple[dict, list]:
         linhas["inv_eventos"].append((eid, nome, _texto(r["descricao"]) or None, aberto, encerrado))
     if abertos > 1:
         problemas.append("inv_eventos: mais de um evento aberto (sem encerrado_em)")
+    pastas: dict = {}
+    for eid, nome, *_ in linhas["inv_eventos"]:
+        p = fotos.pasta(nome, eid)
+        if p in pastas:
+            problemas.append(f"inv_eventos: pasta de fotos repetida '{p}' (eventos {pastas[p]} e {eid}); mude um dos nomes")
+        pastas.setdefault(p, eid)
 
     def evento_ok(r, rot):
         try:
@@ -546,6 +618,8 @@ def validar_abas(conn, brutos: dict) -> tuple[dict, list]:
         vistos.add((eid, loc))
         linhas["inv_salas"].append((eid, loc))
     vistos = set()
+    leituras_ok: set = set()
+    fotos_antigas: list = []
     for r in brutos["inv_leituras"]:
         rot = f"inv_leituras linha {r['_linha']}"
         eid = evento_ok(r, rot)
@@ -570,8 +644,10 @@ def validar_abas(conn, brutos: dict) -> tuple[dict, list]:
         if not valido:
             continue
         vistos.add((eid, num))
-        linhas["inv_leituras"].append((eid, num, loc, lido, integ, cons, _texto(r["quem_usa"]) or None,
-                                       _texto(r["observacao"]) or None, _texto(r["foto_url"]) or None))
+        leituras_ok.add((eid, num))
+        linhas["inv_leituras"].append((eid, num, loc, lido, integ, cons, _texto(r["quem_usa"]) or None, _texto(r["observacao"]) or None))
+        if _texto(r.get("foto_url")):
+            fotos_antigas.append((eid, num, 1, _texto(r["foto_url"]), lido))
     for r in brutos["inv_sobras"]:
         rot = f"inv_sobras linha {r['_linha']}"
         eid = evento_ok(r, rot)
@@ -601,6 +677,35 @@ def validar_abas(conn, brutos: dict) -> tuple[dict, list]:
             problemas.append(f"{rot}: bem {num} repetido no evento {eid}"); continue
         vistos.add((eid, num))
         linhas["inv_bens_encerrados"].append((eid, num, *(_texto(r[c]) or None for c in ("situacao", "descricao", "complemento", "classificacao", "localizacao"))))
+
+    vistos = set()
+    for r in brutos["inv_fotos"]:
+        rot = f"inv_fotos linha {r['_linha']}"
+        eid = evento_ok(r, rot)
+        if eid is None:
+            continue
+        num = db._numero(r["numero"])
+        if num is None or num != int(num):
+            problemas.append(f"{rot}: número inválido ({_texto(r['numero']) or '(vazio)'})"); continue
+        num = int(num)
+        if (eid, num) not in leituras_ok:
+            problemas.append(f"{rot}: bem {num} não tem leitura no evento {eid} (aba inv_leituras)"); continue
+        nfoto = db._numero(r["nfoto"])
+        if nfoto is None or nfoto != int(nfoto) or nfoto < 1:
+            problemas.append(f"{rot}: nfoto inválido ({_texto(r['nfoto']) or '(vazio)'})"); continue
+        nfoto = int(nfoto)
+        url = _texto(r["url"])
+        if not url:
+            problemas.append(f"{rot}: url vazia"); continue
+        if (eid, num, nfoto) in vistos:
+            problemas.append(f"{rot}: foto {nfoto} do bem {num} repetida no evento {eid}"); continue
+        criado = _data_iso(r["criado_em"], "data criado_em", rot, problemas, True)
+        if criado is None:
+            continue
+        vistos.add((eid, num, nfoto))
+        linhas["inv_fotos"].append((eid, num, nfoto, url, criado))
+    if not brutos["inv_fotos"]:
+        linhas["inv_fotos"] = fotos_antigas          # planilha anterior à Fase 3: foto_url de inv_leituras vira foto 1
     return linhas, problemas
 
 
@@ -618,6 +723,7 @@ def substituir_tabelas(conn, linhas: dict) -> None:
     conn.executemany("INSERT INTO inventario_eventos (id, nome, descricao, aberto_em, encerrado_em) VALUES (?,?,?,?,?)", linhas["inv_eventos"])
     conn.executemany("INSERT INTO inventario_integrantes VALUES (?,?)", linhas["inv_integrantes"])
     conn.executemany("INSERT INTO inventario_salas VALUES (?,?)", linhas["inv_salas"])
-    conn.executemany("INSERT INTO inventario_leituras (evento_id, numero, localizacao, lido_em, integrante, conservacao, quem_usa, observacao, foto_url) VALUES (?,?,?,?,?,?,?,?,?)", linhas["inv_leituras"])
+    conn.executemany("INSERT INTO inventario_leituras (evento_id, numero, localizacao, lido_em, integrante, conservacao, quem_usa, observacao) VALUES (?,?,?,?,?,?,?,?)", linhas["inv_leituras"])
     conn.executemany("INSERT INTO inventario_sobras (evento_id, localizacao, descricao, complemento, observacao, foto_url, integrante, criado_em) VALUES (?,?,?,?,?,?,?,?)", linhas["inv_sobras"])
     conn.executemany(f"INSERT OR IGNORE INTO inventario_bens_encerrados (evento_id, {_COLS_SNAPSHOT}) VALUES (?,?,?,?,?,?,?)", snapshot)
+    conn.executemany("INSERT INTO inventario_fotos (evento_id, numero, nfoto, url, criado_em) VALUES (?,?,?,?,?)", linhas["inv_fotos"])

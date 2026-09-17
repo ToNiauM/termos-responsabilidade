@@ -59,6 +59,7 @@ def transformar(conn, linhas: list[dict], pular_inexistentes: bool = False) -> t
     t = db._texto
     leituras, sobras, problemas, inexistentes, datas = [], [], [], [], []
     vistos: dict[int, int] = {}
+    fotos: dict[int, str | None] = {}   # numero -> imagem da leitura que "ganhou" (mais recente), ligada 1:1 à leitura
     quem_leu: set[str] = set()
     for r in linhas:
         loc = t(r.get("local_verificado"))
@@ -89,14 +90,16 @@ def transformar(conn, linhas: list[dict], pular_inexistentes: bool = False) -> t
         cons = t(r.get("estado_conservacao")) or None
         if cons and cons not in inventario.CONSERVACAO:
             problemas.append(f"{rot}: conservação inválida ({cons})"); cons = None
-        linha = [1, num, loc, quando, integrante, cons, t(r.get("usuario_bem")) or None,
-                 t(r.get("observacao")) or None, t(r.get("imagem")) or None]
+        linha = [1, num, loc, quando, integrante, cons, t(r.get("usuario_bem")) or None, t(r.get("observacao")) or None]
+        imagem = t(r.get("imagem")) or None
         if num in vistos:                                                      # fica a leitura mais recente
             if quando > leituras[vistos[num]][3]:
                 leituras[vistos[num]] = linha
+                fotos[num] = imagem
             continue
         vistos[num] = len(leituras)
         leituras.append(linha)
+        fotos[num] = imagem
     if inexistentes and not pular_inexistentes:
         raise SystemExit(f"{len(inexistentes)} leitura(s) de bens que não existem na base atual "
                          f"(ex.: {', '.join(map(str, sorted(inexistentes)[:10]))}).\n"
@@ -104,6 +107,7 @@ def transformar(conn, linhas: list[dict], pular_inexistentes: bool = False) -> t
                          "ou use --pular-inexistentes para deixá-las de fora.")
     salas = sorted(set(db.localizacoes_ativas(conn)) | {l[2] for l in leituras} | {s[1] for s in sobras})
     integrantes = sorted(quem_leu)
+    fotos_leituras = [[1, l[1], 1, fotos[l[1]], l[3]] for l in leituras if fotos.get(l[1])]
     abas = {
         "inv_eventos": [[1, EVENTO_NOME, EVENTO_DESCRICAO, min(datas) if datas else db._agora(), None]],
         "inv_integrantes": [[1, n] for n in integrantes],
@@ -111,6 +115,7 @@ def transformar(conn, linhas: list[dict], pular_inexistentes: bool = False) -> t
         "inv_leituras": leituras,
         "inv_sobras": sobras,
         "inv_bens_encerrados": [],   # evento migrado nasce aberto; snapshot só existe depois de encerrado
+        "inv_fotos": fotos_leituras,
     }
     resumo = {"leituras": len(leituras), "sobras": len(sobras), "salas": len(salas), "integrantes": integrantes,
               "inexistentes": sorted(inexistentes), "problemas": problemas,

@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS inventario_leituras (
   conservacao TEXT CHECK (conservacao IN ('Bom','Regular','Ruim','Inservível')),
   quem_usa    TEXT,
   observacao  TEXT,
-  foto_url    TEXT,
+  fotos_seq   INTEGER NOT NULL DEFAULT 0,   -- maior nfoto já usado nesta leitura (não reaproveita após apagar foto)
   UNIQUE (evento_id, numero)
 );
 CREATE TABLE IF NOT EXISTS inventario_sobras (
@@ -139,6 +139,15 @@ CREATE TABLE IF NOT EXISTS inventario_bens_encerrados (
   classificacao TEXT,
   localizacao   TEXT,
   PRIMARY KEY (evento_id, numero)
+);
+CREATE TABLE IF NOT EXISTS inventario_fotos (
+  evento_id INTEGER NOT NULL,
+  numero    INTEGER NOT NULL,
+  nfoto     INTEGER NOT NULL,
+  url       TEXT NOT NULL,
+  criado_em TEXT NOT NULL,
+  PRIMARY KEY (evento_id, numero, nfoto),
+  FOREIGN KEY (evento_id, numero) REFERENCES inventario_leituras(evento_id, numero) ON DELETE CASCADE
 );
 """
 
@@ -178,6 +187,14 @@ def criar_esquema(conn: sqlite3.Connection) -> None:
     if "bloco_sei" not in _colunas(conn, "termos_emitidos"):
         conn.execute("ALTER TABLE termos_emitidos ADD COLUMN bloco_sei TEXT")
         conn.execute("ALTER TABLE termos_emitidos ADD COLUMN email_enviado_em TEXT")
+    if "fotos_seq" not in _colunas(conn, "inventario_leituras"):
+        conn.execute("ALTER TABLE inventario_leituras ADD COLUMN fotos_seq INTEGER NOT NULL DEFAULT 0")
+    # Fase 3 (2026-09-17): a foto única da leitura virou a tabela inventario_fotos (várias por bem).
+    if "foto_url" in _colunas(conn, "inventario_leituras"):
+        conn.execute("""INSERT OR IGNORE INTO inventario_fotos (evento_id, numero, nfoto, url, criado_em)
+                        SELECT evento_id, numero, 1, foto_url, lido_em FROM inventario_leituras
+                        WHERE foto_url IS NOT NULL AND foto_url <> ''""")
+        conn.execute("ALTER TABLE inventario_leituras DROP COLUMN foto_url")
     conn.commit()
 
 
@@ -901,7 +918,7 @@ def exportar_cadastros(conn, destino: Path) -> Path:
     return destino
 
 
-def _ler_aba_cadastro(wb, tabela: str, problemas: list, colunas=None, opcional=False) -> list[dict] | None:
+def _ler_aba_cadastro(wb, tabela: str, problemas: list, colunas=None, opcional=False, opcionais=()) -> list[dict] | None:
     colunas = colunas or CADASTROS[tabela]
     if tabela not in wb.sheetnames:
         if opcional:
@@ -911,16 +928,16 @@ def _ler_aba_cadastro(wb, tabela: str, problemas: list, colunas=None, opcional=F
     ws = wb[tabela]
     it = ws.iter_rows(values_only=True)
     cabecalho = [_texto(c) for c in next(it, ())]
-    faltando = [c for c in colunas if c not in cabecalho]
+    faltando = [c for c in colunas if c not in cabecalho and c not in opcionais]
     if faltando:
         problemas.append(f"aba '{tabela}': coluna(s) ausente(s): {', '.join(faltando)}")
         return []
-    idx = [cabecalho.index(c) for c in colunas]
+    idx = {c: (cabecalho.index(c) if c in cabecalho else None) for c in colunas}
     linhas = []
     for n, r in enumerate(it, start=2):
         if r is None or all(v is None or _texto(v) == "" for v in r):
             continue
-        linhas.append({"_linha": n, **{c: r[i] if i < len(r) else None for c, i in zip(colunas, idx)}})
+        linhas.append({"_linha": n, **{c: (r[i] if i is not None and i < len(r) else None) for c, i in idx.items()}})
     return linhas
 
 
@@ -934,7 +951,8 @@ def importar_cadastros(conn, arquivo) -> dict:
     problemas: list[str] = []
     try:
         brutos = {t: _ler_aba_cadastro(wb, t, problemas) for t in CADASTROS}
-        inv_brutos = {aba: _ler_aba_cadastro(wb, aba, problemas, colunas=cols, opcional=True) for aba, cols in inventario.ABAS.items()}
+        inv_brutos = {aba: _ler_aba_cadastro(wb, aba, problemas, colunas=cols + (["foto_url"] if aba == "inv_leituras" else []),
+                                             opcional=True, opcionais=("foto_url",)) for aba, cols in inventario.ABAS.items()}
         tem_inventario = any(v is not None for v in inv_brutos.values())
     except ImportacaoInvalida:
         raise
@@ -944,7 +962,7 @@ def importar_cadastros(conn, arquivo) -> dict:
         wb.close()
     if problemas:
         raise ImportacaoInvalida("Planilha de cadastros: " + "; ".join(problemas))
-    faltam = [aba for aba, v in inv_brutos.items() if v is None and aba != "inv_bens_encerrados"]
+    faltam = [aba for aba, v in inv_brutos.items() if v is None and aba not in inventario.ABAS_OPCIONAIS]
     if tem_inventario and faltam:
         raise ImportacaoInvalida("Planilha de cadastros: abas de inventário incompletas (faltam: " + ", ".join(faltam)
                                  + "). Envie as 5 abas inv_* ou nenhuma.")

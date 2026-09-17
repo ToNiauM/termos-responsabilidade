@@ -15,6 +15,11 @@ def semear_inventario(conn):
     return inventario.abrir_evento(conn, "Inventário 2026", "Portaria 1/2026", ["Fulano", "Beltrana"])
 
 
+def foto_falsa(conn, eid, numero, url=None):
+    """adicionar_foto com envio falso; devolve a lista de fotos do bem no evento."""
+    return inventario.adicionar_foto(conn, eid, numero, lambda chave: url or f"https://x/{chave}")
+
+
 def test_localizacoes_ativas(dados):
     semear(dados)
     assert db.localizacoes_ativas(dados) == ["01 - SALA CCI", "99 - SEM MAPA"]   # 1003 é BAIXADO, não muda nada
@@ -185,7 +190,7 @@ def test_xlsx_cabecalho_filtros_e_fotos(dados, tmp_path):
     from openpyxl import load_workbook
     eid = semear_inventario(dados)
     inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
-    inventario.atualizar_leitura(dados, eid, 1001, foto_url="https://x/1001.webp")
+    foto_falsa(dados, eid, 1001, "https://x/1001.webp")
     inventario.registrar_sobra(dados, eid, "01 - SALA CCI", "VENTILADOR", None, "sem plaqueta", "https://x/s.webp", "Fulano")
     wb = load_workbook(inventario.exportar_xlsx(dados, eid, tmp_path / "a.xlsx", situacao="localizado", fotos=True))
     ws = wb["Bens"]
@@ -215,12 +220,12 @@ def test_planilha_de_cadastros_exporta_e_importa_abas_de_inventario(dados, tmp_p
     from openpyxl import load_workbook
     caminho = db.exportar_cadastros(dados, tmp_path / "c.xlsx")
     wb = load_workbook(caminho)
-    assert wb.sheetnames == ["responsaveis", "localizacoes", "pessoas", "atribuicoes", "inv_eventos", "inv_integrantes", "inv_salas", "inv_leituras", "inv_sobras", "inv_bens_encerrados"]
+    assert wb.sheetnames == ["responsaveis", "localizacoes", "pessoas", "atribuicoes", "inv_eventos", "inv_integrantes", "inv_salas", "inv_leituras", "inv_sobras", "inv_bens_encerrados", "inv_fotos"]
     assert list(wb["inv_leituras"].iter_rows(values_only=True))[1][:3] == (eid, 1001, "01 - SALA CCI")
     # editar: encerra o evento, acrescenta uma leitura migrada de outro sistema, e reimporta
     ws = wb["inv_eventos"]
     ws.cell(row=2, column=5, value="2026-01-31")                                       # encerrado_em só com data
-    wb["inv_leituras"].append([eid, 2001, "02 - SALA B", "2026-01-20 10:00:00", "Antigo", "Regular", "", "migrado", ""])
+    wb["inv_leituras"].append([eid, 2001, "02 - SALA B", "2026-01-20 10:00:00", "Antigo", "Regular", "", "migrado"])
     wb.save(tmp_path / "c2.xlsx")
     with open(tmp_path / "c2.xlsx", "rb") as f:
         r = db.importar_cadastros(dados, f)
@@ -261,8 +266,8 @@ def test_planilha_de_inventario_validacoes(dados, tmp_path):
     eid = semear_inventario(dados)
     from openpyxl import load_workbook
     wb = load_workbook(db.exportar_cadastros(dados, tmp_path / "c.xlsx"))
-    wb["inv_leituras"].append([eid, 99999, "01 - SALA CCI", "2026-01-20 10:00:00", "Fulano", "", "", "", ""])   # bem inexistente
-    wb["inv_leituras"].append([eid, 1001, "01 - SALA CCI", "x", "Fulano", "Ótimo", "", "", ""])                  # data e conservação
+    wb["inv_leituras"].append([eid, 99999, "01 - SALA CCI", "2026-01-20 10:00:00", "Fulano", "", "", ""])   # bem inexistente
+    wb["inv_leituras"].append([eid, 1001, "01 - SALA CCI", "x", "Fulano", "Ótimo", "", ""])                  # data e conservação
     wb["inv_salas"].append([77, "01 - SALA CCI"])                                                                # evento inexistente
     wb["inv_eventos"].append([2, "Outro aberto", None, "2026-02-01 00:00:00", None])                             # 2 abertos
     wb.save(tmp_path / "ruim.xlsx")
@@ -330,7 +335,7 @@ def test_aba_inv_bens_encerrados_exporta_importa_e_valida(dados, tmp_path):
     inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
     inventario.encerrar_evento(dados, eid)
     wb = load_workbook(db.exportar_cadastros(dados, tmp_path / "c.xlsx"))
-    assert wb.sheetnames[-1] == "inv_bens_encerrados"
+    assert wb.sheetnames[-2:] == ["inv_bens_encerrados", "inv_fotos"]
     linhas = list(wb["inv_bens_encerrados"].iter_rows(values_only=True))
     assert linhas[0] == tuple(inventario.ABAS["inv_bens_encerrados"])
     assert linhas[1] == (eid, 1001, "ATIVO", "CADEIRA", "GIRATÓRIA", "MÓVEIS", "01 - SALA CCI") and len(linhas) == 6
@@ -375,7 +380,7 @@ def test_ler_lote_e_desfazer_leituras(dados):
     assert inventario.resumo(dados, eid)["divergentes"] == 1
     with pytest.raises(db.ErroDeNegocio):
         inventario.ler_lote(dados, eid, "01 - SALA CCI", [1002], "Ninguém")
-    inventario.atualizar_leitura(dados, eid, 1001, foto_url="http://x/1001.webp")
+    foto_falsa(dados, eid, 1001, "http://x/1001.webp")
     assert inventario.desfazer_leituras(dados, eid, [1001, 2001, 1004]) == (["http://x/1001.webp"], 2)   # 1004 sem leitura: ignorado
     assert inventario.resumo(dados, eid)["lidos"] == 0 and inventario.resumo(dados, eid)["divergentes"] == 0
     assert inventario.desfazer_leituras(dados, eid, []) == ([], 0)
@@ -391,7 +396,8 @@ def test_relatorio_filtros_busca_e_ordem(dados):
     eid = semear_inventario(dados)
     inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
     inventario.ler(dados, eid, "02 - SALA B", 2001, "Beltrana")
-    inventario.atualizar_leitura(dados, eid, 1001, conservacao="Ruim", quem_usa="José", foto_url="https://x/1001.webp")
+    inventario.atualizar_leitura(dados, eid, 1001, conservacao="Ruim", quem_usa="José")
+    foto_falsa(dados, eid, 1001, "https://x/1001.webp")
     inventario.atualizar_leitura(dados, eid, 2001, observacao="tela quebrada")
     num = lambda **f: [x["numero"] for x in inventario.relatorio(dados, eid, **f)]
     assert num() == [1001, 1002, 2001, 2002, 1004]
@@ -442,3 +448,137 @@ def test_painel_sala_sem_andar_vai_por_ultimo(dados):
     eid = inventario.abrir_evento(dados, "Inv", None, ["Fulano"])
     assert [a["andar"] for a in inventario.painel(dados, eid)["andares"]] == ["01", "99", inventario.ANDAR_SEM]
     assert [x["chave"] for x in inventario.painel(dados, eid)["integrantes"]] == [] and inventario.painel(dados, eid)["conservacao"] == []
+
+
+def test_migracao_foto_url_para_inventario_fotos(dados):
+    """Banco anterior à Fase 3: inventario_leituras tinha foto_url. criar_esquema move para inventario_fotos
+    (nfoto 1), apaga a coluna e é idempotente."""
+    eid = semear_inventario(dados)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    inventario.ler(dados, eid, "01 - SALA CCI", 1002, "Fulano")
+    dados.execute("ALTER TABLE inventario_leituras ADD COLUMN foto_url TEXT")
+    dados.execute("UPDATE inventario_leituras SET foto_url = 'https://x/inventario/INV1_BEM_1001_1.webp' WHERE numero = 1001")
+    dados.commit()
+    db.criar_esquema(dados)
+    assert "foto_url" not in db._colunas(dados, "inventario_leituras")
+    assert [tuple(r) for r in dados.execute("SELECT evento_id, numero, nfoto, url FROM inventario_fotos")] == [(eid, 1001, 1, "https://x/inventario/INV1_BEM_1001_1.webp")]
+    db.criar_esquema(dados)                                                          # de novo: nada muda
+    assert dados.execute("SELECT count(*) FROM inventario_fotos").fetchone()[0] == 1
+    dados.execute("DELETE FROM inventario_leituras WHERE numero = 1001")            # cascata
+    assert dados.execute("SELECT count(*) FROM inventario_fotos").fetchone()[0] == 0
+
+
+def test_adicionar_e_apagar_fotos_do_bem(dados):
+    eid = semear_inventario(dados)
+    assert inventario.pasta_do_evento(dados, eid) == "inventario2026"
+    with pytest.raises(db.ErroDeNegocio):                                            # sem leitura
+        foto_falsa(dados, eid, 1001)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    chaves = []
+    f1 = inventario.adicionar_foto(dados, eid, 1001, lambda c: chaves.append(c) or "https://x/" + c)
+    f2 = inventario.adicionar_foto(dados, eid, 1001, lambda c: chaves.append(c) or "https://x/" + c)
+    assert chaves == ["inventario2026/1-1001.webp", "inventario2026/2-1001.webp"]
+    assert [f["nfoto"] for f in f1] == [1] and [(f["nfoto"], f["url"]) for f in f2] == [(1, "https://x/inventario2026/1-1001.webp"), (2, "https://x/inventario2026/2-1001.webp")]
+    assert inventario.fotos_do_bem_no_evento(dados, eid, 1001) == f2 and f2[0]["criado_em"]
+    # envio falhou: nada gravado
+    with pytest.raises(RuntimeError):
+        inventario.adicionar_foto(dados, eid, 1001, lambda c: (_ for _ in ()).throw(RuntimeError("bucket")))
+    assert len(inventario.fotos_do_bem_no_evento(dados, eid, 1001)) == 2
+    # apagar a 2 e tirar outra → 3 (número nunca reaproveitado)
+    assert inventario.apagar_foto(dados, eid, 1001, 2) == "https://x/inventario2026/2-1001.webp"
+    assert inventario.apagar_foto(dados, eid, 1001, 2) is None
+    f3 = foto_falsa(dados, eid, 1001)
+    assert [f["nfoto"] for f in f3] == [1, 3] and chaves[-1] == "inventario2026/2-1001.webp"   # chaves só tem os 2 primeiros envios
+    # bens_da_sala/relatorio: primeira foto + contagem; lista completa na sala
+    b = {x["numero"]: x for x in inventario.bens_da_sala(dados, eid, "01 - SALA CCI")["bens"]}
+    assert b[1001]["foto_url"] == "https://x/inventario2026/1-1001.webp" and b[1001]["n_fotos"] == 2 and [f["nfoto"] for f in b[1001]["fotos"]] == [1, 3]
+    assert b[1002]["foto_url"] is None and b[1002]["n_fotos"] == 0 and b[1002]["fotos"] == []
+    r = {x["numero"]: x for x in inventario.relatorio(dados, eid)}
+    assert r[1001]["n_fotos"] == 2 and r[1001]["foto_url"].endswith("/1-1001.webp") and inventario.contar_fotos(r.values()) == 1
+    assert [x["numero"] for x in inventario.relatorio(dados, eid, foto="com")] == [1001]
+    # trazido de outra sala também traz a lista
+    inventario.ler(dados, eid, "01 - SALA CCI", 2001, "Fulano")
+    foto_falsa(dados, eid, 2001)
+    t = inventario.bens_da_sala(dados, eid, "01 - SALA CCI")["trazidos"]
+    assert [f["nfoto"] for f in t[0]["fotos"]] == [1]
+    # desfazer leva todas as urls; cascata limpa a tabela
+    urls, n = inventario.desfazer_leituras(dados, eid, [1001])
+    assert sorted(urls) == ["https://x/inventario2026/1-1001.webp", "https://x/inventario2026/3-1001.webp"] and n == 1
+    assert inventario.fotos_do_bem_no_evento(dados, eid, 1001) == []
+    with pytest.raises(db.ErroDeNegocio):
+        inventario.atualizar_leitura(dados, eid, 2001, foto_url="x")                 # campo saiu
+    inventario.encerrar_evento(dados, eid)
+    with pytest.raises(db.ErroDeNegocio):
+        foto_falsa(dados, eid, 2001)
+    with pytest.raises(db.ErroDeNegocio):
+        inventario.apagar_foto(dados, eid, 2001, 1)
+
+
+def test_fotos_do_bem_agrupadas_por_evento(dados):
+    eid1 = semear_inventario(dados)
+    inventario.ler(dados, eid1, "01 - SALA CCI", 1001, "Fulano")
+    foto_falsa(dados, eid1, 1001); foto_falsa(dados, eid1, 1001)
+    inventario.encerrar_evento(dados, eid1)
+    eid2 = inventario.abrir_evento(dados, "Inventário 2027", None, ["Fulano"])
+    inventario.ler(dados, eid2, "01 - SALA CCI", 1001, "Fulano")
+    foto_falsa(dados, eid2, 1001)
+    inventario.ler(dados, eid2, "01 - SALA CCI", 1002, "Fulano")                       # lido sem foto: não aparece
+    g = inventario.fotos_do_bem(dados, 1001)
+    assert [x["evento"] for x in g] == ["Inventário 2027", "Inventário 2026"]           # mais recente primeiro
+    assert [[f["nfoto"] for f in x["fotos"]] for x in g] == [[1], [1, 2]]
+    assert g[1]["encerrado_em"] and g[0]["encerrado_em"] is None and g[0]["lido_em"] and g[0]["evento_id"] == eid2
+    assert g[0]["fotos"][0]["url"] == "https://x/inventario2027/1-1001.webp"
+    assert inventario.fotos_do_bem(dados, 1002) == [] and inventario.fotos_do_bem(dados, 99999) == []
+
+
+def test_abrir_evento_recusa_pasta_de_fotos_repetida(dados):
+    eid = semear_inventario(dados)
+    inventario.encerrar_evento(dados, eid)
+    with pytest.raises(db.ErroDeNegocio) as e:
+        inventario.abrir_evento(dados, "INVENTÁRIO 2026", None, ["Fulano"])            # mesma pasta: inventario2026
+    assert "inventario2026" in str(e.value)
+    assert inventario.abrir_evento(dados, "Inventário 2026 B", None, ["Fulano"])
+
+
+def test_aba_inv_fotos_exporta_importa_e_valida(dados, tmp_path):
+    from openpyxl import load_workbook
+    eid = semear_inventario(dados)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    foto_falsa(dados, eid, 1001); foto_falsa(dados, eid, 1001)
+    inventario.apagar_foto(dados, eid, 1001, 1)                                        # fica só a 2
+    wb = load_workbook(db.exportar_cadastros(dados, tmp_path / "c.xlsx"))
+    assert wb.sheetnames[-1] == "inv_fotos"
+    assert list(wb["inv_leituras"].iter_rows(values_only=True))[0] == tuple(inventario.ABAS["inv_leituras"]) and "foto_url" not in inventario.ABAS["inv_leituras"]
+    linhas = list(wb["inv_fotos"].iter_rows(values_only=True))
+    assert linhas[0] == ("evento_id", "numero", "nfoto", "url", "criado_em") and linhas[1][:4] == (eid, 1001, 2, "https://x/inventario2026/2-1001.webp") and len(linhas) == 2
+    with open(tmp_path / "c.xlsx", "rb") as f:
+        r = db.importar_cadastros(dados, f)
+    assert r["inv_fotos"] == 1 and [x["nfoto"] for x in inventario.fotos_do_bem_no_evento(dados, eid, 1001)] == [2]
+    assert [x["nfoto"] for x in foto_falsa(dados, eid, 1001)] == [2, 3]                # contador continua do maior
+    # aba ausente + inv_leituras com foto_url (planilha anterior à Fase 3): vira foto 1
+    wb.remove(wb["inv_fotos"])
+    ws = wb["inv_leituras"]
+    ws.cell(row=1, column=9, value="foto_url")
+    ws.cell(row=2, column=9, value="https://x/inventario/INV1_BEM_1001_1.webp")
+    wb.save(tmp_path / "antiga.xlsx")
+    with open(tmp_path / "antiga.xlsx", "rb") as f:
+        r = db.importar_cadastros(dados, f)
+    assert r["inv_fotos"] == 1 and inventario.fotos_do_bem_no_evento(dados, eid, 1001) [0]["url"] == "https://x/inventario/INV1_BEM_1001_1.webp"
+    # aba ausente e sem foto_url: tabela fica vazia (a planilha é a fonte de verdade)
+    ws.cell(row=2, column=9).value = None
+    wb.save(tmp_path / "vazia.xlsx")
+    with open(tmp_path / "vazia.xlsx", "rb") as f:
+        r = db.importar_cadastros(dados, f)
+    assert r["inv_fotos"] == 0 and inventario.fotos_do_bem_no_evento(dados, eid, 1001) == []
+    # validações: leitura inexistente, nfoto inválido, repetido, url vazia, pasta repetida
+    wb = load_workbook(tmp_path / "c.xlsx")
+    wb["inv_fotos"].append([eid, 1002, 1, "https://x/a.webp", "2026-01-01 00:00:00"])      # 1002 não foi lido
+    wb["inv_fotos"].append([eid, 1001, "x", "https://x/b.webp", "2026-01-01 00:00:00"])
+    wb["inv_fotos"].append([eid, 1001, 2, "https://x/c.webp", "2026-01-01 00:00:00"])        # repete (eid, 1001, 2)
+    wb["inv_fotos"].append([eid, 1001, 5, "", "2026-01-01 00:00:00"])
+    wb["inv_eventos"].append([9, "INVENTARIO 2026", None, "2026-02-01 00:00:00", "2026-02-02 00:00:00"])
+    wb.save(tmp_path / "ruim.xlsx")
+    with open(tmp_path / "ruim.xlsx", "rb") as f, pytest.raises(db.ImportacaoInvalida) as ex:
+        db.importar_cadastros(dados, f)
+    msg = str(ex.value)
+    assert "não tem leitura" in msg and "nfoto inválido" in msg and "repetida" in msg and "url vazia" in msg and "pasta de fotos repetida" in msg
