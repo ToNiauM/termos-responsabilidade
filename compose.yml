@@ -9,6 +9,8 @@ services:
       # Sem o arquivo, as fotos do inventário ficam desativadas e o resto funciona.
       - path: secrets/.env
         required: false
+    environment:
+      TERMOS_LOGIN: "1"     # site pede usuário e senha (o programa Windows não define e entra direto)
     ports:
       - "127.0.0.1:12012:8000"
     volumes:

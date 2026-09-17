@@ -1,7 +1,7 @@
 # Fase 4: usuários, senha e perfis (painel administrativo no Flask)
 
 **Data:** 2026-09-17
-**Estado:** desenho aprovado pelo usuário em 2026-09-17, seção a seção (AskUserQuestion).
+**Estado:** desenho aprovado pelo usuário em 2026-09-17, seção a seção (AskUserQuestion). Implementada na branch fase4-usuarios em 2026-09-17 (plano docs/superpowers/plans/2026-09-17-fase4-usuarios.md).
 **Base:** `main` em `eccd1e6` (Fase 3 publicada).
 **Specs anteriores:** `2026-09-17-fase3-fotos-menu-bem-design.md`, `2026-09-16-fase1-blindagem-design.md`.
 

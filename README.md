@@ -42,6 +42,13 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    A planilha de cadastros ganha abas `inv_*` para exportar/importar inventários inteiros
    (migração de outros sistemas). No menu, *Inventário* é um grupo com *Eventos* e, quando há
    evento aberto, o próprio evento, *Painel* e *Relatório*.
+   **Usuários e perfis** (site): entrar com login e senha. Perfis: *administrador* (tudo: usuários, abrir/encerrar/
+   excluir inventário, exclusões e importação de cadastros), *operador* (termos, cadastros, textos, atualizar base),
+   *inventariante* (lê bens nos eventos em que está na comissão) e *consulta* (só vê; não emite termo). A comissão
+   do inventário é escolhida pelo administrador entre os usuários; a leitura grava o nome de quem está logado.
+   Usuário não é excluído, só inativado. *Nova senha* gera uma senha temporária mostrada uma vez, com troca
+   obrigatória no primeiro acesso. Cinco senhas erradas seguidas bloqueiam o login por 15 minutos. O programa
+   Windows não pede senha: entra como "Administrador local".
 2. **Atualizar base**: envie o export do sistema de patrimônio (`.xlsx`). Só a tabela de bens muda.
    *Exportar bens (formato SPW)* devolve a mesma tabela em `.xlsx`, nas 9 colunas do export — backup reimportável.
 3. **Cadastros**: quatro áreas com busca visível, filtros, ordenação e paginação de 10/20/50 registros.
@@ -113,12 +120,17 @@ resíduo de indentação do código antigo) — confira o `.docx` gerado.
 ## Servir na web (Docker)
 
 O mesmo código roda em `https://patrimonio.sistemascfc.org`, num container nesta máquina, atrás do nginx do host
-(padrão dos demais sites: container em `127.0.0.1:12012`, Certbot, e senha `auth_basic` em
-`/etc/nginx/.htpasswd_patrimonio`, porque o sistema não tem login próprio).
+(container em `127.0.0.1:12012`, Certbot). O login é do próprio sistema (`TERMOS_LOGIN=1` no `compose.yml`).
 
     docker compose up -d --build   # (re)constrói e sobe; dados em ./dados (termos.db, timbrado.docx)
     docker compose logs -f         # acompanhar
-    sudo htpasswd /etc/nginx/.htpasswd_patrimonio patrimonio   # trocar a senha do site
+    docker compose exec web python usuarios.py criar-admin antonio "Antônio Sousa"   # primeiro administrador (ou redefinir a senha de um admin)
+
+Publicação da Fase 4 (uma vez): subir o container; criar o administrador pelo comando acima; entrar e criar os
+usuários da comissão do evento aberto com **exatamente** os nomes já gravados nas leituras (Inventário → evento →
+*Comissão* mostra quem já tem leituras); remover `auth_basic` e `auth_basic_user_file` do vhost
+`/etc/nginx/conf.d/patrimonio.sistemascfc.org.conf` e recarregar (`nginx -t && systemctl reload nginx`).
+Enquanto o `auth_basic` ficar, o site pede as duas senhas, sem prejuízo.
 
 `Dockerfile`, `compose.yml` e `.dockerignore` são só do site; o programa de desktop não os usa. O vhost fica em
 `/etc/nginx/conf.d/patrimonio.sistemascfc.org.conf`. Backup continua sendo copiar a pasta `dados/`.
@@ -139,3 +151,4 @@ O mesmo código roda em `https://patrimonio.sistemascfc.org`, num container nest
 | `templates/`, `static/dsgov/` | telas DSGov 3.7.0 (offline) |
 | `painel.py`, `graficos.py` | cards de gráfico (ECharts embutido, tema DSGov) |
 | `inventario.py`, `fotos.py`, `app_inventario.py` | módulo de inventário (dados, fotos no R2, rotas) |
+| `usuarios.py`, `app_usuarios.py` | usuários, senhas, matriz de permissões e telas de login/usuários |
