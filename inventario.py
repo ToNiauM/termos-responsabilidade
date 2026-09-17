@@ -267,14 +267,14 @@ def exportar_xlsx(conn, evento_id: int, destino, localizacao: str | None = None)
     wb = Workbook()
     ws = wb.active
     ws.title = "Bens"
-    ws.append([f"{e['nome']} — gerado em {_data_br(_agora())} — {('sala ' + localizacao) if localizacao else 'todas as salas'}"])
+    acrescentar_linha(ws, [f"{e['nome']} — gerado em {_data_br(_agora())} — {('sala ' + localizacao) if localizacao else 'todas as salas'}"])
     ws.append(COLUNAS_XLSX)
     for x in relatorio(conn, evento_id, localizacao):
         acrescentar_linha(ws, [x["numero"], x["descricao"], x["complemento"], x["classificacao"], x["local_sistema"], x["local_inventario"],
                                 ROTULO_SITUACAO[x["situacao_inv"]], x["conservacao"], x["quem_usa"], x["observacao"], x["integrante"],
                                 _data_br(x["lido_em"]), x["foto_url"], x["situacao_bem"]])
     ws2 = wb.create_sheet("Sobras")
-    ws2.append([f"{e['nome']} — sobras (bens sem cadastro)"])
+    acrescentar_linha(ws2, [f"{e['nome']} — sobras (bens sem cadastro)"])
     ws2.append(COLUNAS_SOBRAS)
     sql = "SELECT * FROM inventario_sobras WHERE evento_id = ?" + (" AND localizacao = ?" if localizacao else "") + " ORDER BY localizacao, id"
     for s in _todos(conn, sql, *([evento_id, localizacao] if localizacao else [evento_id])):

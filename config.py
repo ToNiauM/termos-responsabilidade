@@ -54,9 +54,13 @@ def chave_secreta() -> str:
         else:
             with os.fdopen(fd, "w") as f:
                 f.write(secrets.token_hex(32))
-    for _ in range(50):                     # o outro processo pode ainda estar escrevendo
-        chave = caminho.read_text().strip()
-        if chave:
-            return chave
-        time.sleep(0.02)
+    try:
+        for _ in range(50):                     # o outro processo pode ainda estar escrevendo
+            chave = caminho.read_text().strip()
+            if chave:
+                return chave
+            time.sleep(0.02)
+    except PermissionError:
+        raise RuntimeError(f"Sem permissão para ler {caminho} (criado pelo Docker como root?). "
+                           "Ajuste o dono do arquivo ou defina TERMOS_SEGREDO.") from None
     raise RuntimeError(f"{caminho} continua vazio: apague o arquivo e abra o programa de novo.")

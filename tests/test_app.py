@@ -604,6 +604,7 @@ def test_devolucao_sugere_bens_da_pessoa_sem_travar(cliente):
 def test_docx_tipo_invalido_da_404_e_head_nao_registra(cliente):
     assert cliente.get("/termo/xyz/CCI/docx").status_code == 404
     assert cliente.get("/termo/xyz/CCI").status_code == 404
+    assert cliente.post("/termo/xyz/CCI/registrar").status_code == 404
     db.incluir_processo(db.conectar(), "ccusto", "Termos", "1111")
     assert cliente.head("/termo/ccusto/CCI/docx").status_code == 200
     assert db.termos_emitidos(db.conectar()) == []

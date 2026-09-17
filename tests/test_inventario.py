@@ -244,3 +244,13 @@ def test_planilha_de_inventario_validacoes(dados, tmp_path):
     msg = str(e.value)
     assert "99999" in msg and "conservação" in msg and "77" in msg and "aberto" in msg and "data" in msg
     assert inventario.resumo(dados, eid)["salas"] == 3                                                            # nada mudou
+
+
+def test_titulo_do_xlsx_do_inventario_e_texto_literal(dados, tmp_path):
+    from openpyxl import load_workbook
+    eid = semear_inventario(dados)
+    dados.execute("UPDATE inventario_eventos SET nome = '=1+1' WHERE id = ?", (eid,))
+    dados.commit()
+    wb = load_workbook(inventario.exportar_xlsx(dados, eid, tmp_path / "inv.xlsx"))
+    assert wb["Bens"]["A1"].data_type == "s" and wb["Bens"]["A1"].value.startswith("=1+1")
+    assert wb["Sobras"]["A1"].data_type == "s"

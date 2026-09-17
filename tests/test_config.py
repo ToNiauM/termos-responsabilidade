@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 
 def test_env_sobrepoe_pasta_dados(tmp_path, monkeypatch):
     monkeypatch.setenv("TERMOS_DADOS", str(tmp_path))
@@ -58,3 +60,18 @@ def test_chave_secreta_espera_o_outro_processo_terminar_de_escrever(tmp_path, mo
     threading.Timer(0.1, lambda: arquivo.write_text("abc")).start()
     import config
     assert config.chave_secreta() == "abc"
+
+
+def test_chave_secreta_sem_permissao_explica_o_motivo(tmp_path, monkeypatch):
+    import os
+    if os.name != "posix" or os.geteuid() == 0:
+        pytest.skip("chmod 0 não impede leitura aqui")
+    monkeypatch.setenv("TERMOS_DADOS", str(tmp_path))
+    monkeypatch.delenv("TERMOS_SEGREDO", raising=False)
+    arquivo = tmp_path / "segredo.txt"
+    arquivo.write_text("abc")
+    arquivo.chmod(0)
+    import config
+    with pytest.raises(RuntimeError, match="TERMOS_SEGREDO"):
+        config.chave_secreta()
+    arquivo.chmod(0o600)

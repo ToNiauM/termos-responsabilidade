@@ -275,6 +275,8 @@ def termo_docx(tipo, chave):
 @app.route("/termo/<tipo>/<chave>/registrar", methods=["POST"])
 def termo_registrar(tipo, chave):
     """Chamado pelo botão Copiar depois da cópia dar certo. Responde JSON."""
+    if tipo not in db.TIPOS_TERMO:
+        abort(404)
     conn = obter_conn()
     if not db.processo_vigente(conn, tipo):
         return {"erro": f"Cadastre um processo SEI vigente para {db.ROTULO_TIPO[tipo]}."}, 409

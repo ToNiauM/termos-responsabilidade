@@ -54,7 +54,7 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    substituem o inventário inteiro) ou nenhuma (inventário preservado).
 
 Backup = copiar a pasta `dados/`. `dados/segredo.txt` — chave que assina a sessão do navegador, criada
-na primeira execução; na web pode vir da variável `TERMOS_SEGREDO`.
+na primeira execução; na web pode vir da variável `TERMOS_SEGREDO`. Na VPS o container cria esse arquivo como root; para rodar o sistema fora do Docker na mesma pasta, defina `TERMOS_SEGREDO` no ambiente ou ajuste o dono do arquivo.
 
 ## Desenvolvimento
 
