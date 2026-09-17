@@ -373,26 +373,47 @@ def _data_br(iso):
     return f"{iso[8:10]}/{iso[5:7]}/{iso[:4]} {iso[11:16]}" if iso else ""
 
 
-def exportar_xlsx(conn, evento_id: int, destino, localizacao: str | None = None):
+def _celula_foto(ws, linha: int, coluna: int, url, fotos: bool) -> None:
+    """fotos=True: fórmula IMAGE (o Excel pt-BR mostra =IMAGEM; o nome localizado dá #NOME?) e linha alta;
+    sem URL http(s) escreve "-". fotos=False: fica a URL como texto (já gravada por acrescentar_linha)."""
+    if not fotos:
+        return
+    if url and str(url).startswith(("http://", "https://")):
+        ws.cell(row=linha, column=coluna).value = f'=_xlfn.IMAGE("{url}")'
+        ws.row_dimensions[linha].height = 60
+    else:
+        ws.cell(row=linha, column=coluna).value = "-"
+
+
+def exportar_xlsx(conn, evento_id: int, destino, localizacao: str | None = None, fotos: bool = False, **filtros):
     from openpyxl import Workbook
     e = _um(conn, "SELECT nome FROM inventario_eventos WHERE id = ?", evento_id)
     if not e:
         raise ErroDeNegocio("Evento de inventário não encontrado.")
+    filtros = {"localizacao": localizacao, **filtros}
+    linhas = relatorio(conn, evento_id, **filtros)
     wb = Workbook()
     ws = wb.active
     ws.title = "Bens"
-    acrescentar_linha(ws, [f"{e['nome']} — gerado em {_data_br(_agora())} — {('sala ' + localizacao) if localizacao else 'todas as salas'}"])
+    acrescentar_linha(ws, [e["nome"]])
+    acrescentar_linha(ws, [f"Gerado em {_data_br(_agora())}"])
+    acrescentar_linha(ws, [descrever_filtros(filtros)])
+    acrescentar_linha(ws, [f"Total de bens: {len(linhas)}"])
     ws.append(COLUNAS_XLSX)
-    for x in relatorio(conn, evento_id, localizacao):
+    col_foto = COLUNAS_XLSX.index("Foto") + 1
+    for x in linhas:
         acrescentar_linha(ws, [x["numero"], x["descricao"], x["complemento"], x["classificacao"], x["local_sistema"], x["local_inventario"],
                                 ROTULO_SITUACAO[x["situacao_inv"]], x["conservacao"], x["quem_usa"], x["observacao"], x["integrante"],
                                 _data_br(x["lido_em"]), x["foto_url"], x["situacao_bem"]])
+        _celula_foto(ws, ws.max_row, col_foto, x["foto_url"], fotos)
     ws2 = wb.create_sheet("Sobras")
     acrescentar_linha(ws2, [f"{e['nome']} — sobras (bens sem cadastro)"])
     ws2.append(COLUNAS_SOBRAS)
+    col_foto = COLUNAS_SOBRAS.index("Foto") + 1
     sql = "SELECT * FROM inventario_sobras WHERE evento_id = ?" + (" AND localizacao = ?" if localizacao else "") + " ORDER BY localizacao, id"
     for s in _todos(conn, sql, *([evento_id, localizacao] if localizacao else [evento_id])):
         acrescentar_linha(ws2, [s["localizacao"], s["descricao"], s["complemento"], s["observacao"], s["integrante"], _data_br(s["criado_em"]), s["foto_url"]])
+        _celula_foto(ws2, ws2.max_row, col_foto, s["foto_url"], fotos)
     wb.save(destino)
     return destino
 

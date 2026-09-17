@@ -173,12 +173,32 @@ def test_relatorio_e_xlsx(dados, tmp_path):
     wb = load_workbook(inventario.exportar_xlsx(dados, eid, tmp_path / "inv.xlsx"))
     assert wb.sheetnames == ["Bens", "Sobras"]
     linhas = list(wb["Bens"].iter_rows(values_only=True))
-    assert linhas[0][0].startswith("Inventário 2026") and linhas[1] == tuple(inventario.COLUNAS_XLSX)
-    assert linhas[2][:3] == (1001, "CADEIRA", "GIRATÓRIA") and linhas[2][6] == "Localizado" and linhas[2][7] == "Bom"
+    assert linhas[0][0] == "Inventário 2026" and linhas[4] == tuple(inventario.COLUNAS_XLSX)
+    assert linhas[5][:3] == (1001, "CADEIRA", "GIRATÓRIA") and linhas[5][6] == "Localizado" and linhas[5][7] == "Bom"
     sobras = list(wb["Sobras"].iter_rows(values_only=True))
     assert sobras[1][0] == "Sala" and sobras[2][:2] == ("02 - SALA B", "VENTILADOR") and sobras[2][6] == "http://x/s.webp"
     so_cci = load_workbook(inventario.exportar_xlsx(dados, eid, tmp_path / "cci.xlsx", localizacao="01 - SALA CCI"))["Bens"]
-    assert so_cci.max_row == 2 + 4
+    assert so_cci.max_row == 5 + 4
+
+
+def test_xlsx_cabecalho_filtros_e_fotos(dados, tmp_path):
+    from openpyxl import load_workbook
+    eid = semear_inventario(dados)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    inventario.atualizar_leitura(dados, eid, 1001, foto_url="https://x/1001.webp")
+    inventario.registrar_sobra(dados, eid, "01 - SALA CCI", "VENTILADOR", None, "sem plaqueta", "https://x/s.webp", "Fulano")
+    wb = load_workbook(inventario.exportar_xlsx(dados, eid, tmp_path / "a.xlsx", situacao="localizado", fotos=True))
+    ws = wb["Bens"]
+    linhas = list(ws.iter_rows(values_only=True))
+    assert linhas[0][0] == "Inventário 2026" and linhas[1][0].startswith("Gerado em ")
+    assert linhas[2][0] == "Todas as salas · Situação Localizado" and linhas[3][0] == "Total de bens: 1"
+    assert linhas[4] == tuple(inventario.COLUNAS_XLSX) and linhas[5][0] == 1001 and len(linhas) == 6
+    assert linhas[5][12] == '=_xlfn.IMAGE("https://x/1001.webp")' and ws.row_dimensions[6].height == 60
+    assert wb["Sobras"].cell(row=3, column=7).value == '=_xlfn.IMAGE("https://x/s.webp")'
+    ws = load_workbook(inventario.exportar_xlsx(dados, eid, tmp_path / "b.xlsx", fotos=True))["Bens"]
+    assert ws.cell(row=6, column=13).value.startswith("=_xlfn") and ws.cell(row=7, column=13).value == "-"   # 1002 sem foto
+    ws = load_workbook(inventario.exportar_xlsx(dados, eid, tmp_path / "c.xlsx"))["Bens"]
+    assert ws.cell(row=6, column=13).value == "https://x/1001.webp" and ws.row_dimensions[6].height is None
 
 
 def test_planilha_de_cadastros_exporta_e_importa_abas_de_inventario(dados, tmp_path):
