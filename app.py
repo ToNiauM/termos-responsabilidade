@@ -33,17 +33,25 @@ app.template_filter("moeda")(painel.moeda)   # R$ 1.234,56 em todas as telas
 
 DSGOV_FIXO = {"SISTEMA": "Termos de Responsabilidade"}
 
+NEGADO = "Seu perfil não tem acesso a isso."
+
+
+def _negado():
+    if request.endpoint in ROTAS_JSON or request.is_json:
+        return {"erro": NEGADO}, 403
+    return render_template("403.html", trilha=[("Acesso negado", None)]), 403
+
 
 @app.before_request
 def resolver_usuario():
     """Quem está usando: sessão (web, TERMOS_LOGIN=1) ou o administrador local (desktop). Sem sessão válida
-    → /login. Com senha temporária → /senha até trocar."""
+    → /login. Com senha temporária → /senha até trocar. Fora da matriz de permissões do perfil → 403."""
     ep = request.endpoint
     if ep is None or ep == "static":
         return None
     if not config.exigir_login():
         g.usuario = usuarios.USUARIO_LOCAL
-        return None
+        return None if usuarios.permitido("admin", ep, request.method) else _negado()
     u = usuarios.por_id(obter_conn(), session.get("usuario_id")) if session.get("usuario_id") else None
     if u is None or not u["ativo"]:
         session.clear()
@@ -57,31 +65,46 @@ def resolver_usuario():
     g.usuario = u
     if u["trocar_senha"] and ep not in ("usuarios.senha", "usuarios.sair", "usuarios.login"):
         return redirect(url_for("usuarios.senha"))
+    if not usuarios.permitido(g.usuario["perfil"], ep, request.method):
+        return _negado()
     return None
 
 
 @app.context_processor
 def contexto_dsgov():
-    usuario = getattr(g, "usuario", None)
     t = textos.obter(obter_conn())
     dsgov = dict(DSGOV_FIXO, ORGAO=t["orgao_nome"], SUBTITULO=t["unidade_sigla"])
+    usuario = getattr(g, "usuario", None)
+    contexto = {"DSGOV": dsgov, "USUARIO": usuario, "ROTULO_PERFIL": usuarios.ROTULO_PERFIL, "MENU": []}
+    if not usuario:
+        return contexto
+    perfil = usuario["perfil"]
+
+    def pode(endpoint, metodo="GET"):
+        return usuarios.permitido(perfil, endpoint, metodo)
+
+    contexto["pode"] = pode
     inv = [("Eventos", url_for("inventario.eventos_tela"))]
     if (e := inventario.evento_aberto(obter_conn())):
         inv += [(e["nome"], url_for("inventario.evento_tela", id=e["id"])),
                 ("Painel", url_for("inventario.painel_tela", id=e["id"])),
                 ("Relatório", url_for("inventario.relatorio_tela", id=e["id"]))]
-    return {"DSGOV": dsgov, "USUARIO": usuario, "ROTULO_PERFIL": usuarios.ROTULO_PERFIL, "MENU": [
-        ("Início", "fa-home", url_for("home"), []),
-        ("Termo por centro de custo", "fa-building", url_for("centro_custos"), []),
-        ("Termo individual", "fa-user-check", url_for("termos_individuais"), []),
-        ("Termo de devolução", "fa-box-open", url_for("termo_devolucao"), []),
-        ("Termos emitidos", "fa-history", url_for("termos_emitidos_tela"), []),
-        ("Recorte", "fa-filter", url_for("recorte"), []),
-        ("Inventário", "fa-clipboard-check", url_for("inventario.eventos_tela"), inv),
-        ("Cadastros", "fa-address-book", url_for("cadastros", aba="responsaveis"), []),
-        ("Textos", "fa-file-signature", url_for("textos_tela"), []),
-        ("Atualizar base", "fa-upload", url_for("upload"), []),
-    ]}
+    itens = [
+        ("Início", "fa-home", "home", {}, []),
+        ("Termo por centro de custo", "fa-building", "centro_custos", {}, []),
+        ("Termo individual", "fa-user-check", "termos_individuais", {}, []),
+        ("Termo de devolução", "fa-box-open", "termo_devolucao", {}, []),
+        ("Termos emitidos", "fa-history", "termos_emitidos_tela", {}, []),
+        ("Recorte", "fa-filter", "recorte", {}, []),
+        ("Inventário", "fa-clipboard-check", "inventario.eventos_tela", {}, inv),
+        ("Cadastros", "fa-address-book", "cadastros", {"aba": "responsaveis"}, []),
+        ("Textos", "fa-file-signature", "textos_tela", {}, []),
+        ("Atualizar base", "fa-upload", "upload", {}, []),
+        # ("Usuários", "fa-users", "usuarios.lista", {}, []),               # Task 6: rota ainda não existe
+    ]
+    contexto["MENU"] = [(rotulo, icone, url_for(endpoint, **kw), filhos) for rotulo, icone, endpoint, kw, filhos in itens
+                        if pode(endpoint)]
+    return contexto
 
 
 def obter_conn():

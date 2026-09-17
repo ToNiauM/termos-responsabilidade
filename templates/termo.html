@@ -3,7 +3,7 @@
 {% block conteudo %}
 <div class="d-flex align-items-center mb-4">
   <h1 class="mb-0">{{ titulo }}</h1>
-  {% if processo %}
+  {% if processo and pode('termo_docx') %}
   <div class="ml-auto">
     <button class="br-button primary" type="button" id="copiar" data-registrar="{{ url_for('termo_registrar', tipo=tipo, chave=chave) }}"><i class="fas fa-copy mr-1" aria-hidden="true"></i>Copiar para o SEI</button>
     <a class="br-button secondary ml-2" href="{{ url_for('termo_docx', tipo=tipo, chave=chave) }}"><i class="fas fa-download mr-1" aria-hidden="true"></i>Baixar .docx</a>
