@@ -149,7 +149,6 @@ PERMISSOES = {
     "inventario.abrir": ADMIN, "inventario.encerrar": ADMIN, "inventario.comissao": ADMIN, "inventario.excluir": ADMIN,
     "inventario.ler": LEITURA, "inventario.atualizar_leitura": LEITURA, "inventario.lote": LEITURA,
     "inventario.foto_leitura": LEITURA, "inventario.foto_excluir": LEITURA, "inventario.sobra": LEITURA, "inventario.sobra_excluir": LEITURA,
-    "inventario.integrante": LEITURA,  # temporário: rota sai na Task 7
     # conta e usuários
     "usuarios.login": TODOS, "usuarios.sair": TODOS, "usuarios.senha": TODOS,
     "usuarios.lista": ADMIN, "usuarios.novo": ADMIN, "usuarios.incluir": ADMIN, "usuarios.editar": ADMIN, "usuarios.nova_senha": ADMIN,

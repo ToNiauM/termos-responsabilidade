@@ -2,12 +2,13 @@
 A conexão por request e o errorhandler de ErroDeNegocio são os de app.py (g.conn e handler global)."""
 import io
 
-from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, send_file, session, url_for
+from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, send_file, url_for
 
 import db
 import fotos
 import inventario
 import painel_inventario
+import usuarios
 
 inventario_bp = Blueprint("inventario", __name__, url_prefix="/inventario")
 
@@ -31,21 +32,42 @@ def _trilha(e=None, *resto):
     return t
 
 
+def _elegiveis(conn) -> list[dict]:
+    """Usuários que podem compor a comissão. No desktop o administrador local entra sempre."""
+    lista = usuarios.elegiveis_comissao(conn)
+    if g.usuario["id"] is None:
+        lista = [dict(g.usuario)] + lista
+    return lista
+
+
+def _nomes_para_comissao(conn, marcados: list) -> list[str]:
+    nomes = list(marcados)
+    if g.usuario["id"] is None and g.usuario["nome"] not in nomes:
+        nomes.append(g.usuario["nome"])
+    return nomes
+
+
+def _na_comissao(e) -> bool:
+    return g.usuario["nome"] in e["integrantes"]
+
+
 @inventario_bp.route("")
 def eventos_tela():
     conn = _conn()
     aberto = inventario.evento_aberto(conn)
     return render_template("inventario_eventos.html", aberto=inventario.evento(conn, aberto["id"]) if aberto else None,
                            eventos=[e for e in inventario.eventos(conn) if e["encerrado_em"]],
-                           salas_ativas=db.localizacoes_ativas(conn), trilha=_trilha())
+                           salas_ativas=db.localizacoes_ativas(conn), elegiveis=_elegiveis(conn), trilha=_trilha())
 
 
 @inventario_bp.route("/abrir", methods=["POST"])
 def abrir():
+    conn = _conn()
     f = request.form
     salas = None if f.get("escopo", "todas") == "todas" else f.getlist("salas")
-    eid = inventario.abrir_evento(_conn(), f.get("nome", ""), f.get("descricao", ""), f.get("integrantes", "").splitlines(), salas)
-    flash("Evento aberto. Escolha o integrante e comece pelas salas.", "success")
+    eid = inventario.abrir_evento(conn, f.get("nome", ""), f.get("descricao", ""), _nomes_para_comissao(conn, f.getlist("integrantes")),
+                                  salas, elegiveis=[u["nome"] for u in _elegiveis(conn)])
+    flash("Evento aberto. Comece pelas salas.", "success")
     return redirect(url_for("inventario.evento_tela", id=eid))
 
 
@@ -54,7 +76,7 @@ def evento_tela(id):
     conn = _conn()
     e = _evento_ou_404(conn, id)
     return render_template("inventario_evento.html", e=e, salas=inventario.salas(conn, id),
-                           integrante=session.get("integrante"), confirmar=request.args.get("confirmar"), trilha=_trilha(e))
+                           na_comissao=_na_comissao(e), confirmar=request.args.get("confirmar"), trilha=_trilha(e))
 
 
 @inventario_bp.route("/<int:id>/encerrar", methods=["POST"])
@@ -68,16 +90,19 @@ def encerrar(id):
     return redirect(url_for("inventario.evento_tela", id=id))
 
 
-@inventario_bp.route("/<int:id>/integrante", methods=["POST"])
-def integrante(id):
-    e = _evento_ou_404(_conn(), id)
-    nome = request.form.get("integrante", "")
-    if nome not in e["integrantes"]:
-        raise db.ErroDeNegocio("Integrante não está na comissão deste evento.")
-    session["integrante"] = nome
-    volta = request.form.get("volta") or url_for("inventario.evento_tela", id=id)
-    return redirect(volta if (volta.startswith("/") and not volta.startswith("//") and not volta.startswith("/\\"))
-                     else url_for("inventario.evento_tela", id=id))
+@inventario_bp.route("/<int:id>/comissao", methods=["GET", "POST"])
+def comissao(id):
+    conn = _conn()
+    e = _evento_ou_404(conn, id)
+    if request.method == "POST":
+        # Nomes já na comissão continuam aceitos (integrantes migrados sem usuário); nome novo só se for usuário elegível.
+        inventario.editar_comissao(conn, id, _nomes_para_comissao(conn, request.form.getlist("integrantes")),
+                                   elegiveis=[u["nome"] for u in _elegiveis(conn)] + e["integrantes"])
+        flash("Comissão atualizada.", "success")
+        return redirect(url_for("inventario.evento_tela", id=id))
+    com_leituras = {r[0] for r in conn.execute("SELECT DISTINCT integrante FROM inventario_leituras WHERE evento_id = ?", (id,))}
+    return render_template("inventario_comissao.html", e=e, elegiveis=_elegiveis(conn), com_leituras=com_leituras,
+                           trilha=_trilha(e, ("Comissão", None)))
 
 
 def _json_erro(e, status=409):
@@ -115,7 +140,8 @@ def sala_tela(id, localizacao):
         abort(404)
     d = inventario.bens_da_sala(conn, id, localizacao)
     d["bens"].sort(key=lambda b: (_ORDEM_SITUACAO[b["situacao_inv"]], b["numero"]))
-    return render_template("inventario_sala.html", e=e, sala=sala, localizacao=localizacao, integrante=session.get("integrante"),
+    return render_template("inventario_sala.html", e=e, sala=sala, localizacao=localizacao,
+                           na_comissao=_na_comissao(e), integrante=g.usuario["nome"],
                            conservacao=inventario.CONSERVACAO, fotos_ativas=fotos.configurado(), **d,
                            trilha=_trilha(e, (localizacao, None)))
 
@@ -130,7 +156,7 @@ def ler(id, localizacao):
     if numero is None:
         return jsonify({"erro": "Número inválido.", "numero": None}), 404
     try:
-        r = inventario.ler(conn, id, localizacao, numero, session.get("integrante") or "")
+        r = inventario.ler(conn, id, localizacao, numero, g.usuario["nome"])
     except inventario.BemNaoEncontrado as e:
         return jsonify({"erro": str(e), "numero": e.numero}), 404
     except db.ErroDeNegocio as e:
@@ -167,7 +193,7 @@ def lote(id, localizacao):
         else:
             flash("Nenhuma leitura para desfazer.", "warning")
         return volta
-    r = inventario.ler_lote(conn, id, localizacao, numeros, session.get("integrante") or "")
+    r = inventario.ler_lote(conn, id, localizacao, numeros, g.usuario["nome"])
     msg = f"{r['lidos']} bem(ns) marcado(s) como localizado(s)."
     if r["nao_encontrados"]:
         msg += " Não encontrado(s): " + ", ".join(str(n) for n in r["nao_encontrados"]) + "."
@@ -230,7 +256,7 @@ def foto_excluir(id, numero, nfoto):
 def sobra(id, localizacao):
     conn = _conn()
     f = request.form
-    integrante = session.get("integrante") or ""
+    integrante = g.usuario["nome"]
     exigir = fotos.configurado()
     dados = None
     if exigir:

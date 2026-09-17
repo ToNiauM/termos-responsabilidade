@@ -27,7 +27,11 @@
   <div class="row">
     <div class="col-md-6 mb-3"><div class="br-input"><label for="nome">Nome</label><input id="nome" name="nome" type="text" placeholder="Ex.: Inventário 2026" required/></div></div>
     <div class="col-md-6 mb-3"><div class="br-input"><label for="descricao">Descrição (portaria, observações)</label><input id="descricao" name="descricao" type="text"/></div></div>
-    <div class="col-md-6 mb-3"><div class="br-textarea"><label for="integrantes">Integrantes da comissão (um por linha)</label><textarea id="integrantes" name="integrantes" rows="4" required></textarea></div></div>
+    <div class="col-md-6 mb-3">
+      <div class="text-weight-semi-bold mb-2">Comissão (quem poderá ler)</div>
+      {% for u in elegiveis %}<div class="br-checkbox mb-1"><input id="int-{{ loop.index }}" name="integrantes" type="checkbox" value="{{ u.nome }}"{% if u.id is none %} checked disabled{% endif %}/><label for="int-{{ loop.index }}">{{ u.nome }} <span class="text-gray-70 text-down-01">· {{ ROTULO_PERFIL[u.perfil] }}</span></label></div>
+      {% else %}<p class="text-gray-70">Nenhum usuário elegível. Cadastre usuários com perfil inventariante, operador ou administrador.</p>{% endfor %}
+    </div>
     <div class="col-md-6 mb-3">
       <div class="text-weight-semi-bold mb-2">Escopo</div>
       <div class="br-radio mb-2"><input id="escopo-todas" name="escopo" type="radio" value="todas" checked/><label for="escopo-todas">Todas as salas com bens ativos ({{ salas_ativas|length }})</label></div>

@@ -26,9 +26,8 @@ def test_bem_mostra_fotos_por_evento(cliente):
     inventario.adicionar_foto(conn, eid, 1001, lambda c: "https://x/a.webp")
     inventario.adicionar_foto(conn, eid, 1001, lambda c: "https://x/b.webp")
     cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"})
-    cliente.post("/inventario/abrir", data={"nome": "Inv 2", "integrantes": "Fulano", "escopo": "todas"})
+    cliente.post("/inventario/abrir", data={"nome": "Inv 2", "integrantes": ["Fulano"], "escopo": "todas"})
     eid2 = inventario.evento_aberto(conn)["id"]
-    cliente.post(f"/inventario/{eid2}/integrante", data={"integrante": "Fulano"})
     cliente.post(f"/inventario/{eid2}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
     inventario.adicionar_foto(conn, eid2, 1001, lambda c: "https://x/c.webp")
     r = cliente.get("/bem?numero=1001")
@@ -418,31 +417,24 @@ def test_recorte_tela_filtros_termo_e_xlsx(cliente):
     assert ws.max_row - 1 == 4     # 4 bens da semente (inclui 1003 BAIXADO); a tela mostra o mesmo total
 
 
-def _abrir(cliente, integrante="Fulano"):
-    cliente.post("/inventario/abrir", data={"nome": "Inv", "integrantes": "Fulano\nBeltrana", "escopo": "todas"})
+def _abrir(cliente, comissao=("Fulano", "Beltrana")):
+    """Abre evento com a comissão dada (nomes de usuários existentes). O admin logado é 'Fulano'."""
+    cliente.post("/inventario/abrir", data={"nome": "Inv", "integrantes": list(comissao), "escopo": "todas"})
     import db, inventario
-    eid = inventario.evento_aberto(db.conectar())["id"]
-    if integrante:
-        cliente.post(f"/inventario/{eid}/integrante", data={"integrante": integrante})
-    return eid
+    return inventario.evento_aberto(db.conectar())["id"]
 
 
 def test_inventario_eventos_abrir_e_encerrar(cliente):
     r = cliente.get("/inventario")
     assert r.status_code == 200 and b"Abrir evento" in r.data and b"Nenhum evento aberto" in r.data
-    r = cliente.post("/inventario/abrir", data={"nome": "Inventário 2026", "descricao": "Portaria 1", "integrantes": "Fulano\nBeltrana", "escopo": "todas"}, follow_redirects=True)
+    r = cliente.post("/inventario/abrir", data={"nome": "Inventário 2026", "descricao": "Portaria 1", "integrantes": ["Fulano", "Beltrana"], "escopo": "todas"}, follow_redirects=True)
     assert "Inventário 2026".encode() in r.data and b"01 - SALA CCI" in r.data and b"99 - SEM MAPA" in r.data
     assert "Inventário".encode() in cliente.get("/").data                          # menu
-    r = cliente.post("/inventario/abrir", data={"nome": "Outro", "integrantes": "X", "escopo": "todas"}, follow_redirects=True)
+    r = cliente.post("/inventario/abrir", data={"nome": "Outro", "integrantes": ["Fulano"], "escopo": "todas"}, follow_redirects=True)
     assert "já existe".encode() in r.data.lower() or "Já existe".encode() in r.data
     import db, inventario
     eid = inventario.evento_aberto(db.conectar())["id"]
-    r = cliente.post(f"/inventario/{eid}/integrante", data={"integrante": "Fulano", "volta": f"/inventario/{eid}"}, follow_redirects=True)
-    assert b"Fulano" in r.data
-    r = cliente.post(f"/inventario/{eid}/integrante", data={"integrante": "Fulano", "volta": "//evil.example"})
-    assert r.headers["Location"].startswith("/inventario/")
-    r = cliente.post(f"/inventario/{eid}/integrante", data={"integrante": "Fulano", "volta": "/\\evil.example"})
-    assert r.headers["Location"].startswith("/inventario/")
+    assert b"Comiss" in cliente.get(f"/inventario/{eid}").data
     r = cliente.post(f"/inventario/{eid}/encerrar", data={}, follow_redirects=True)
     assert b"Confirmar encerramento" in r.data
     r = cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"}, follow_redirects=True)
@@ -451,17 +443,17 @@ def test_inventario_eventos_abrir_e_encerrar(cliente):
 
 
 def test_inventario_abrir_com_amostragem(cliente):
-    r = cliente.post("/inventario/abrir", data={"nome": "Amostra", "integrantes": "A", "escopo": "escolher", "salas": ["99 - SEM MAPA"]}, follow_redirects=True)
+    r = cliente.post("/inventario/abrir", data={"nome": "Amostra", "integrantes": ["Beltrana"], "escopo": "escolher", "salas": ["99 - SEM MAPA"]}, follow_redirects=True)
     assert b"99 - SEM MAPA" in r.data and b"01 - SALA CCI" not in r.data.split(b"<tbody>")[1]
 
 
 def test_inventario_sala_leitura_json(cliente):
-    eid = _abrir(cliente, integrante=None)
+    eid = _abrir(cliente, comissao=["Beltrana"])
     r = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI")
-    assert r.status_code == 200 and b'id="leitura"' in r.data and b"html5-qrcode" in r.data and b"Escolha o integrante" in r.data
+    assert r.status_code == 200 and b'id="leitura"' in r.data and b"html5-qrcode" in r.data and "não faz parte da comissão".encode() in r.data
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
-    assert r.status_code == 409 and "integrante" in r.get_json()["erro"].lower()
-    cliente.post(f"/inventario/{eid}/integrante", data={"integrante": "Fulano"})
+    assert r.status_code == 409 and "comissão" in r.get_json()["erro"].lower()
+    cliente.post(f"/inventario/{eid}/comissao", data={"integrantes": ["Fulano", "Beltrana"]})
     j = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "001001"}).get_json()
     assert j["situacao"] == "localizado" and j["numero"] == 1001 and j["descricao"] == "CADEIRA" and j["reler"] is False
     j = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1004"}).get_json()
@@ -657,11 +649,10 @@ def test_inventario_lote_marcar_e_desmarcar(cliente, monkeypatch):
     assert b"desfeita" in r.data and apagadas == ["https://x/1001.webp"] and r.data.count(b">Localizado<") == 1
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "desmarcar", "numeros": ["1001"]}, follow_redirects=True)
     assert b"Nenhuma leitura para desfazer" in r.data
-    with cliente.session_transaction() as sess:
-        sess.pop("integrante", None)
+    cliente.post(f"/inventario/{eid}/comissao", data={"integrantes": ["Beltrana"]})
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "marcar", "numeros": ["1002"]}, follow_redirects=True)
-    assert b"integrante" in r.data.lower()
-    cliente.post(f"/inventario/{eid}/integrante", data={"integrante": "Fulano"})
+    assert "comissão".encode() in r.data.lower()
+    cliente.post(f"/inventario/{eid}/comissao", data={"integrantes": ["Fulano", "Beltrana"]})
     cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"})
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "marcar", "numeros": ["1002"]}, follow_redirects=True)
     assert b"Evento encerrado" in r.data
@@ -743,7 +734,7 @@ def test_docx_tipo_invalido_da_404_e_head_nao_registra(cliente):
 
 
 def test_leitura_com_json_que_nao_e_objeto_da_400(cliente):
-    eid = _abrir(cliente, integrante="Fulano")
+    eid = _abrir(cliente)
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json=[1, 2])
     assert r.status_code == 400 and "objeto JSON" in r.get_json()["erro"]
     r = cliente.post(f"/inventario/{eid}/leitura/1001", json="texto")
@@ -758,7 +749,7 @@ def test_upload_acima_de_20mb_da_mensagem_e_nao_500(cliente):
 
 
 def test_form_sobra_nao_e_o_proprio_br_card(cliente):
-    eid = _abrir(cliente, integrante="Fulano")
+    eid = _abrir(cliente)
     html = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI").get_data(as_text=True)
     assert 'id="card-sobra"' in html and 'id="form-sobra"' in html
     assert 'class="br-card mt-3" id="form-sobra"' not in html   # BRCard trocaria o id do form
@@ -770,7 +761,7 @@ def test_menu_inventario_e_grupo_com_telas_do_evento_aberto(cliente):
     assert b"menu-folder" in menu and b">Eventos<" in menu and b"/painel" not in menu
     assert b'href="/inventario"' in menu and menu.count(b"menu-folder") == 1
     assert b'<a class="menu-item" href="javascript:void(0)" role="treeitem">' in menu   # título é link: pasta fecha/abre ao clicar (drop-menu do DSGov)
-    eid = _abrir(cliente, integrante=None)
+    eid = _abrir(cliente)
     menu = cliente.get("/").data.split(b'id="main-navigation"')[1].split(b"menu-footer")[0]
     assert f'href="/inventario/{eid}"'.encode() in menu and f'href="/inventario/{eid}/painel"'.encode() in menu and f'href="/inventario/{eid}/relatorio"'.encode() in menu
     assert b">Inv<" in menu and b">Painel<" in menu and b">Relat" in menu
@@ -791,3 +782,43 @@ def test_falha_no_bucket_mantem_a_foto_e_avisa(cliente, monkeypatch):
     r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "desmarcar", "numeros": ["1001"]}, headers=origem, follow_redirects=True)
     assert "Não foi possível apagar".encode() in r.data and r.data.count(b">Localizado<") == 1
     assert [f["nfoto"] for f in inventario.fotos_do_bem_no_evento(db.conectar(), eid, 1001)] == [1]
+
+
+def test_inventario_comissao_por_usuarios(cliente, dados, usuarios_exemplo):
+    r = cliente.get("/inventario")
+    assert b'name="integrantes"' in r.data and b'value="Fulano"' in r.data and b'value="Beltrana"' in r.data
+    assert b'value="Operador Teste"' in r.data and b'value="Consulta Teste"' not in r.data          # consulta não compõe
+    r = cliente.post("/inventario/abrir", data={"nome": "Inv", "integrantes": ["Consulta Teste"], "escopo": "todas"}, follow_redirects=True)
+    assert "não pode compor".encode() in r.data
+    eid = _abrir(cliente, comissao=["Beltrana"])
+    r = cliente.get(f"/inventario/{eid}")
+    assert b"Comiss" in r.data and b'href="/inventario/%d/comissao"' % eid in r.data and b"Quem est" not in r.data
+    r = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI")
+    assert "não faz parte da comissão".encode() in r.data and b'id="leitura" type="text" inputmode="none" autocomplete="off" enterkeyhint="done" placeholder="Aproxime o leitor\xe2\x80\xa6" disabled' in r.data
+    r = cliente.get(f"/inventario/{eid}/comissao")
+    assert r.status_code == 200 and b'value="Beltrana" checked' in r.data and b'value="Fulano"' in r.data
+    r = cliente.post(f"/inventario/{eid}/comissao", data={"integrantes": ["Fulano", "Beltrana"]}, follow_redirects=True)
+    assert "Comissão atualizada".encode() in r.data
+    j = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"}).get_json()
+    assert j["situacao"] == "localizado" and j["integrante"] == "Fulano"
+    assert b"lendo como <strong>Fulano</strong>" in cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI").data
+    cliente.post("/sair"); logar(cliente, *usuarios_exemplo["operador"])
+    assert cliente.get(f"/inventario/{eid}/comissao").status_code == 403                         # só admin
+    r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1002"})
+    assert r.status_code == 409 and "comissão" in r.get_json()["erro"].lower()                   # operador fora da comissão
+    cliente.post("/sair"); logar(cliente, *usuarios_exemplo["inventariante"])
+    j = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1002"}).get_json()
+    assert j["integrante"] == "Beltrana"
+    assert cliente.get("/inventario/%d/integrante" % eid).status_code in (404, 405)
+
+
+def test_inventario_desktop_admin_local_entra_na_comissao(cliente_local):
+    import db, inventario, usuarios
+    conn = db.conectar()
+    usuarios.criar(conn, "xis", "Xis", "Senha!234", "inventariante")
+    r = cliente_local.post("/inventario/abrir", data={"nome": "Inv", "integrantes": ["Xis"], "escopo": "todas"}, follow_redirects=True)
+    assert r.status_code == 200
+    eid = inventario.evento_aberto(conn)["id"]
+    assert inventario.evento(conn, eid)["integrantes"] == ["Administrador local", "Xis"]
+    j = cliente_local.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"}).get_json()
+    assert j["integrante"] == "Administrador local"

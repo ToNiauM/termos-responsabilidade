@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block titulo %}Comissão · {{ e.nome }}{% endblock %}
+{% block conteudo %}
+<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Comissão de {{ e.nome }}</h1></div>
+<p class="text-gray-70">Marque quem pode ler bens neste evento. Quem sair da comissão deixa de ler; as leituras já feitas ficam.</p>
+<form method="post" action="{{ url_for('inventario.comissao', id=e.id) }}" class="col-md-6">
+  {% for u in elegiveis %}
+  <div class="br-checkbox mb-2"><input id="int-{{ loop.index }}" name="integrantes" type="checkbox" value="{{ u.nome }}"{% if u.nome in e.integrantes or u.id is none %} checked{% endif %}{% if u.id is none %} disabled{% endif %}/>
+    <label for="int-{{ loop.index }}">{{ u.nome }} <span class="text-gray-70 text-down-01">· {{ ROTULO_PERFIL[u.perfil] }}{% if u.nome in com_leituras %} · já tem leituras neste evento{% endif %}</span></label></div>
+  {% endfor %}
+  {% for nome in e.integrantes if nome not in elegiveis|map(attribute='nome')|list %}
+  <div class="br-checkbox mb-2"><input id="ant-{{ loop.index }}" name="integrantes" type="checkbox" value="{{ nome }}" checked/>
+    <label for="ant-{{ loop.index }}">{{ nome }} <span class="text-gray-70 text-down-01">· sem usuário ativo com este nome{% if nome in com_leituras %} · já tem leituras{% endif %}</span></label></div>
+  {% endfor %}
+  <div class="dsgov-acoes-formulario mt-4">
+    <a class="br-button" href="{{ url_for('inventario.evento_tela', id=e.id) }}">Cancelar</a>
+    <button class="br-button primary" type="submit"><i class="fas fa-save mr-1" aria-hidden="true"></i>Salvar comissão</button>
+  </div>
+</form>
+{% endblock %}

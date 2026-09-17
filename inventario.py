@@ -17,6 +17,7 @@ CONSERVACAO_VAZIA = "-"    # valor do filtro/chave para "Não informada"
 COLUNAS_ORDEM = ("numero", "descricao", "local_sistema", "local_inventario", "situacao_inv", "conservacao", "quem_usa", "integrante", "lido_em")
 _CAMPOS_BUSCA = ("numero", "descricao", "complemento", "quem_usa", "observacao", "local_sistema", "local_inventario")
 ROTULO_FOTO = {"com": "Com foto", "sem": "Sem foto"}
+FORA_DA_COMISSAO = "Você não faz parte da comissão deste evento."
 
 
 class BemNaoEncontrado(ErroDeNegocio):
@@ -67,7 +68,27 @@ def _fonte_bens(conn, evento_id: int) -> str:
     return f"(SELECT {_COLS_SNAPSHOT} FROM inventario_bens_encerrados WHERE evento_id = {int(evento_id)})"
 
 
-def abrir_evento(conn, nome: str, descricao, integrantes: list, salas: list | None = None) -> int:
+def _nomes_da_comissao(integrantes, elegiveis) -> list[str]:
+    nomes = sorted({" ".join(_texto(n).split()) for n in integrantes if _texto(n).strip()})
+    if not nomes:
+        raise ErroDeNegocio("Informe ao menos um integrante da comissão.")
+    if elegiveis is not None:
+        fora = [n for n in nomes if n not in set(elegiveis)]
+        if fora:
+            raise ErroDeNegocio(f"{', '.join(fora)}: não pode compor a comissão (usuário inexistente, inativo ou de consulta).")
+    return nomes
+
+
+def editar_comissao(conn, evento_id: int, integrantes: list, elegiveis: list | None = None) -> None:
+    """Substitui a comissão do evento aberto. Leituras já feitas não mudam: quem sai só deixa de poder ler."""
+    _evento_aberto_ou_erro(conn, evento_id)
+    nomes = _nomes_da_comissao(integrantes, elegiveis)
+    conn.execute("DELETE FROM inventario_integrantes WHERE evento_id = ?", (evento_id,))
+    conn.executemany("INSERT INTO inventario_integrantes VALUES (?,?)", [(evento_id, n) for n in nomes])
+    conn.commit()
+
+
+def abrir_evento(conn, nome: str, descricao, integrantes: list, salas: list | None = None, elegiveis: list | None = None) -> int:
     """Um evento aberto por vez. salas=None → todas as localizações com bens ATIVO; lista → amostragem."""
     nome = _obrigatorio(nome, "Nome do evento")
     nova = fotos.pasta(nome, 0)
@@ -76,9 +97,7 @@ def abrir_evento(conn, nome: str, descricao, integrantes: list, salas: list | No
             raise ErroDeNegocio(f"Já existe um evento com esse nome (pasta de fotos '{nova}'); escolha outro nome.")
     if evento_aberto(conn):
         raise ErroDeNegocio("Já existe um evento de inventário aberto; encerre-o antes de abrir outro.")
-    nomes = sorted({" ".join(_texto(n).split()) for n in integrantes if _texto(n).strip()})
-    if not nomes:
-        raise ErroDeNegocio("Informe ao menos um integrante da comissão.")
+    nomes = _nomes_da_comissao(integrantes, elegiveis)
     ativas = db.localizacoes_ativas(conn)
     escolhidas = ativas if salas is None else [s for s in ativas if s in set(salas)]
     if not escolhidas:
@@ -189,7 +208,7 @@ def ler(conn, evento_id: int, localizacao: str, numero: int, integrante: str) ->
     _evento_aberto_ou_erro(conn, evento_id)
     _sala_ou_erro(conn, evento_id, localizacao)
     if not conn.execute("SELECT 1 FROM inventario_integrantes WHERE evento_id = ? AND nome = ?", (evento_id, integrante)).fetchone():
-        raise ErroDeNegocio("Escolha o integrante da comissão antes de ler.")
+        raise ErroDeNegocio(FORA_DA_COMISSAO)
     bem = db.buscar_bem(conn, numero)
     if not bem:
         raise BemNaoEncontrado(numero)
@@ -353,7 +372,7 @@ def registrar_sobra(conn, evento_id, localizacao, descricao, complemento, observ
     observacao = _obrigatorio(observacao, "Observação")
     integrante = _obrigatorio(integrante, "Integrante")
     if not conn.execute("SELECT 1 FROM inventario_integrantes WHERE evento_id = ? AND nome = ?", (evento_id, integrante)).fetchone():
-        raise ErroDeNegocio("Escolha o integrante da comissão antes de ler.")
+        raise ErroDeNegocio(FORA_DA_COMISSAO)
     if exigir_foto and not _texto(foto_url):
         raise ErroDeNegocio("A sobra precisa de foto.")
     cur = conn.execute("""INSERT INTO inventario_sobras (evento_id, localizacao, descricao, complemento, observacao, foto_url, integrante, criado_em)

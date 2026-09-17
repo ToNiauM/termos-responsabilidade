@@ -5,8 +5,8 @@
 {% set fechado = e.encerrado_em is not none %}
 <div class="d-flex align-items-center mb-2">
   <div><h1 class="mb-0">{{ localizacao }}</h1><div class="text-gray-70">{{ e.nome }}{% if sala.ccustos %} · centro {{ sala.ccustos }}{% endif %} ·
-    {% if integrante %}lendo como <strong>{{ integrante }}</strong>{% else %}<strong>Escolha o integrante</strong>{% endif %}
-    (<a href="{{ url_for('inventario.evento_tela', id=e.id) }}">trocar</a>)</div></div>
+    {% if na_comissao %}lendo como <strong>{{ integrante }}</strong>{% else %}<strong>Você não faz parte da comissão deste evento</strong>{% endif %}
+    (<a href="{{ url_for('inventario.evento_tela', id=e.id) }}">evento</a>)</div></div>
   <div class="ml-auto text-right" id="contadores" data-total="{{ sala.total }}">
     <span class="br-tag bg-success text-pure-0"><span id="n-localizados">{{ sala.localizados }}</span></span>
     <span class="br-tag bg-warning"><span id="n-divergentes">{{ sala.divergentes }}</span></span>
@@ -25,10 +25,10 @@
   <div class="d-flex align-items-end">
     <div class="br-input flex-fill mr-2">
       <label for="leitura">Ler plaqueta (leitor de código de barras ou câmera)</label>
-      <input id="leitura" type="text" inputmode="none" autocomplete="off" enterkeyhint="done" placeholder="Aproxime o leitor…"{% if fechado or not integrante %} disabled{% endif %} autofocus/>
+      <input id="leitura" type="text" inputmode="none" autocomplete="off" enterkeyhint="done" placeholder="Aproxime o leitor…"{% if fechado or not na_comissao %} disabled{% endif %} autofocus/>
     </div>
-    <button class="br-button secondary mr-2" type="button" id="btn-camera"{% if fechado or not integrante %} disabled{% endif %}><i class="fas fa-camera mr-1" aria-hidden="true"></i>Câmera</button>
-    <button class="br-button" type="button" id="btn-digitar"{% if fechado or not integrante %} disabled{% endif %}><i class="fas fa-keyboard mr-1" aria-hidden="true"></i>Digitar</button>
+    <button class="br-button secondary mr-2" type="button" id="btn-camera"{% if fechado or not na_comissao %} disabled{% endif %}><i class="fas fa-camera mr-1" aria-hidden="true"></i>Câmera</button>
+    <button class="br-button" type="button" id="btn-digitar"{% if fechado or not na_comissao %} disabled{% endif %}><i class="fas fa-keyboard mr-1" aria-hidden="true"></i>Digitar</button>
   </div>
   <div id="aviso" class="br-message mt-3" hidden><div class="icon"><i class="fas fa-info-circle fa-lg" aria-hidden="true"></i></div><div class="content" role="alert"><span class="message-body" id="aviso-texto"></span>
     <button class="br-button small secondary ml-2" type="button" id="btn-sobra" hidden>Registrar sobra</button></div></div>
@@ -37,8 +37,8 @@
 
 {% if not fechado %}
 <form method="post" action="{{ url_for('inventario.lote', id=e.id, localizacao=localizacao) }}" id="form-lote" class="mb-2 d-flex align-items-center flex-wrap">
-  <button class="br-button secondary small" type="submit" name="acao" value="marcar"{% if not integrante %} disabled{% endif %}><i class="fas fa-check-double mr-1" aria-hidden="true"></i>Marcar selecionados como localizados</button>
-  <button class="br-button small ml-2" type="submit" name="acao" value="desmarcar"{% if not integrante %} disabled{% endif %}><i class="fas fa-undo mr-1" aria-hidden="true"></i>Desmarcar</button>
+  <button class="br-button secondary small" type="submit" name="acao" value="marcar"{% if not na_comissao %} disabled{% endif %}><i class="fas fa-check-double mr-1" aria-hidden="true"></i>Marcar selecionados como localizados</button>
+  <button class="br-button small ml-2" type="submit" name="acao" value="desmarcar"{% if not na_comissao %} disabled{% endif %}><i class="fas fa-undo mr-1" aria-hidden="true"></i>Desmarcar</button>
   <span class="text-down-01 text-gray-70 ml-2">plaqueta ilegível ou ausente: marque na lista e use os botões</span>
 </form>
 {% endif %}

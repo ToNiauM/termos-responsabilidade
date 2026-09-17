@@ -54,6 +54,29 @@ def test_abrir_evento_amostragem_e_validacoes(dados):
     assert [x["id"] for x in inventario.eventos(dados)] == [e2, eid]   # aberto primeiro
 
 
+def test_abrir_evento_com_elegiveis_e_editar_comissao(dados):
+    semear(dados)
+    with pytest.raises(db.ErroDeNegocio, match="não pode compor"):
+        inventario.abrir_evento(dados, "X", "", ["Fulano", "Zé"], elegiveis=["Fulano", "Beltrana"])
+    eid = inventario.abrir_evento(dados, "X", "", ["Fulano"], elegiveis=["Fulano", "Beltrana"])
+    assert inventario.evento(dados, eid)["integrantes"] == ["Fulano"]
+    with pytest.raises(db.ErroDeNegocio, match="não pode compor"):
+        inventario.editar_comissao(dados, eid, ["Zé"], elegiveis=["Fulano", "Beltrana"])
+    with pytest.raises(db.ErroDeNegocio, match="ao menos um"):
+        inventario.editar_comissao(dados, eid, [])
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    inventario.editar_comissao(dados, eid, ["Beltrana", " Fulano "], elegiveis=["Fulano", "Beltrana"])
+    assert inventario.evento(dados, eid)["integrantes"] == ["Beltrana", "Fulano"]
+    inventario.editar_comissao(dados, eid, ["Beltrana"])
+    assert inventario.evento(dados, eid)["integrantes"] == ["Beltrana"]
+    assert dados.execute("SELECT integrante FROM inventario_leituras WHERE evento_id = ?", (eid,)).fetchone()[0] == "Fulano"  # leitura fica
+    with pytest.raises(db.ErroDeNegocio, match="não faz parte da comissão"):
+        inventario.ler(dados, eid, "01 - SALA CCI", 1002, "Fulano")
+    inventario.encerrar_evento(dados, eid)
+    with pytest.raises(db.ErroDeNegocio, match="encerrado"):
+        inventario.editar_comissao(dados, eid, ["Fulano"])
+
+
 def test_salas_contadores_e_resumo(dados):
     eid = semear_inventario(dados)
     s = {x["localizacao"]: x for x in inventario.salas(dados, eid)}
