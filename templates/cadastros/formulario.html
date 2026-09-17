@@ -7,7 +7,7 @@
 {% if erros %}
 <div class="br-message danger"><div class="icon"><i class="fas fa-times-circle" aria-hidden="true"></i></div><div class="content" role="alert" tabindex="-1" id="erros-formulario"><span class="message-title">Confira os campos indicados.</span><span class="message-body"> Seus dados foram mantidos para correção.</span></div></div>
 {% endif %}
-<form method="post" action="{{ request.path if chave else url_for(aba ~ '_incluir') }}" class="col-md-8" novalidate>
+<form method="post" action="{{ request.path if chave else url_for(aba ~ '_incluir') }}" class="col-md-8" novalidate>{{ csrf_campo() }}
   {{ ocultos(retorno) }}
   {% if aba == 'responsaveis' %}
     {{ campo('ccustos', 'Sigla do centro de custo', valores, erros, True, ajuda='Ao alterar a sigla, as localizações e as referências dos termos acompanham a mudança.') }}

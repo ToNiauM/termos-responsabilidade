@@ -3,7 +3,7 @@
 {% block conteudo %}
 <div class="d-flex align-items-center mb-4"><h1 class="mb-0">Comissão de {{ e.nome }}</h1></div>
 <p class="text-gray-70">Marque quem pode ler bens neste evento. Quem sair da comissão deixa de ler; as leituras já feitas ficam.</p>
-<form method="post" action="{{ url_for('inventario.comissao', id=e.id) }}" class="col-md-6">
+<form method="post" action="{{ url_for('inventario.comissao', id=e.id) }}" class="col-md-6">{{ csrf_campo() }}
   {% for u in elegiveis %}
   <div class="br-checkbox mb-2"><input id="int-{{ loop.index }}" name="integrantes" type="checkbox" value="{{ u.nome }}"{% if u.nome in e.integrantes or u.id is none %} checked{% endif %}{% if u.id is none %} disabled{% endif %}/>
     <label for="int-{{ loop.index }}">{{ u.nome }} <span class="text-gray-70 text-down-01">· {{ ROTULO_PERFIL[u.perfil] }}{% if u.nome in com_leituras %} · já tem leituras neste evento{% endif %}</span></label></div>

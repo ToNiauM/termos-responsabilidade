@@ -4,7 +4,7 @@
 {% block conteudo %}
 <div class="d-flex align-items-center mb-4"><h1 class="mb-0">Termo individual</h1></div>
 {% if pode('gerar_individual', 'POST') %}
-<form method="post" action="{{ url_for('gerar_individual') }}" class="col-md-8">
+<form method="post" action="{{ url_for('gerar_individual') }}" class="col-md-8">{{ csrf_campo() }}
   <div class="mb-3">{{ select('nome', 'Pessoa', nomes) }}</div>
   <button class="br-button primary" type="submit"><i class="fas fa-file-alt mr-1" aria-hidden="true"></i>Gerar termo</button>
 </form>

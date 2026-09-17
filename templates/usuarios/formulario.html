@@ -10,7 +10,7 @@
 {% endif %}
 {% if erro %}<div class="br-message danger mb-3"><div class="icon"><i class="fas fa-times-circle fa-lg" aria-hidden="true"></i></div>
   <div class="content" role="alert"><span class="message-title">Confira os campos.</span><span class="message-body"> {{ erro }} Seus dados foram mantidos.</span></div></div>{% endif %}
-<form method="post" action="{{ url_for('usuarios.editar', id=u.id, retorno=retorno) if u else url_for('usuarios.incluir', retorno=retorno) }}" class="col-md-8">
+<form method="post" action="{{ url_for('usuarios.editar', id=u.id, retorno=retorno) if u else url_for('usuarios.incluir', retorno=retorno) }}" class="col-md-8">{{ csrf_campo() }}
   {% if not u %}
   <div class="br-input mb-3"><label for="login">Login <span class="text-danger" aria-hidden="true">*</span></label>
     <input id="login" name="login" type="text" autocapitalize="none" value="{{ valores.login or '' }}" required/>
@@ -33,7 +33,7 @@
   </div>
 </form>
 {% if u %}
-<form method="post" action="{{ url_for('usuarios.nova_senha', id=u.id, retorno=retorno) }}" class="mt-4 col-md-8">
+<form method="post" action="{{ url_for('usuarios.nova_senha', id=u.id, retorno=retorno) }}" class="mt-4 col-md-8">{{ csrf_campo() }}
   <div class="br-card"><div class="card-content d-flex align-items-center">
     <div class="flex-fill"><div class="text-weight-semi-bold">Nova senha temporária</div><div class="text-down-01 text-gray-70">Gera uma senha aleatória, mostrada uma vez; o usuário troca no primeiro acesso. Também desbloqueia a conta.</div></div>
     <button class="br-button secondary" type="submit"><i class="fas fa-key mr-1" aria-hidden="true"></i>Nova senha</button>

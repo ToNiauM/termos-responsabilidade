@@ -2,7 +2,7 @@
 {% block titulo %}Textos{% endblock %}
 {% block conteudo %}
 <div class="d-flex align-items-center mb-4"><h1 class="mb-0">Textos dos termos</h1></div>
-<form method="post" action="{{ url_for('textos_salvar') }}" class="col-md-10">
+<form method="post" action="{{ url_for('textos_salvar') }}" class="col-md-10">{{ csrf_campo() }}
   <p class="text-gray-70">Os marcadores entre chaves são substituídos ao gerar o termo. Linha em branco separa parágrafos; nos compromissos, uma linha por item. Vale para o documento colado no SEI e para o .docx.</p>
   {% for titulo, chaves in grupos %}
   <div class="br-card mb-4">

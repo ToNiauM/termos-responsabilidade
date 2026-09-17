@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="csrf" content="{{ CSRF }}"/>
   <title>{% block titulo %}{{ DSGOV.SISTEMA }}{% endblock %} — {{ DSGOV.SISTEMA }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/css/fontes.css') }}"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/vendor/govbr-ds/core.min.css') }}"/>
@@ -31,6 +32,7 @@
               <span class="text-down-01 mr-2"><i class="fas fa-user-circle mr-1" aria-hidden="true"></i>{{ USUARIO.nome }} · {{ ROTULO_PERFIL[USUARIO.perfil] }}</span>
               <a class="br-button small" href="{{ url_for('usuarios.senha') }}">Trocar senha</a>
               <form method="post" action="{{ url_for('usuarios.sair') }}" class="d-inline ml-1">
+                {{ csrf_campo() }}
                 <button class="br-button small secondary" type="submit"><i class="fas fa-sign-out-alt mr-1" aria-hidden="true"></i>Sair</button>
               </form>
             </div>

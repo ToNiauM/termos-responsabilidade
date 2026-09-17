@@ -14,7 +14,7 @@
 <a class="br-button secondary" href="{{ retorno }}">Voltar aos cadastros</a>
 {% if aba == 'responsaveis' %}<a class="br-button" href="{{ url_for('cadastros', aba='localizacoes', centro=request.form.get('ccustos', '')) }}">Gerenciar localizações</a>{% endif %}
 {% else %}
-<form method="post" action="{{ acao }}">
+<form method="post" action="{{ acao }}">{{ csrf_campo() }}
   {% for k, v in campos %}<input type="hidden" name="{{ k }}" value="{{ v }}"/>{% endfor %}
   <input type="hidden" name="revisao" value="{{ revisao }}"/>
   <div class="dsgov-acoes-formulario">

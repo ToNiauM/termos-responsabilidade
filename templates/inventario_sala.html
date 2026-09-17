@@ -36,7 +36,7 @@
 </div></div>
 
 {% if not fechado %}
-<form method="post" action="{{ url_for('inventario.lote', id=e.id, localizacao=localizacao) }}" id="form-lote" class="mb-2 d-flex align-items-center flex-wrap">
+<form method="post" action="{{ url_for('inventario.lote', id=e.id, localizacao=localizacao) }}" id="form-lote" class="mb-2 d-flex align-items-center flex-wrap">{{ csrf_campo() }}
   <button class="br-button secondary small" type="submit" name="acao" value="marcar"{% if not na_comissao %} disabled{% endif %}><i class="fas fa-check-double mr-1" aria-hidden="true"></i>Marcar selecionados como localizados</button>
   <button class="br-button small ml-2" type="submit" name="acao" value="desmarcar"{% if not na_comissao %} disabled{% endif %}><i class="fas fa-undo mr-1" aria-hidden="true"></i>Desmarcar</button>
   <span class="text-down-01 text-gray-70 ml-2">plaqueta ilegível ou ausente: marque na lista e use os botões</span>
@@ -47,7 +47,7 @@
   <tbody id="tabela-bens">
   {% for b in bens %}
   <tr data-numero="{{ b.numero }}" data-situacao="{{ b.situacao_inv }}">
-    {% if not fechado %}{{ td_selecao('bens', loop.index, 'numeros', b.numero, form='form-lote') }}{% endif %}<td class="foto">{% for f in b.fotos[:1] %}<span class="d-inline-block mr-1">{% if f.url.startswith(('http://', 'https://')) %}<a href="{{ f.url }}" target="_blank" rel="noopener"><img src="{{ f.url }}" alt="Foto {{ f.nfoto }} do bem {{ b.numero }}" class="dsgov-miniatura"/></a>{% endif %}{% if not fechado %}<form method="post" action="{{ url_for('inventario.foto_excluir', id=e.id, numero=b.numero, nfoto=f.nfoto) }}" class="d-inline"><input type="hidden" name="volta" value="{{ localizacao }}"/><button class="br-button circle small" type="submit" aria-label="Excluir foto {{ f.nfoto }}"><i class="fas fa-trash" aria-hidden="true"></i></button></form>{% endif %}</span>{% endfor %}{% if b.fotos|length > 1 %}<span class="br-tag small mr-1" title="Todas as fotos no cadastro do bem">+{{ b.fotos|length - 1 }}</span>{% endif %}
+    {% if not fechado %}{{ td_selecao('bens', loop.index, 'numeros', b.numero, form='form-lote') }}{% endif %}<td class="foto">{% for f in b.fotos[:1] %}<span class="d-inline-block mr-1">{% if f.url.startswith(('http://', 'https://')) %}<a href="{{ f.url }}" target="_blank" rel="noopener"><img src="{{ f.url }}" alt="Foto {{ f.nfoto }} do bem {{ b.numero }}" class="dsgov-miniatura"/></a>{% endif %}{% if not fechado %}<form method="post" action="{{ url_for('inventario.foto_excluir', id=e.id, numero=b.numero, nfoto=f.nfoto) }}" class="d-inline">{{ csrf_campo() }}<input type="hidden" name="volta" value="{{ localizacao }}"/><button class="br-button circle small" type="submit" aria-label="Excluir foto {{ f.nfoto }}"><i class="fas fa-trash" aria-hidden="true"></i></button></form>{% endif %}</span>{% endfor %}{% if b.fotos|length > 1 %}<span class="br-tag small mr-1" title="Todas as fotos no cadastro do bem">+{{ b.fotos|length - 1 }}</span>{% endif %}
       {% if fotos_ativas and not fechado %}<label class="br-button circle small{% if not b.lido_em %} disabled{% endif %}" aria-label="Nova foto do bem {{ b.numero }}"><i class="fas fa-camera" aria-hidden="true"></i><input type="file" accept="image/*" capture="environment" class="foto-input" hidden{% if not b.lido_em %} disabled{% endif %}/></label>{% endif %}</td><td>{{ b.numero }}</td><td>{{ b.descricao }}{% if b.complemento %} <span class="text-gray-70">{{ b.complemento }}</span>{% endif %}</td>
     <td class="situacao">{% if b.situacao_inv == 'localizado' %}<span class="br-tag bg-success text-pure-0"><span>Localizado</span></span>{% elif b.situacao_inv == 'divergente' %}<span class="br-tag bg-warning"><span>Divergente · lido em {{ b.lido_em_sala }}</span></span>{% else %}<span class="br-tag bg-gray-20"><span>Pendente</span></span>{% endif %}</td>
     <td><select class="campo" data-campo="conservacao"{% if fechado or not b.lido_em %} disabled{% endif %}><option value="">—</option>{% for c in conservacao %}<option{% if b.conservacao == c %} selected{% endif %}>{{ c }}</option>{% endfor %}</select></td>
@@ -69,11 +69,11 @@
 <div class="br-table"><table><thead><tr><th scope="col">Descrição</th><th scope="col">Observação</th><th scope="col">Foto</th><th scope="col">Por</th>{% if not fechado %}<th scope="col" class="dsgov-acoes">Ações</th>{% endif %}</tr></thead><tbody>
 {% for s in sobras %}<tr><td>{{ s.descricao }}{% if s.complemento %} <span class="text-gray-70">{{ s.complemento }}</span>{% endif %}</td><td>{{ s.observacao }}</td>
   <td>{% if s.foto_url %}<a href="{{ s.foto_url }}" target="_blank" rel="noopener"><img src="{{ s.foto_url }}" alt="Foto da sobra" class="dsgov-miniatura"/></a>{% else %}—{% endif %}</td><td>{{ s.integrante }}</td>
-  {% if not fechado %}<td class="dsgov-acoes"><form method="post" action="{{ url_for('inventario.sobra_excluir', id=e.id, sobra_id=s.id) }}"><button class="br-button circle small" type="submit" aria-label="Excluir sobra"><i class="fas fa-trash" aria-hidden="true"></i></button></form></td>{% endif %}</tr>{% endfor %}
+  {% if not fechado %}<td class="dsgov-acoes"><form method="post" action="{{ url_for('inventario.sobra_excluir', id=e.id, sobra_id=s.id) }}">{{ csrf_campo() }}<button class="br-button circle small" type="submit" aria-label="Excluir sobra"><i class="fas fa-trash" aria-hidden="true"></i></button></form></td>{% endif %}</tr>{% endfor %}
 </tbody></table></div>
 {% else %}<p class="text-gray-70">Nenhuma sobra nesta sala.</p>{% endif %}
 {% if not fechado %}
-<div class="br-card mt-3" id="card-sobra" hidden><form method="post" action="{{ url_for('inventario.sobra', id=e.id, localizacao=localizacao) }}" enctype="multipart/form-data" id="form-sobra"><div class="card-content">
+<div class="br-card mt-3" id="card-sobra" hidden><form method="post" action="{{ url_for('inventario.sobra', id=e.id, localizacao=localizacao) }}" enctype="multipart/form-data" id="form-sobra">{{ csrf_campo() }}<div class="card-content">
   <div class="text-weight-semi-bold text-up-01 mb-2">Registrar sobra</div>
   <div class="row">
     <div class="col-md-4 mb-2"><div class="br-input"><label for="s-descricao">Descrição</label><input id="s-descricao" name="descricao" type="text" required/></div></div>
@@ -98,6 +98,7 @@
   var URL_LEITURA = {{ url_for('inventario.atualizar_leitura', id=e.id, numero=0)|tojson }};   // troca o 0 pelo número
   var URL_FOTO_EXCLUIR = {{ url_for('inventario.foto_excluir', id=e.id, numero=0, nfoto=0)|tojson }};   // troca os 0 por número e nfoto
   var SALA = {{ localizacao|tojson }};
+  var CSRF = document.querySelector('meta[name="csrf"]').content;
   var campo = document.getElementById("leitura"), aviso = document.getElementById("aviso"), avisoTexto = document.getElementById("aviso-texto");
   var btnSobra = document.getElementById("btn-sobra"), cardSobra = document.getElementById("card-sobra"), formSobra = document.getElementById("form-sobra");
   var ultimoLido = "", ultimoQuando = 0, timerAviso = null;
@@ -180,7 +181,7 @@
     numero = String(numero || "").trim(); if (!numero) return;
     var agora = Date.now(); if (numero === ultimoLido && agora - ultimoQuando < 3000) return;   // leitura dupla do leitor/câmera
     ultimoLido = numero; ultimoQuando = agora;
-    fetch(URL_LER, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({numero: numero})})
+    fetch(URL_LER, {method: "POST", headers: {"Content-Type": "application/json", "X-CSRF": CSRF}, body: JSON.stringify({numero: numero})})
       .then(function (r) { return r.json().then(function (j) { return {status: r.status, j: j}; }); })
       .then(function (res) {
         var j = res.j;
@@ -219,12 +220,12 @@
     var el = ev.target, tr = el.closest("tr"); if (!tr) return;
     if (el.classList.contains("campo")) {
       var corpo = {}; corpo[el.dataset.campo] = el.value;
-      fetch(URL_LEITURA.replace(/\/0$/, "/" + tr.dataset.numero), {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(corpo)})
+      fetch(URL_LEITURA.replace(/\/0$/, "/" + tr.dataset.numero), {method: "POST", headers: {"Content-Type": "application/json", "X-CSRF": CSRF}, body: JSON.stringify(corpo)})
         .then(function (r) { if (!r.ok) return r.json().then(function (j) { mostrar("danger", j.erro || "Erro ao salvar."); }); })
         .catch(function () { mostrar("danger", "Sem conexão; alteração não salva."); });
     } else if (el.classList.contains("foto-input") && el.files[0]) {
       var fd = new FormData(); fd.append("foto", el.files[0]);
-      fetch(URL_LEITURA.replace(/\/0$/, "/" + tr.dataset.numero) + "/foto", {method: "POST", body: fd})
+      fetch(URL_LEITURA.replace(/\/0$/, "/" + tr.dataset.numero) + "/foto", {method: "POST", headers: {"X-CSRF": CSRF}, body: fd})
         .then(function (r) { return r.json().then(function (j) { return {ok: r.ok, j: j}; }); })
         .then(function (res) {
           if (!res.ok) { mostrar("danger", res.j.erro || "Erro ao salvar."); return; }

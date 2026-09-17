@@ -10,7 +10,7 @@
     {% if not e.encerrado_em %}
     {% if pode('inventario.comissao') %}<a class="br-button secondary ml-2" href="{{ url_for('inventario.comissao', id=e.id) }}"><i class="fas fa-users mr-1" aria-hidden="true"></i>Comissão</a>{% endif %}
     {% if pode('inventario.encerrar', 'POST') %}
-    <form method="post" action="{{ url_for('inventario.encerrar', id=e.id) }}" class="d-inline ml-2">
+    <form method="post" action="{{ url_for('inventario.encerrar', id=e.id) }}" class="d-inline ml-2">{{ csrf_campo() }}
       {% if confirmar == 'encerrar' %}<input type="hidden" name="confirmar" value="1"/><button class="br-button primary" type="submit"><i class="fas fa-check mr-1" aria-hidden="true"></i>Confirmar encerramento</button>
       {% else %}<button class="br-button" type="submit"><i class="fas fa-lock mr-1" aria-hidden="true"></i>Encerrar evento</button>{% endif %}
     </form>

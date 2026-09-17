@@ -3,7 +3,7 @@
 {% block titulo %}Termo de devolução{% endblock %}
 {% block conteudo %}
 <div class="d-flex align-items-center mb-4"><h1 class="mb-0">Termo de devolução</h1></div>
-<form method="post" class="row mb-4" id="form-devolucao">
+<form method="post" class="row mb-4" id="form-devolucao">{{ csrf_campo() }}
   <div class="col-md-6 mb-3">{{ select('nome', 'Pessoa que devolve', nomes, selecionado=nome) }}</div>
   <div class="col-md-4 mb-3"><div class="br-input"><label for="numero_bem">Nº do patrimônio</label><input id="numero_bem" name="numero_bem" type="text" inputmode="numeric" placeholder="Qualquer bem, mesmo fora da lista"/></div></div>
   <div class="col-md-2 mb-3 d-flex align-items-end"><button class="br-button secondary" type="submit"><i class="fas fa-plus mr-1" aria-hidden="true"></i>Adicionar</button></div>
@@ -11,7 +11,7 @@
 {% if nome and sugeridos %}
 <div class="br-table mb-4">
   <div class="table-header"><div class="top-bar"><div class="table-title">Bens com {{ nome }} (sugestão)</div>
-    <form method="post" class="ml-auto"><input type="hidden" name="nome" value="{{ nome }}"/><input type="hidden" name="todos" value="1"/>
+    <form method="post" class="ml-auto">{{ csrf_campo() }}<input type="hidden" name="nome" value="{{ nome }}"/><input type="hidden" name="todos" value="1"/>
       <button class="br-button small" type="submit"><i class="fas fa-plus mr-1" aria-hidden="true"></i>Adicionar todos</button></form></div></div>
   <table>
     <caption class="sr-only">Bens atribuídos a {{ nome }} ainda não incluídos na devolução</caption>
@@ -19,7 +19,7 @@
     <tbody>
     {% for b in sugeridos %}
     <tr><td>{{ b.numero }}</td><td>{{ b.descricao }}</td><td>{{ b.complemento }}</td><td class="dsgov-numero">{{ (b.valor_atual or 0)|moeda }}</td>
-      <td class="dsgov-acoes"><form method="post" class="d-inline"><input type="hidden" name="nome" value="{{ nome }}"/><input type="hidden" name="numero_bem" value="{{ b.numero }}"/>
+      <td class="dsgov-acoes"><form method="post" class="d-inline">{{ csrf_campo() }}<input type="hidden" name="nome" value="{{ nome }}"/><input type="hidden" name="numero_bem" value="{{ b.numero }}"/>
         <button class="br-button circle small" type="submit" aria-label="Adicionar {{ b.numero }}"><i class="fas fa-plus" aria-hidden="true"></i></button></form></td></tr>
     {% endfor %}
     </tbody>
@@ -35,14 +35,14 @@
     <tbody>
     {% for b in bens %}
     <tr><td>{{ b.numero }}</td><td>{{ b.descricao }}</td><td>{{ b.complemento }}</td><td class="dsgov-numero">{{ (b.valor_atual or 0)|moeda }}</td>
-      <td class="dsgov-acoes"><form method="post" class="d-inline"><input type="hidden" name="nome" value="{{ nome or '' }}"/><input type="hidden" name="remover" value="{{ b.numero }}"/>
+      <td class="dsgov-acoes"><form method="post" class="d-inline">{{ csrf_campo() }}<input type="hidden" name="nome" value="{{ nome or '' }}"/><input type="hidden" name="remover" value="{{ b.numero }}"/>
         <button class="br-button circle small" type="submit" aria-label="Remover {{ b.numero }}"><i class="fas fa-trash" aria-hidden="true"></i></button></form></td></tr>
     {% endfor %}
     <tr><td colspan="3" class="text-weight-bold">TOTAL</td><td class="dsgov-numero text-weight-bold">{{ (total)|moeda }}</td><td></td></tr>
     </tbody>
   </table>
 </div>
-<form method="post" class="d-flex">
+<form method="post" class="d-flex">{{ csrf_campo() }}
   <input type="hidden" name="nome" value="{{ nome or '' }}"/>
   <button class="br-button primary" type="submit" name="gerar" value="1"><i class="fas fa-file-alt mr-1" aria-hidden="true"></i>Gerar termo</button>
   <button class="br-button ml-2" type="submit" name="limpar" value="1">Limpar lista</button>
@@ -57,7 +57,7 @@
     <td>{{ p.nome }}</td><td class="dsgov-numero">{{ p.quantidade }}</td><td class="dsgov-numero">{{ (p.valor)|moeda }}</td>
     <td>{% if p.ultimo %}<a href="{{ url_for('termo_emitido_tela', id=p.ultimo.id) }}">{{ p.ultimo.emitido_em[8:10] }}/{{ p.ultimo.emitido_em[5:7] }}/{{ p.ultimo.emitido_em[:4] }}</a>{% else %}—{% endif %}</td>
     <td>{{ tag_email(p) }}</td>
-    <td class="dsgov-acoes"><form method="post" class="d-inline"><input type="hidden" name="nome" value="{{ p.nome }}"/>
+    <td class="dsgov-acoes"><form method="post" class="d-inline">{{ csrf_campo() }}<input type="hidden" name="nome" value="{{ p.nome }}"/>
       <button class="br-button circle small" type="submit" aria-label="Devolução de {{ p.nome }}"><i class="fas fa-box-open" aria-hidden="true"></i></button></form></td>
   </tr>
   {% endfor %}

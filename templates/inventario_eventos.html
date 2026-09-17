@@ -22,7 +22,7 @@
 </div>
 {% else %}
 <p class="text-gray-70">Nenhum evento aberto. Abra um evento para começar a conferência.</p>
-<form method="post" action="{{ url_for('inventario.abrir') }}" class="br-card mb-4"><div class="card-content">
+<form method="post" action="{{ url_for('inventario.abrir') }}" class="br-card mb-4">{{ csrf_campo() }}<div class="card-content">
   <div class="text-weight-semi-bold text-up-01 mb-3">Abrir evento</div>
   <div class="row">
     <div class="col-md-6 mb-3"><div class="br-input"><label for="nome">Nome</label><input id="nome" name="nome" type="text" placeholder="Ex.: Inventário 2026" required/></div></div>

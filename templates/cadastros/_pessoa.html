@@ -9,7 +9,7 @@
 <div class="br-card mb-4"><div class="card-content">
   <h2 class="text-up-01">Atribuir um patrimônio</h2>
   <p>Consulte o número para conferir o bem e seu responsável atual antes de confirmar a atribuição.</p>
-  <form method="post" action="{{ url_for('pessoas_atribuir') }}" class="row align-items-end">
+  <form method="post" action="{{ url_for('pessoas_atribuir') }}" class="row align-items-end">{{ csrf_campo() }}
     {{ ocultos(origem) }}<input type="hidden" name="nome" value="{{ nome }}"/>
     <div class="col-md-6 mb-2"><div class="br-input"><label for="numero-patrimonio">Número do patrimônio</label><input id="numero-patrimonio" name="numero" type="text" inputmode="numeric" required/></div></div>
     <div class="col-md-6 mb-2"><button class="br-button primary" type="submit"><i class="fas fa-search mr-1" aria-hidden="true"></i>Consultar patrimônio</button></div>

@@ -10,7 +10,7 @@
     {'id': 'cadastros', 'titulo': 'Cadastros', 'descricao': 'Centros de custo, localizações, pessoas, atribuições e inventários. Bens não mudam.',
      'baixar': url_for('cadastros_exportar'), 'carregar': url_for('importar_cadastros'), 'confirmar': 'Substituir todos os cadastros pela planilha'}] %}
   <div class="col-md-6 mb-3">
-    <form method="post" action="{{ card.carregar }}" enctype="multipart/form-data" class="br-card h-100 mb-0" data-confirmar="{{ card.confirmar }}">
+    <form method="post" action="{{ card.carregar }}" enctype="multipart/form-data" class="br-card h-100 mb-0" data-confirmar="{{ card.confirmar }}">{{ csrf_campo() }}
       <div class="card-header"><div class="text-weight-semi-bold">{{ card.titulo }}</div></div>
       <div class="card-content">
         <p class="text-gray-70">{{ card.descricao }}</p>

@@ -1,7 +1,25 @@
 """Fixtures compartilhadas: banco SQLite temporário com dados de exemplo."""
 import pytest
+from flask.testing import FlaskClient
 from html.parser import HTMLParser
 from werkzeug.datastructures import MultiDict
+
+
+class ClienteComCSRF(FlaskClient):
+    """Todo POST leva o token da sessão no cabeçalho X-CSRF, como o navegador levaria o campo oculto.
+    Assim os testes existentes não precisam mudar; tests/test_csrf.py usa FlaskClient cru para provar o 400."""
+
+    def open(self, *args, **kwargs):
+        metodo = kwargs.get("method") or (args[1] if len(args) > 1 and isinstance(args[1], str) else "GET")
+        if str(metodo).upper() == "POST":
+            with self.session_transaction() as sess:
+                token = sess.get("csrf")
+                if not token:
+                    token = sess["csrf"] = "token-de-teste"
+            cabecalhos = dict(kwargs.get("headers") or {})
+            cabecalhos.setdefault("X-CSRF", token)
+            kwargs["headers"] = cabecalhos
+        return super().open(*args, **kwargs)
 
 
 @pytest.fixture(autouse=True)
@@ -56,6 +74,7 @@ def _app_de_teste():
     from app import app
     app.config["TESTING"] = True
     app.config["SESSION_COOKIE_SECURE"] = False     # o test client fala http
+    app.test_client_class = ClienteComCSRF
     return app
 
 

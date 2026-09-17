@@ -88,7 +88,7 @@ def registrar_cadastros(app, obter_conn):
             conn.execute("BEGIN IMMEDIATE")
         try:
             descricao, linhas, estado = preparar(conn)
-            campos = [(k, v) for k, v in request.form.items(multi=True) if k not in ("revisao", "confirmar")]
+            campos = [(k, v) for k, v in request.form.items(multi=True) if k not in ("revisao", "confirmar", "csrf")]
             # O retorno também é assinado, mas reconstruído antes de qualquer redirecionamento.
             assinatura = hashlib.sha256(json.dumps([request.endpoint, campos, estado], sort_keys=True,
                                                      ensure_ascii=False).encode()).hexdigest()

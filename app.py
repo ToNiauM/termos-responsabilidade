@@ -1,9 +1,12 @@
 """Termos de Responsabilidade — CFC. Rotas Flask; dados em db.py; documentos em termos_html.py e nos geradores."""
+import hmac
 import io
 import re
+import secrets
 from datetime import timedelta
 
 from flask import Flask, abort, flash, g, redirect, render_template, request, send_file, session, url_for
+from markupsafe import Markup
 
 from app_inventario import inventario_bp
 from app_cadastros import registrar_cadastros
@@ -25,6 +28,7 @@ app = Flask(__name__, template_folder=str(config.pasta_recursos() / "templates")
 app.secret_key = config.chave_secreta()   # por instalação: TERMOS_SEGREDO ou dados/segredo.txt
 app.config.update(PERMANENT_SESSION_LIFETIME=timedelta(hours=12), SESSION_COOKIE_HTTPONLY=True,
                   SESSION_COOKIE_SAMESITE="Lax", SESSION_COOKIE_SECURE=config.exigir_login())   # site é só https
+app.json.ensure_ascii = False   # respostas JSON com acento legível, não \uXXXX
 app.register_blueprint(usuarios_bp)
 ROTAS_JSON = {"inventario.ler", "inventario.atualizar_leitura", "inventario.foto_leitura", "termo_registrar"}
 app.register_blueprint(inventario_bp)
@@ -34,6 +38,25 @@ app.template_filter("moeda")(painel.moeda)   # R$ 1.234,56 em todas as telas
 DSGOV_FIXO = {"SISTEMA": "Termos de Responsabilidade"}
 
 NEGADO = "Seu perfil não tem acesso a isso."
+
+CSRF_INVALIDO = "Sessão expirada ou formulário inválido. Recarregue a página e tente de novo."
+
+
+def _csrf_token() -> str:
+    if "csrf" not in session:
+        session["csrf"] = secrets.token_urlsafe(32)
+    return session["csrf"]
+
+
+@app.template_global("csrf_campo")
+def csrf_campo():
+    return Markup(f'<input type="hidden" name="csrf" value="{_csrf_token()}"/>')
+
+
+def _csrf_invalido():
+    if request.endpoint in ROTAS_JSON or request.is_json:
+        return {"erro": CSRF_INVALIDO}, 400
+    return render_template("403.html", trilha=[("Sessão expirada", None)], csrf=True), 400
 
 
 def _negado():
@@ -49,6 +72,10 @@ def resolver_usuario():
     ep = request.endpoint
     if ep is None or ep == "static":
         return None
+    if request.method == "POST":
+        enviado = request.form.get("csrf") or request.headers.get("X-CSRF") or ""
+        if not enviado or not hmac.compare_digest(enviado, session.get("csrf", "")):
+            return _csrf_invalido()
     if not config.exigir_login():
         g.usuario = usuarios.USUARIO_LOCAL
         return None if usuarios.permitido("admin", ep, request.method) else _negado()
@@ -75,7 +102,8 @@ def contexto_dsgov():
     t = textos.obter(obter_conn())
     dsgov = dict(DSGOV_FIXO, ORGAO=t["orgao_nome"], SUBTITULO=t["unidade_sigla"])
     usuario = getattr(g, "usuario", None)
-    contexto = {"DSGOV": dsgov, "USUARIO": usuario, "ROTULO_PERFIL": usuarios.ROTULO_PERFIL, "MENU": []}
+    contexto = {"DSGOV": dsgov, "USUARIO": usuario, "ROTULO_PERFIL": usuarios.ROTULO_PERFIL, "MENU": [],
+                "CSRF": _csrf_token()}
     if not usuario:
         return contexto
     perfil = usuario["perfil"]

@@ -1,4 +1,5 @@
 """Rotas de conta e de usuários (blueprint `usuarios`). Regras em usuarios.py; g.usuario é resolvido em app.py."""
+import secrets
 from urllib.parse import urlsplit
 
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, session, url_for
@@ -48,6 +49,7 @@ def login():
             return render_template("login.html", erro=str(e), login=request.form.get("login", ""), proximo=proximo, sem_usuarios=False)
         session.clear()
         session["usuario_id"] = u["id"]
+        session["csrf"] = secrets.token_urlsafe(32)
         session.permanent = True
         return redirect(_proximo_seguro(proximo))
     return render_template("login.html", erro=None, login="", proximo=proximo, sem_usuarios=sem_usuarios)

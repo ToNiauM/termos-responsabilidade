@@ -38,7 +38,7 @@
 </form>
 {% if aba == 'localizacoes' %}
 <div class="br-card mb-3">
-  <form id="mover-localizacoes" method="post" action="{{ url_for('localizacoes_mover') }}" class="card-content">
+  <form id="mover-localizacoes" method="post" action="{{ url_for('localizacoes_mover') }}" class="card-content">{{ csrf_campo() }}
     {{ ocultos(origem) }}
     <div class="row align-items-end"><div class="col-md-6 mb-2">{{ select('ccustos_destino', 'Mover selecionadas para', centros|map(attribute='ccustos')|list) }}</div><div class="col-md-6 mb-2"><p id="contagem-selecao" role="status" aria-live="polite">0 localizações selecionadas</p><button class="br-button secondary" type="submit" id="revisar-lote">Revisar transferência</button></div></div>
     <p class="text-down-01 text-gray-70 mb-0">Selecione localizações vinculadas na tabela. A seleção vale somente para esta página e é limpa ao buscar, filtrar ou mudar de página.</p>

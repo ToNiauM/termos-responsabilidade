@@ -60,7 +60,7 @@ document.getElementById("copiar").addEventListener("click", async function () {
   }
   textoAviso.textContent = " Cole no editor do SEI (Ctrl+V).";
   try {
-    var r = await fetch(this.dataset.registrar, {method: "POST"});
+    var r = await fetch(this.dataset.registrar, {method: "POST", headers: {"X-CSRF": document.querySelector('meta[name="csrf"]').content}});
     var j = await r.json();
     textoAviso.textContent = r.ok ? " Cole no editor do SEI (Ctrl+V). Emissão registrada às " + j.emitido_em.slice(11, 16) + "." : " " + j.erro;
   } catch (e) { textoAviso.textContent += " (não foi possível registrar a emissão)"; }

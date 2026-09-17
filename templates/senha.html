@@ -8,7 +8,7 @@
 {% endif %}
 {% if erro %}<div class="br-message danger mb-3"><div class="icon"><i class="fas fa-times-circle fa-lg" aria-hidden="true"></i></div>
   <div class="content" role="alert"><span class="message-body">{{ erro }}</span></div></div>{% endif %}
-<form method="post" action="{{ url_for('usuarios.senha') }}" class="col-md-6">
+<form method="post" action="{{ url_for('usuarios.senha') }}" class="col-md-6">{{ csrf_campo() }}
   <div class="br-input mb-3"><label for="atual">Senha atual</label><input id="atual" name="atual" type="password" autocomplete="current-password" required/></div>
   <div class="br-input mb-3"><label for="nova">Nova senha (mínimo 8 caracteres)</label><input id="nova" name="nova" type="password" autocomplete="new-password" minlength="8" required/></div>
   <div class="br-input mb-4"><label for="confirmacao">Repita a nova senha</label><input id="confirmacao" name="confirmacao" type="password" autocomplete="new-password" minlength="8" required/></div>

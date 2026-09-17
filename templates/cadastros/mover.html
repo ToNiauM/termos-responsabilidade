@@ -5,7 +5,7 @@
 <h1>{{ titulo }}</h1>
 <p>Confira as localizações selecionadas e escolha o centro de destino.</p>
 <ul>{% for loc in locais %}<li><strong>{{ loc.localizacao }}</strong> · Centro atual: {{ loc.ccustos }}</li>{% endfor %}</ul>
-<form method="post" action="{{ url_for('localizacoes_mover') }}" class="col-md-8">
+<form method="post" action="{{ url_for('localizacoes_mover') }}" class="col-md-8">{{ csrf_campo() }}
   {{ ocultos(retorno) }}{% for loc in locais %}<input type="hidden" name="localizacoes" value="{{ loc.localizacao }}"/>{% endfor %}
   {{ escolha('ccustos_destino', 'Centro de custo de destino', centros|map(attribute='ccustos')|list, valores, erros) }}
   <p class="text-gray-70 mt-3">Você poderá revisar a origem e o destino antes de confirmar.</p>
