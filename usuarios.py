@@ -112,3 +112,99 @@ def elegiveis_comissao(conn) -> list[dict]:
     marcas = ",".join("?" * len(PERFIS_COMISSAO))
     return _todos(conn, f"SELECT {_COLUNAS_LISTA} FROM usuarios WHERE ativo = 1 AND perfil IN ({marcas}) ORDER BY nome, login",
                   *PERFIS_COMISSAO)
+
+
+# ---------------------------------------------------------------- autenticação e senhas
+_INVALIDO = "Usuário ou senha inválidos."
+
+
+def autenticar(conn, login, senha) -> dict:
+    """Devolve o usuário. Mensagem única para inexistente, inativo e senha errada. 5 falhas seguidas bloqueiam
+    por 15 minutos (a senha certa também falha nesse período e não conta como falha)."""
+    u = por_login(conn, login)
+    if not u or not u["ativo"]:
+        raise ErroDeNegocio(_INVALIDO)
+    agora = _agora_dt()
+    if u["bloqueado_ate"] and agora.strftime(_FORMATO) < u["bloqueado_ate"]:
+        raise ErroDeNegocio(f"Muitas tentativas. Aguarde {BLOQUEIO_MINUTOS} minutos.")
+    if not check_password_hash(u["senha_hash"], str(senha or "")):
+        falhas = u["falhas"] + 1
+        bloqueado = (agora + timedelta(minutes=BLOQUEIO_MINUTOS)).strftime(_FORMATO) if falhas >= MAX_FALHAS else None
+        conn.execute("UPDATE usuarios SET falhas = ?, bloqueado_ate = ? WHERE id = ?", (falhas, bloqueado, u["id"]))
+        conn.commit()
+        raise ErroDeNegocio(_INVALIDO)
+    conn.execute("UPDATE usuarios SET falhas = 0, bloqueado_ate = NULL, ultimo_acesso = ? WHERE id = ?",
+                 (agora.strftime(_FORMATO), u["id"]))
+    conn.commit()
+    return por_id(conn, u["id"])
+
+
+def nova_senha_temporaria(conn, id) -> str:
+    """Gera, grava o hash e devolve a senha em claro UMA vez; obriga a troca e limpa bloqueio."""
+    if not por_id(conn, id):
+        raise ErroDeNegocio("Usuário não encontrado.")
+    senha = "".join(secrets.choice(ALFABETO_TEMP) for _ in range(10))
+    conn.execute("UPDATE usuarios SET senha_hash = ?, trocar_senha = 1, falhas = 0, bloqueado_ate = NULL WHERE id = ?",
+                 (generate_password_hash(senha), id))
+    conn.commit()
+    return senha
+
+
+def trocar_senha(conn, id, atual, nova, confirmacao) -> None:
+    u = por_id(conn, id)
+    if not u:
+        raise ErroDeNegocio("Usuário não encontrado.")
+    if not check_password_hash(u["senha_hash"], str(atual or "")):
+        raise ErroDeNegocio("A senha atual não confere.")
+    nova = _validar_senha(nova)
+    if nova == str(atual):
+        raise ErroDeNegocio("A nova senha precisa ser diferente da atual.")
+    if nova != str(confirmacao or ""):
+        raise ErroDeNegocio("A confirmação não confere com a nova senha.")
+    conn.execute("UPDATE usuarios SET senha_hash = ?, trocar_senha = 0 WHERE id = ?", (generate_password_hash(nova), id))
+    conn.commit()
+
+
+def criar_admin(conn, login, nome, senha) -> int:
+    """Primeiro administrador e socorro: se o login já existe, redefine a senha, volta a admin, reativa e
+    desbloqueia (o nome não muda)."""
+    u = por_login(conn, login)
+    if not u:
+        return criar(conn, login, nome, senha, "admin", trocar_senha=False)
+    senha = _validar_senha(senha)
+    conn.execute("""UPDATE usuarios SET senha_hash = ?, perfil = 'admin', ativo = 1, trocar_senha = 0, falhas = 0,
+                    bloqueado_ate = NULL WHERE id = ?""", (generate_password_hash(senha), u["id"]))
+    conn.commit()
+    return u["id"]
+
+
+def main(argv, ler_senha=None) -> int:
+    """`python usuarios.py criar-admin <login> "<Nome>"`: pede a senha duas vezes no terminal."""
+    import getpass
+    import sys
+
+    import db
+    ler_senha = ler_senha or getpass.getpass
+    if len(argv) != 3 or argv[0] != "criar-admin":
+        print('Uso: python usuarios.py criar-admin <login> "<Nome completo>"', file=sys.stderr)
+        return 2
+    senha, repetida = ler_senha("Senha: "), ler_senha("Repita a senha: ")
+    if senha != repetida:
+        print("As senhas não conferem.", file=sys.stderr)
+        return 1
+    db.inicializar()
+    conn = db.conectar()
+    try:
+        uid = criar_admin(conn, argv[1], argv[2], senha)
+    except ErroDeNegocio as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    finally:
+        conn.close()
+    print(f"Administrador '{argv[1].lower()}' pronto (id {uid}).")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main(sys.argv[1:]))

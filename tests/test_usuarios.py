@@ -1,5 +1,6 @@
 """Usuários: cadastro, regras, autenticação, senhas, permissões (módulo usuarios.py, sem Flask)."""
 import pytest
+from datetime import datetime, timedelta
 
 import db
 import usuarios
@@ -80,3 +81,87 @@ def test_elegiveis_comissao(dados):
 def test_usuario_local():
     assert usuarios.USUARIO_LOCAL["id"] is None and usuarios.USUARIO_LOCAL["perfil"] == "admin"
     assert usuarios.USUARIO_LOCAL["nome"] == "Administrador local"
+
+
+def test_autenticar_acerto_erro_inativo(dados, monkeypatch):
+    uid = usuarios.criar(dados, "ana", "Ana", "Senha!234", "admin")
+    monkeypatch.setattr(usuarios, "_agora_dt", lambda: datetime(2026, 9, 17, 10, 0, 0))
+    u = usuarios.autenticar(dados, "ANA", "Senha!234")
+    assert u["id"] == uid and usuarios.por_id(dados, uid)["ultimo_acesso"] == "2026-09-17 10:00:00"
+    with pytest.raises(db.ErroDeNegocio, match="Usuário ou senha inválidos"):
+        usuarios.autenticar(dados, "ana", "errada")
+    with pytest.raises(db.ErroDeNegocio, match="Usuário ou senha inválidos"):
+        usuarios.autenticar(dados, "ninguem", "Senha!234")
+    assert usuarios.por_id(dados, uid)["falhas"] == 1
+    usuarios.editar(dados, usuarios.criar(dados, "outro", "Outro", "Senha!234", "admin"), "Outro", "admin", ativo=True)
+    usuarios.editar(dados, uid, "Ana", "admin", ativo=False)
+    with pytest.raises(db.ErroDeNegocio, match="Usuário ou senha inválidos"):
+        usuarios.autenticar(dados, "ana", "Senha!234")            # inativo: mesma mensagem
+
+
+def test_bloqueio_na_quinta_falha_e_liberacao(dados, monkeypatch):
+    uid = usuarios.criar(dados, "ana", "Ana", "Senha!234", "admin")
+    relogio = {"agora": datetime(2026, 9, 17, 10, 0, 0)}
+    monkeypatch.setattr(usuarios, "_agora_dt", lambda: relogio["agora"])
+    for _ in range(4):
+        with pytest.raises(db.ErroDeNegocio, match="inválidos"):
+            usuarios.autenticar(dados, "ana", "errada")
+    assert usuarios.por_id(dados, uid)["bloqueado_ate"] is None
+    with pytest.raises(db.ErroDeNegocio, match="inválidos"):
+        usuarios.autenticar(dados, "ana", "errada")                # 5ª falha bloqueia
+    assert usuarios.por_id(dados, uid)["bloqueado_ate"] == "2026-09-17 10:15:00"
+    with pytest.raises(db.ErroDeNegocio, match="Muitas tentativas"):
+        usuarios.autenticar(dados, "ana", "Senha!234")             # certa, mas bloqueado
+    assert usuarios.por_id(dados, uid)["falhas"] == 5              # bloqueado não conta falha
+    relogio["agora"] = datetime(2026, 9, 17, 10, 15, 1)
+    u = usuarios.autenticar(dados, "ana", "Senha!234")
+    assert u["id"] == uid
+    u = usuarios.por_id(dados, uid)
+    assert u["falhas"] == 0 and u["bloqueado_ate"] is None
+
+
+def test_senha_temporaria_e_troca_obrigatoria(dados):
+    uid = usuarios.criar(dados, "ana", "Ana", "Senha!234", "admin", trocar_senha=False)
+    temp = usuarios.nova_senha_temporaria(dados, uid)
+    assert len(temp) == 10 and set(temp) <= set(usuarios.ALFABETO_TEMP)
+    u = usuarios.por_id(dados, uid)
+    assert u["trocar_senha"] == 1 and u["falhas"] == 0 and u["bloqueado_ate"] is None
+    assert usuarios.autenticar(dados, "ana", temp)["trocar_senha"] == 1
+    with pytest.raises(db.ErroDeNegocio, match="atual"):
+        usuarios.trocar_senha(dados, uid, "errada", "NovaSenha1", "NovaSenha1")
+    with pytest.raises(db.ErroDeNegocio, match="8 caracteres"):
+        usuarios.trocar_senha(dados, uid, temp, "curta", "curta")
+    with pytest.raises(db.ErroDeNegocio, match="diferente"):
+        usuarios.trocar_senha(dados, uid, temp, temp, temp)
+    with pytest.raises(db.ErroDeNegocio, match="confirmação"):
+        usuarios.trocar_senha(dados, uid, temp, "NovaSenha1", "NovaSenha2")
+    usuarios.trocar_senha(dados, uid, temp, "NovaSenha1", "NovaSenha1")
+    assert usuarios.por_id(dados, uid)["trocar_senha"] == 0
+    assert usuarios.autenticar(dados, "ana", "NovaSenha1")["id"] == uid
+    with pytest.raises(db.ErroDeNegocio, match="não encontrado"):
+        usuarios.nova_senha_temporaria(dados, 999)
+
+
+def test_criar_admin_cria_ou_redefine(dados):
+    uid = usuarios.criar_admin(dados, "antonio", "Antônio", "Senha!234")
+    assert usuarios.por_id(dados, uid)["perfil"] == "admin" and usuarios.por_id(dados, uid)["trocar_senha"] == 0
+    for _ in range(5):
+        with pytest.raises(db.ErroDeNegocio):
+            usuarios.autenticar(dados, "antonio", "x")
+    usuarios.editar(dados, usuarios.criar(dados, "bd", "B", "Senha!234", "admin"), "B", "admin", ativo=True)
+    usuarios.editar(dados, uid, "Antônio", "consulta", ativo=False)
+    assert usuarios.criar_admin(dados, "antonio", "Antônio R.", "OutraSenha9") == uid   # mesmo id
+    u = usuarios.por_id(dados, uid)
+    assert u["perfil"] == "admin" and u["ativo"] == 1 and u["falhas"] == 0 and u["bloqueado_ate"] is None
+    assert u["nome"] == "Antônio"                      # nome não muda na redefinição
+    assert usuarios.autenticar(dados, "antonio", "OutraSenha9")["id"] == uid
+
+
+def test_main_criar_admin(dados, capsys):
+    senhas = iter(["Senha!234", "Senha!234"])
+    assert usuarios.main(["criar-admin", "ze", "Zé"], ler_senha=lambda _p: next(senhas)) == 0
+    assert usuarios.por_login(dados, "ze")["perfil"] == "admin"
+    senhas = iter(["Senha!234", "Diferente1"])
+    assert usuarios.main(["criar-admin", "ze", "Zé"], ler_senha=lambda _p: next(senhas)) == 1
+    assert "não conferem" in capsys.readouterr().err
+    assert usuarios.main(["outra-coisa"], ler_senha=lambda _p: "x") == 2
