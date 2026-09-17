@@ -565,8 +565,9 @@ def test_sala_mostra_varias_fotos_e_camera(cliente, monkeypatch):
     inventario.adicionar_foto(conn, eid, 1001, lambda c: "https://x/2.webp")
     r = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI")
     linha = r.data.split(b'data-numero="1001"')[1].split(b"</tr>")[0]
-    assert linha.count(b'class="dsgov-miniatura"') == 2 and b'src="https://x/2.webp"' in linha
-    assert f"/inventario/{eid}/leitura/1001/foto/1/excluir".encode() in linha and f"/foto/2/excluir".encode() in linha
+    assert linha.count(b'class="dsgov-miniatura"') == 1 and b'src="https://x/1.webp"' in linha and b'src="https://x/2.webp"' not in linha   # só a primeira; as demais no cadastro do bem
+    assert b'<span class="br-tag small mr-1" title="Todas as fotos no cadastro do bem">+1</span>' in linha
+    assert f"/inventario/{eid}/leitura/1001/foto/1/excluir".encode() in linha and b"/foto/2/excluir" not in linha
     assert b'class="foto-input"' in linha and b"foto-input\" hidden disabled" not in linha         # câmera continua, habilitada
     linha2 = r.data.split(b'data-numero="1002"')[1].split(b"</tr>")[0]
     assert b"dsgov-miniatura" not in linha2 and b'class="foto-input" hidden disabled' in linha2      # não lido: câmera desabilitada
@@ -575,7 +576,7 @@ def test_sala_mostra_varias_fotos_e_camera(cliente, monkeypatch):
     cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"})
     r = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI")
     linha = r.data.split(b'data-numero="1001"')[1].split(b"</tr>")[0]
-    assert linha.count(b'class="dsgov-miniatura"') == 2 and b"/excluir" not in linha and b"foto-input" not in linha   # (o JS da página ainda cita foto-input; por isso a checagem é só na linha)
+    assert linha.count(b'class="dsgov-miniatura"') == 1 and b">+1<" in linha and b"/excluir" not in linha and b"foto-input" not in linha   # (o JS da página ainda cita foto-input; por isso a checagem é só na linha)
 
 
 def test_foto_com_url_nao_http_nao_vira_link(cliente):

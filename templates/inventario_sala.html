@@ -47,7 +47,7 @@
   <tbody id="tabela-bens">
   {% for b in bens %}
   <tr data-numero="{{ b.numero }}" data-situacao="{{ b.situacao_inv }}">
-    {% if not fechado %}{{ td_selecao('bens', loop.index, 'numeros', b.numero, form='form-lote') }}{% endif %}<td class="foto">{% for f in b.fotos %}<span class="d-inline-block mr-1">{% if f.url.startswith(('http://', 'https://')) %}<a href="{{ f.url }}" target="_blank" rel="noopener"><img src="{{ f.url }}" alt="Foto {{ f.nfoto }} do bem {{ b.numero }}" class="dsgov-miniatura"/></a>{% endif %}{% if not fechado %}<form method="post" action="{{ url_for('inventario.foto_excluir', id=e.id, numero=b.numero, nfoto=f.nfoto) }}" class="d-inline"><input type="hidden" name="volta" value="{{ localizacao }}"/><button class="br-button circle small" type="submit" aria-label="Excluir foto {{ f.nfoto }}"><i class="fas fa-trash" aria-hidden="true"></i></button></form>{% endif %}</span>{% endfor %}
+    {% if not fechado %}{{ td_selecao('bens', loop.index, 'numeros', b.numero, form='form-lote') }}{% endif %}<td class="foto">{% for f in b.fotos[:1] %}<span class="d-inline-block mr-1">{% if f.url.startswith(('http://', 'https://')) %}<a href="{{ f.url }}" target="_blank" rel="noopener"><img src="{{ f.url }}" alt="Foto {{ f.nfoto }} do bem {{ b.numero }}" class="dsgov-miniatura"/></a>{% endif %}{% if not fechado %}<form method="post" action="{{ url_for('inventario.foto_excluir', id=e.id, numero=b.numero, nfoto=f.nfoto) }}" class="d-inline"><input type="hidden" name="volta" value="{{ localizacao }}"/><button class="br-button circle small" type="submit" aria-label="Excluir foto {{ f.nfoto }}"><i class="fas fa-trash" aria-hidden="true"></i></button></form>{% endif %}</span>{% endfor %}{% if b.fotos|length > 1 %}<span class="br-tag small mr-1" title="Todas as fotos no cadastro do bem">+{{ b.fotos|length - 1 }}</span>{% endif %}
       {% if fotos_ativas and not fechado %}<label class="br-button circle small{% if not b.lido_em %} disabled{% endif %}" aria-label="Nova foto do bem {{ b.numero }}"><i class="fas fa-camera" aria-hidden="true"></i><input type="file" accept="image/*" capture="environment" class="foto-input" hidden{% if not b.lido_em %} disabled{% endif %}/></label>{% endif %}</td><td>{{ b.numero }}</td><td>{{ b.descricao }}{% if b.complemento %} <span class="text-gray-70">{{ b.complemento }}</span>{% endif %}</td>
     <td class="situacao">{% if b.situacao_inv == 'localizado' %}<span class="br-tag bg-success text-pure-0"><span>Localizado</span></span>{% elif b.situacao_inv == 'divergente' %}<span class="br-tag bg-warning"><span>Divergente · lido em {{ b.lido_em_sala }}</span></span>{% else %}<span class="br-tag bg-gray-20"><span>Pendente</span></span>{% endif %}</td>
     <td><select class="campo" data-campo="conservacao"{% if fechado or not b.lido_em %} disabled{% endif %}><option value="">—</option>{% for c in conservacao %}<option{% if b.conservacao == c %} selected{% endif %}>{{ c }}</option>{% endfor %}</select></td>
@@ -132,7 +132,7 @@
   }
   function preencherFoto(td, fotosLista, numero) {
     td.textContent = "";
-    fotosLista.forEach(function (f) {
+    fotosLista.slice(0, 1).forEach(function (f) {
       var wrap = document.createElement("span"); wrap.className = "d-inline-block mr-1";
       var a = document.createElement("a"); a.href = f.url; a.target = "_blank"; a.rel = "noopener";
       var img = document.createElement("img"); img.src = f.url; img.alt = "Foto " + f.nfoto; img.className = "dsgov-miniatura";
@@ -145,6 +145,7 @@
       form.appendChild(input); form.appendChild(btn); wrap.appendChild(form);
       td.appendChild(wrap);
     });
+    if (fotosLista.length > 1) { var mais = document.createElement("span"); mais.className = "br-tag small mr-1"; mais.title = "Todas as fotos no cadastro do bem"; mais.textContent = "+" + (fotosLista.length - 1); td.appendChild(mais); }
     var label = document.createElement("label"); label.className = "br-button circle small"; label.setAttribute("aria-label", "Nova foto do bem " + numero);
     label.innerHTML = '<i class="fas fa-camera" aria-hidden="true"></i>';
     var inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*"; inp.setAttribute("capture", "environment"); inp.className = "foto-input"; inp.hidden = true;
