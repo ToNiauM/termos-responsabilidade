@@ -101,11 +101,12 @@ def novo():
 @usuarios_bp.route("/usuarios/incluir", methods=["POST"])
 def incluir():
     f = request.form
-    valores = {k: f.get(k, "") for k in ("login", "nome", "perfil", "trocar_senha")}
+    valores = {k: f.get(k, "") for k in ("login", "email", "nome", "perfil", "trocar_senha")}
     try:
         if f.get("senha", "") != f.get("confirmacao", ""):
             raise db.ErroDeNegocio("A confirmação não confere com a senha.")
-        usuarios.criar(_conn(), f.get("login"), f.get("nome"), f.get("senha"), f.get("perfil"), trocar_senha=bool(f.get("trocar_senha")))
+        usuarios.criar(_conn(), f.get("login"), f.get("nome"), f.get("senha"), f.get("perfil"), trocar_senha=bool(f.get("trocar_senha")),
+                       email=f.get("email"))
     except db.ErroDeNegocio as e:
         return _form_usuario(None, valores, str(e))
     flash(f"Usuário {f.get('login', '').strip().lower()} criado.", "success")
@@ -118,9 +119,10 @@ def editar(id):
     u = usuarios.por_id(conn, id) or abort(404)
     if request.method == "POST":
         f = request.form
-        valores = {"nome": f.get("nome", ""), "perfil": f.get("perfil", ""), "ativo": f.get("ativo")}
+        valores = {"nome": f.get("nome", ""), "perfil": f.get("perfil", ""), "ativo": f.get("ativo"), "email": f.get("email", "")}
         try:
-            usuarios.editar(conn, id, f.get("nome"), f.get("perfil"), ativo=bool(f.get("ativo")), logado_id=g.usuario["id"])
+            usuarios.editar(conn, id, f.get("nome"), f.get("perfil"), ativo=bool(f.get("ativo")), logado_id=g.usuario["id"],
+                            email=f.get("email", ""))
         except db.ErroDeNegocio as e:
             return _form_usuario(u, valores, str(e))
         nome_novo = " ".join(str(f.get("nome") or "").split())
@@ -129,7 +131,7 @@ def editar(id):
             inventario.renomear_integrante(conn, u["nome"], nome_novo)
         flash(f"Usuário {u['login']} salvo" + ("" if f.get("ativo") else " (inativo)") + ".", "success")
         return redirect(_retorno())
-    return _form_usuario(u, {"nome": u["nome"], "perfil": u["perfil"], "ativo": "1" if u["ativo"] else None}, None)
+    return _form_usuario(u, {"nome": u["nome"], "perfil": u["perfil"], "ativo": "1" if u["ativo"] else None, "email": u["email"] or ""}, None)
 
 
 @usuarios_bp.route("/usuarios/<int:id>/nova-senha", methods=["POST"])
@@ -137,7 +139,7 @@ def nova_senha(id):
     conn = _conn()
     u = usuarios.por_id(conn, id) or abort(404)
     senha = usuarios.nova_senha_temporaria(conn, id)
-    resp = make_response(_form_usuario(u, {"nome": u["nome"], "perfil": u["perfil"], "ativo": "1" if u["ativo"] else None},
+    resp = make_response(_form_usuario(u, {"nome": u["nome"], "perfil": u["perfil"], "ativo": "1" if u["ativo"] else None, "email": u["email"] or ""},
                                        None, senha_temporaria=senha))
     resp.headers["Cache-Control"] = "no-store"     # a senha em claro aparece uma vez; não pode ficar no cache/histórico
     return resp

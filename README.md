@@ -42,7 +42,7 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    A planilha de cadastros ganha abas `inv_*` para exportar/importar inventários inteiros
    (migração de outros sistemas). No menu, *Inventário* é um grupo com *Eventos* e, quando há
    evento aberto, o próprio evento, *Painel* e *Relatório*.
-   **Usuários e perfis** (site): entrar com login e senha. Perfis: *administrador* (tudo: usuários, abrir/encerrar/
+   **Usuários e perfis** (site): entrar com login (ou e-mail, se cadastrado) e senha. O e-mail é opcional e único. Perfis: *administrador* (tudo: usuários, abrir/encerrar/
    excluir inventário, exclusões e importação de cadastros), *operador* (termos, cadastros, textos, atualizar base),
    *inventariante* (lê bens nos eventos em que está na comissão) e *consulta* (só vê; não emite termo). A comissão
    do inventário é escolhida pelo administrador entre os usuários; a leitura grava o nome de quem está logado.
@@ -125,7 +125,7 @@ O mesmo código roda em `https://patrimonio.sistemascfc.org`, num container nest
 
     docker compose up -d --build   # (re)constrói e sobe; dados em ./dados (termos.db, timbrado.docx)
     docker compose logs -f         # acompanhar
-    docker compose exec web python usuarios.py criar-admin antonio "Antônio Sousa"   # primeiro administrador (ou redefinir a senha de um admin)
+    docker compose exec web python usuarios.py criar-admin antonio "Antônio Sousa" antonio@cfc.org.br   # primeiro administrador (ou redefinir a senha de um admin)
 
 Publicação da Fase 4 (uma vez): subir o container; criar o administrador pelo comando acima; entrar e criar os
 usuários da comissão do evento aberto com **exatamente** os nomes já gravados nas leituras (Inventário → evento →

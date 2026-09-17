@@ -66,3 +66,17 @@ def test_lista_preserva_busca_ao_voltar(cliente, dados, usuarios_exemplo):
     assert b'href="/usuarios?q=oper"' in r.data
     r = cliente.post(f"/usuarios/{op}/editar?retorno=%2Fusuarios%3Fq%3Doper", data={"nome": "Operador Teste", "perfil": "operador", "ativo": "1"})
     assert r.headers["Location"] == "/usuarios?q=oper"
+
+
+def test_email_no_cadastro_e_na_lista(cliente, dados):
+    r = cliente.get("/usuarios/novo")
+    assert b'name="email"' in r.data
+    r = cliente.post("/usuarios/incluir", data={"login": "novo", "nome": "Novo", "perfil": "operador", "senha": "Senha!234", "confirmacao": "Senha!234", "email": "Novo@cfc.org.br"}, follow_redirects=True)
+    assert b"novo@cfc.org.br" in r.data                                             # coluna E-mail na lista
+    r = cliente.post("/usuarios/incluir", data={"login": "outro", "nome": "Outro", "perfil": "operador", "senha": "Senha!234", "confirmacao": "Senha!234", "email": "novo@cfc.org.br"})
+    assert r.status_code == 200 and "e-mail já".encode() in r.data and b'value="Outro"' in r.data and b'value="novo@cfc.org.br"' in r.data
+    uid = usuarios.por_login(dados, "novo")["id"]
+    r = cliente.get(f"/usuarios/{uid}/editar")
+    assert b'name="email"' in r.data and b'value="novo@cfc.org.br"' in r.data
+    cliente.post(f"/usuarios/{uid}/editar", data={"nome": "Novo", "perfil": "operador", "ativo": "1", "email": ""})
+    assert usuarios.por_id(dados, uid)["email"] is None

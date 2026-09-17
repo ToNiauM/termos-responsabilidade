@@ -16,6 +16,8 @@
     <input id="login" name="login" type="text" autocapitalize="none" value="{{ valores.login or '' }}" required/>
     <p class="text-down-01 text-gray-70 mt-1">Minúsculas, números, ponto, hífen ou sublinhado; de 2 a 30 caracteres. Não muda depois.</p></div>
   {% endif %}
+  <div class="br-input mb-3"><label for="email">E-mail</label><input id="email" name="email" type="email" autocapitalize="none" value="{{ valores.email or '' }}"/>
+    <p class="text-down-01 text-gray-70 mt-1">Opcional. Também serve para entrar no sistema; não pode repetir.</p></div>
   <div class="br-input mb-3"><label for="nome">Nome <span class="text-danger" aria-hidden="true">*</span></label><input id="nome" name="nome" type="text" value="{{ valores.nome or '' }}" required/>
     <p class="text-down-01 text-gray-70 mt-1">Aparece no cabeçalho e nas leituras do inventário.</p></div>
   <div class="mb-3"><div class="text-weight-semi-bold mb-2">Perfil <span class="text-danger" aria-hidden="true">*</span></div>

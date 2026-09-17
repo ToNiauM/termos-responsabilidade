@@ -111,3 +111,11 @@ def test_sem_usuarios_cadastrados_tela_de_login_orienta(dados, monkeypatch):
     r = c.get("/login")
     assert r.status_code == 200 and "Nenhum usuário cadastrado".encode() in r.data and b"criar-admin" in r.data
     assert b'name="senha"' not in r.data
+
+
+def test_login_por_email(cliente, dados):
+    usuarios.editar(dados, usuarios.por_login(dados, "beltrana")["id"], "Beltrana", "inventariante", ativo=True, email="beltrana@cfc.org.br")
+    cliente.post("/sair")
+    assert "Usuário ou e-mail".encode() in cliente.get("/login").data
+    assert logar(cliente, "Beltrana@CFC.org.br", SENHA_PADRAO).status_code == 302
+    assert b"Beltrana" in cliente.get("/").data

@@ -165,3 +165,41 @@ def test_main_criar_admin(dados, capsys):
     assert usuarios.main(["criar-admin", "ze", "Zé"], ler_senha=lambda _p: next(senhas)) == 1
     assert "não conferem" in capsys.readouterr().err
     assert usuarios.main(["outra-coisa"], ler_senha=lambda _p: "x") == 2
+
+
+def test_email_opcional_unico_e_login_por_email(dados):
+    a = usuarios.criar(dados, "ana", "Ana", "Senha!234", "admin", email=" Ana@CFC.org.br ")
+    assert usuarios.por_id(dados, a)["email"] == "ana@cfc.org.br"
+    b = usuarios.criar(dados, "beto", "Beto", "Senha!234", "operador")            # sem e-mail
+    assert usuarios.por_id(dados, b)["email"] is None
+    with pytest.raises(db.ErroDeNegocio, match="e-mail já"):
+        usuarios.criar(dados, "carla", "Carla", "Senha!234", "consulta", email="ANA@cfc.org.br")
+    for ruim in ("sem-arroba", "com espaco@x.org", "@x.org", "x@"):
+        with pytest.raises(db.ErroDeNegocio, match="E-mail inválido"):
+            usuarios.criar(dados, "carla", "Carla", "Senha!234", "consulta", email=ruim)
+    assert usuarios.autenticar(dados, "ANA@cfc.org.br", "Senha!234")["id"] == a   # entra pelo e-mail
+    assert usuarios.autenticar(dados, "ana", "Senha!234")["id"] == a              # ou pelo login
+    with pytest.raises(db.ErroDeNegocio, match="inválidos"):
+        usuarios.autenticar(dados, "ninguem@cfc.org.br", "Senha!234")
+    usuarios.editar(dados, b, "Beto", "operador", ativo=True, email="beto@cfc.org.br")
+    assert usuarios.autenticar(dados, "beto@cfc.org.br", "Senha!234")["id"] == b
+    with pytest.raises(db.ErroDeNegocio, match="e-mail já"):
+        usuarios.editar(dados, b, "Beto", "operador", ativo=True, email="ana@cfc.org.br")
+    usuarios.editar(dados, b, "Beto Silva", "operador", ativo=True)                # sem email: mantém
+    assert usuarios.por_id(dados, b)["email"] == "beto@cfc.org.br"
+    usuarios.editar(dados, b, "Beto", "operador", ativo=True, email="")            # vazio: apaga
+    assert usuarios.por_id(dados, b)["email"] is None
+    assert usuarios.listar(dados)[0]["email"] == "ana@cfc.org.br"
+    assert [u["login"] for u in usuarios.listar(dados, busca="cfc.org")] == ["ana"]   # busca também no e-mail
+
+
+def test_criar_admin_com_email(dados):
+    uid = usuarios.criar_admin(dados, "antonio", "Antônio", "Senha!234", email="antonio@cfc.org.br")
+    assert usuarios.por_id(dados, uid)["email"] == "antonio@cfc.org.br"
+    assert usuarios.criar_admin(dados, "antonio", "Antônio", "Outra!2345") == uid          # sem e-mail: mantém
+    assert usuarios.por_id(dados, uid)["email"] == "antonio@cfc.org.br"
+    usuarios.criar_admin(dados, "antonio", "Antônio", "Outra!2345", email="novo@cfc.org.br")
+    assert usuarios.por_id(dados, uid)["email"] == "novo@cfc.org.br"
+    senhas = iter(["Senha!234", "Senha!234"])
+    assert usuarios.main(["criar-admin", "ze", "Zé", "ze@cfc.org.br"], ler_senha=lambda _p: next(senhas)) == 0
+    assert usuarios.por_login(dados, "ze")["email"] == "ze@cfc.org.br"

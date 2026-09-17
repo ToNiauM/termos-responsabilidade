@@ -152,6 +152,7 @@ CREATE TABLE IF NOT EXISTS inventario_fotos (
 CREATE TABLE IF NOT EXISTS usuarios (
   id            INTEGER PRIMARY KEY,
   login         TEXT NOT NULL UNIQUE,
+  email         TEXT,                        -- opcional; também serve para entrar
   nome          TEXT NOT NULL,
   senha_hash    TEXT NOT NULL,
   perfil        TEXT NOT NULL CHECK (perfil IN ('admin','operador','inventariante','consulta')),
@@ -208,6 +209,10 @@ def criar_esquema(conn: sqlite3.Connection) -> None:
                         SELECT evento_id, numero, 1, foto_url, lido_em FROM inventario_leituras
                         WHERE foto_url IS NOT NULL AND foto_url <> ''""")
         conn.execute("ALTER TABLE inventario_leituras DROP COLUMN foto_url")
+    # Fase 4b: e-mail opcional do usuário (bancos criados antes dele não têm a coluna).
+    if "email" not in _colunas(conn, "usuarios"):
+        conn.execute("ALTER TABLE usuarios ADD COLUMN email TEXT")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS usuarios_email ON usuarios(email) WHERE email IS NOT NULL")
     conn.commit()
 
 

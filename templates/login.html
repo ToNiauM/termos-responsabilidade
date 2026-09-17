@@ -25,7 +25,7 @@
       {% if erro %}<div class="br-message danger mb-3"><div class="icon"><i class="fas fa-times-circle fa-lg" aria-hidden="true"></i></div>
         <div class="content" role="alert"><span class="message-body">{{ erro }}</span></div></div>{% endif %}
       <form method="post" action="{{ url_for('usuarios.login', proximo=proximo) if proximo else url_for('usuarios.login') }}">{{ csrf_campo() }}
-        <div class="br-input mb-3"><label for="login">Usuário</label><input id="login" name="login" type="text" autocomplete="username" autocapitalize="none" value="{{ login }}" required autofocus/></div>
+        <div class="br-input mb-3"><label for="login">Usuário ou e-mail</label><input id="login" name="login" type="text" autocomplete="username" autocapitalize="none" value="{{ login }}" required autofocus/></div>
         <div class="br-input mb-4"><label for="senha">Senha</label><input id="senha" name="senha" type="password" autocomplete="current-password" required/></div>
         <button class="br-button primary block" type="submit"><i class="fas fa-sign-in-alt mr-1" aria-hidden="true"></i>Entrar</button>
       </form>

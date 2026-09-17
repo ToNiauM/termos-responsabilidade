@@ -25,7 +25,8 @@ USUARIO_LOCAL = {"id": None, "login": "local", "nome": "Administrador local", "p
 # real quando o login não existe (ou está inativo), para não dar pista por tempo de resposta.
 _HASH_FALSO = generate_password_hash("senha-falsa-para-tempo-constante")
 
-_COLUNAS_LISTA = "id, login, nome, perfil, ativo, trocar_senha, falhas, bloqueado_ate, criado_em, ultimo_acesso"
+_COLUNAS_LISTA = "id, login, email, nome, perfil, ativo, trocar_senha, falhas, bloqueado_ate, criado_em, ultimo_acesso"
+_MANTER = object()     # editar(): "não mexer no e-mail"
 
 
 def _agora_dt() -> datetime:
@@ -47,21 +48,41 @@ def _validar_senha(senha) -> str:
     return s
 
 
+def _validar_email(email) -> str | None:
+    """Vazio → None. Regra mínima: algo@algo, sem espaços, minúsculo."""
+    v = str(email or "").strip().lower()
+    if not v:
+        return None
+    if " " in v or v.count("@") != 1 or not all(v.split("@")):
+        raise ErroDeNegocio("E-mail inválido.")
+    return v
+
+
+def _email_livre(conn, email, excluir_id=None) -> None:
+    if email is None:
+        return
+    outro = por_email(conn, email)
+    if outro and outro["id"] != excluir_id:
+        raise ErroDeNegocio(f"Este e-mail já está em uso por {outro['login']}.")
+
+
 def _validar_perfil(perfil) -> str:
     if perfil not in PERFIS:
         raise ErroDeNegocio("Perfil inválido.")
     return perfil
 
 
-def criar(conn, login, nome, senha, perfil, trocar_senha=True) -> int:
+def criar(conn, login, nome, senha, perfil, trocar_senha=True, email=None) -> int:
     login = _validar_login(login)
     nome = _obrigatorio(nome, "Nome")
     senha = _validar_senha(senha)
     perfil = _validar_perfil(perfil)
+    email = _validar_email(email)
+    _email_livre(conn, email)
     if por_login(conn, login):
         raise ErroDeNegocio(f"O login {login} já existe.")
-    cur = conn.execute("INSERT INTO usuarios (login, nome, senha_hash, perfil, trocar_senha, criado_em) VALUES (?,?,?,?,?,?)",
-                       (login, nome, generate_password_hash(senha), perfil, 1 if trocar_senha else 0, _agora()))
+    cur = conn.execute("INSERT INTO usuarios (login, email, nome, senha_hash, perfil, trocar_senha, criado_em) VALUES (?,?,?,?,?,?,?)",
+                       (login, email, nome, generate_password_hash(senha), perfil, 1 if trocar_senha else 0, _agora()))
     conn.commit()
     return cur.lastrowid
 
@@ -74,8 +95,13 @@ def por_login(conn, login) -> dict | None:
     return _um(conn, "SELECT * FROM usuarios WHERE login = ?", str(login or "").strip().lower())
 
 
+def por_email(conn, email) -> dict | None:
+    v = str(email or "").strip().lower()
+    return _um(conn, "SELECT * FROM usuarios WHERE email = ?", v) if v else None
+
+
 def listar(conn, busca="", perfil=None, inativos=False) -> list[dict]:
-    """Sem senha_hash. busca casa em login e nome (sem caixa); inativos=False esconde os inativos."""
+    """Sem senha_hash. busca casa em login, e-mail e nome (sem caixa); inativos=False esconde os inativos."""
     sql, p = f"SELECT {_COLUNAS_LISTA} FROM usuarios WHERE 1=1", []
     if not inativos:
         sql += " AND ativo = 1"
@@ -83,9 +109,9 @@ def listar(conn, busca="", perfil=None, inativos=False) -> list[dict]:
         sql += " AND perfil = ?"
         p.append(perfil)
     if busca and busca.strip():
-        sql += " AND (lower(login) LIKE ? OR lower(nome) LIKE ?)"
+        sql += " AND (lower(login) LIKE ? OR lower(nome) LIKE ? OR lower(coalesce(email, '')) LIKE ?)"
         termo = f"%{busca.strip().lower()}%"
-        p += [termo, termo]
+        p += [termo, termo, termo]
     return _todos(conn, sql + " ORDER BY login", *p)
 
 
@@ -93,8 +119,8 @@ def _admins_ativos(conn) -> int:
     return conn.execute("SELECT count(*) FROM usuarios WHERE perfil = 'admin' AND ativo = 1").fetchone()[0]
 
 
-def editar(conn, id, nome, perfil, ativo, logado_id=None) -> None:
-    """Nome, perfil e ativo. Login não muda. Travas: o próprio logado não se inativa nem se rebaixa; o último
+def editar(conn, id, nome, perfil, ativo, logado_id=None, email=_MANTER) -> None:
+    """Nome, perfil, ativo e e-mail (omitido = mantém; vazio = apaga). Login não muda. Travas: o próprio logado não se inativa nem se rebaixa; o último
     administrador ativo não é inativado nem rebaixado."""
     u = por_id(conn, id)
     if not u:
@@ -107,7 +133,12 @@ def editar(conn, id, nome, perfil, ativo, logado_id=None) -> None:
         raise ErroDeNegocio("Você não pode rebaixar nem inativar a própria conta.")
     if perde_admin and _admins_ativos(conn) <= 1:
         raise ErroDeNegocio("Este é o último administrador ativo: não pode ser rebaixado nem inativado.")
-    conn.execute("UPDATE usuarios SET nome = ?, perfil = ?, ativo = ? WHERE id = ?", (nome, perfil, ativo, id))
+    if email is _MANTER:
+        email = u["email"]
+    else:
+        email = _validar_email(email)
+        _email_livre(conn, email, excluir_id=u["id"])
+    conn.execute("UPDATE usuarios SET nome = ?, perfil = ?, ativo = ?, email = ? WHERE id = ?", (nome, perfil, ativo, email, id))
     conn.commit()
 
 
@@ -172,9 +203,11 @@ _INVALIDO = "Usuário ou senha inválidos."
 
 
 def autenticar(conn, login, senha) -> dict:
-    """Devolve o usuário. Mensagem única para inexistente, inativo e senha errada. 5 falhas seguidas bloqueiam
-    por 15 minutos (a senha certa também falha nesse período e não conta como falha)."""
+    """Devolve o usuário. `login` pode ser o apelido ou o e-mail. Mensagem única para inexistente, inativo e senha
+    errada. 5 falhas seguidas bloqueiam por 15 minutos (a senha certa também falha nesse período e não conta como falha)."""
     u = por_login(conn, login)
+    if not u and "@" in str(login or ""):
+        u = por_email(conn, login)
     if not u or not u["ativo"]:
         check_password_hash(_HASH_FALSO, str(senha or ""))    # tempo constante: não denuncia login inexistente/inativo
         raise ErroDeNegocio(_INVALIDO)
@@ -219,28 +252,30 @@ def trocar_senha(conn, id, atual, nova, confirmacao) -> None:
     conn.commit()
 
 
-def criar_admin(conn, login, nome, senha) -> int:
+def criar_admin(conn, login, nome, senha, email=None) -> int:
     """Primeiro administrador e socorro: se o login já existe, redefine a senha, volta a admin, reativa e
-    desbloqueia (o nome não muda)."""
+    desbloqueia (o nome não muda; o e-mail só muda se informado)."""
     u = por_login(conn, login)
     if not u:
-        return criar(conn, login, nome, senha, "admin", trocar_senha=False)
+        return criar(conn, login, nome, senha, "admin", trocar_senha=False, email=email)
     senha = _validar_senha(senha)
+    email = _validar_email(email) or u["email"]
+    _email_livre(conn, email, excluir_id=u["id"])
     conn.execute("""UPDATE usuarios SET senha_hash = ?, perfil = 'admin', ativo = 1, trocar_senha = 0, falhas = 0,
-                    bloqueado_ate = NULL WHERE id = ?""", (generate_password_hash(senha), u["id"]))
+                    bloqueado_ate = NULL, email = ? WHERE id = ?""", (generate_password_hash(senha), email, u["id"]))
     conn.commit()
     return u["id"]
 
 
 def main(argv, ler_senha=None) -> int:
-    """`python usuarios.py criar-admin <login> "<Nome>"`: pede a senha duas vezes no terminal."""
+    """`python usuarios.py criar-admin <login> "<Nome>" [e-mail]`: pede a senha duas vezes no terminal."""
     import getpass
     import sys
 
     import db
     ler_senha = ler_senha or getpass.getpass
-    if len(argv) != 3 or argv[0] != "criar-admin":
-        print('Uso: python usuarios.py criar-admin <login> "<Nome completo>"', file=sys.stderr)
+    if len(argv) not in (3, 4) or argv[0] != "criar-admin":
+        print('Uso: python usuarios.py criar-admin <login> "<Nome completo>" [e-mail]', file=sys.stderr)
         return 2
     senha, repetida = ler_senha("Senha: "), ler_senha("Repita a senha: ")
     if senha != repetida:
@@ -249,7 +284,7 @@ def main(argv, ler_senha=None) -> int:
     db.inicializar()
     conn = db.conectar()
     try:
-        uid = criar_admin(conn, argv[1], argv[2], senha)
+        uid = criar_admin(conn, argv[1], argv[2], senha, email=argv[3] if len(argv) == 4 else None)
     except ErroDeNegocio as e:
         print(str(e), file=sys.stderr)
         return 1
