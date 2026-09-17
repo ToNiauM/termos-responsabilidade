@@ -80,7 +80,10 @@ CREATE TABLE IF NOT EXISTS inventario_fotos (
 );
 ```
 
-`inventario_leituras` perde a coluna `foto_url` no `CREATE TABLE`. A chave estrangeira composta aponta para
+`inventario_leituras` perde a coluna `foto_url` no `CREATE TABLE` e ganha `fotos_seq INTEGER NOT NULL DEFAULT 0`
+(maior `nfoto` já usado nessa leitura; decisão tomada na execução, 2026-09-17: só `MAX(nfoto) + 1` reaproveitaria
+o número depois de apagar a última foto). `adicionar_foto` usa `nfoto = max(fotos_seq, MAX(nfoto)) + 1` e grava
+`fotos_seq = nfoto`; o `MAX` cobre bancos migrados e leituras recriadas por importação. A chave estrangeira composta aponta para
 `UNIQUE (evento_id, numero)` de `inventario_leituras`; com `PRAGMA foreign_keys = ON` (já ligado em
 `db.conectar`), apagar a leitura apaga as fotos. A rota recolhe as URLs **antes** do DELETE para apagar no
 bucket, como o Desmarcar já faz.
@@ -100,13 +103,16 @@ Segue o padrão das migrações já existentes na função (`tratamento`, `email
 
 ### 3.3 Planilha de cadastros (`inventario.ABAS`)
 
-- `inv_leituras` deixa de ter `foto_url`.
+- `inv_leituras` deixa de ter `foto_url` e ganha `fotos_seq` como última coluna (opcional na importação, padrão 0;
+  inteiro ≥ 0), para o contador sobreviver a exportar/importar.
 - Aba nova, exportada por último: `"inv_fotos": ["evento_id", "numero", "nfoto", "url", "criado_em"]`
   (tabela `inventario_fotos`). Como `inv_bens_encerrados`, é **opcional**: ausente → a regra abaixo; presente →
   substituída junto com as outras. A regra "as 5 abas originais juntas ou nenhuma" não muda.
 - **Planilha antiga** (exportada antes desta versão) tem `foto_url` em `inv_leituras` e não tem `inv_fotos`.
   `db._ler_aba_cadastro` ganha o parâmetro `opcionais: tuple = ()` — colunas ausentes do cabeçalho entram
-  como `None` em vez de virar problema. `db.importar_cadastros` lê `inv_leituras` com `opcionais=("foto_url",)`.
+  como `None` em vez de virar problema. `db.importar_cadastros` lê **só** `inv_leituras` com
+  `opcionais=("foto_url", "fotos_seq")`; as outras abas mantêm a checagem estrita de colunas (`inv_sobras.foto_url`
+  continua obrigatória).
   `validar_abas`: quando `brutos["inv_fotos"]` está **vazio** (aba ausente ou sem linhas — `validar_abas` não
   distingue e não precisa), cada `foto_url` não vazia de `inv_leituras` vira uma linha
   `(evento_id, numero, 1, url, lido_em)` em `linhas["inv_fotos"]`; quando há linhas em `inv_fotos`, a coluna

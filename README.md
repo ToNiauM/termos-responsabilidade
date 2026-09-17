@@ -35,8 +35,13 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    (`inventario_bens_encerrados`): o relatório de um evento encerrado não muda quando a base do SPW
    é atualizada.
    Fotos vão para o bucket R2 configurado em `secrets/.env` (variáveis `R2_*`); sem ele, fotos ficam
-   desativadas. A planilha de cadastros ganha abas `inv_*` para exportar/importar inventários inteiros
-   (migração de outros sistemas).
+   desativadas. Cada bem aceita várias fotos por evento (a sala mostra todas; relatório e `.xlsx` só a
+   primeira, com "+N"); a chave no bucket é `<pasta>/<n>-<número do bem>.webp`, com a pasta sendo o nome
+   do evento em minúsculas sem acento (ex.: `inventario2026/1-12334.webp`), por isso dois eventos não podem
+   ter nomes que gerem a mesma pasta. O cadastro do bem (`/bem`) lista as fotos agrupadas por evento.
+   A planilha de cadastros ganha abas `inv_*` para exportar/importar inventários inteiros
+   (migração de outros sistemas). No menu, *Inventário* é um grupo com *Eventos* e, quando há
+   evento aberto, o próprio evento, *Painel* e *Relatório*.
 2. **Atualizar base**: envie o export do sistema de patrimônio (`.xlsx`). Só a tabela de bens muda.
    *Exportar bens (formato SPW)* devolve a mesma tabela em `.xlsx`, nas 9 colunas do export — backup reimportável.
 3. **Cadastros**: quatro áreas com busca visível, filtros, ordenação e paginação de 10/20/50 registros.
@@ -55,11 +60,14 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    cidade, sigla do órgão) são editáveis no menu Textos, com marcadores como `{nome}` e `{ccustos}`;
    "Restaurar padrão" volta ao texto original.
 6. **Planilha de cadastros**: Cadastros → *Exportar cadastros* gera `cadastros.xlsx` (4 abas; quando já
-   existe inventário, mais 6 abas `inv_*`). Edite no Excel e importe em *Atualizar base → Importar
+   existe inventário, mais 7 abas `inv_*`). Edite no Excel e importe em *Atualizar base → Importar
    cadastros* — substitui as 4 tabelas inteiras; as abas `inv_*` só são aceitas todas juntas (e então
    substituem o inventário inteiro) ou nenhuma (inventário preservado). A 6ª aba, `inv_bens_encerrados`,
    é o retrato dos bens de cada evento encerrado (gravado no encerramento); é opcional na importação —
-   ausente, a tabela é mantida.
+   ausente, a tabela é mantida. A 7ª aba, `inv_fotos`, tem as fotos dos bens (evento, número, nfoto, url);
+   também é opcional — ausente, uma coluna `foto_url` em `inv_leituras` (planilhas anteriores) vira a
+   foto 1 de cada bem. A coluna `fotos_seq` de `inv_leituras` é o contador interno das fotos (maior número
+   já usado por bem); é opcional na importação.
 
 Backup = copiar a pasta `dados/`. `dados/segredo.txt` — chave que assina a sessão do navegador, criada
 na primeira execução; na web pode vir da variável `TERMOS_SEGREDO`. Na VPS o container cria esse arquivo como root; para rodar o sistema fora do Docker na mesma pasta, defina `TERMOS_SEGREDO` no ambiente ou ajuste o dono do arquivo.
