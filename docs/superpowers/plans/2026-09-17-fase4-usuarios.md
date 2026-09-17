@@ -539,7 +539,7 @@ git commit -m "Usuários: autenticação com bloqueio de 15 min na 5ª falha, se
 - Create: `tests/test_permissoes.py`
 
 **Interfaces:**
-- Produces: `usuarios.PERMISSOES: dict[str, frozenset]`, `usuarios.permitido(perfil, endpoint, metodo="GET") -> bool`, `usuarios.TODOS`, `usuarios.GESTAO`, `usuarios.ADMIN`, `usuarios.LEITURA`.
+- Produces: `usuarios.PERMISSOES: dict[str, frozenset]`, `usuarios.permitido(perfil, endpoint, metodo="GET") -> bool`, `usuarios.TODOS`, `usuarios.GESTAO`, `usuarios.ADMIN`, `usuarios.LEITURA`, `usuarios.TERMOS_VER`.
 - Chave da matriz: nome do endpoint Flask (`"home"`, `"inventario.ler"`); para POST diferente de GET, chave `"<endpoint>:POST"`. `HEAD` conta como `GET`.
 
 - [ ] **Step 1: Escrever os testes que falham**
@@ -556,6 +556,7 @@ import usuarios
 def test_permitido_por_perfil():
     assert usuarios.permitido("consulta", "home") and usuarios.permitido("inventariante", "bem")
     assert usuarios.permitido("consulta", "termo") and usuarios.permitido("consulta", "termo_documento")
+    assert not usuarios.permitido("inventariante", "termo") and not usuarios.permitido("inventariante", "centro_custos")
     assert not usuarios.permitido("consulta", "termo_docx") and not usuarios.permitido("consulta", "termo_registrar", "POST")
     assert usuarios.permitido("consulta", "termo_devolucao") and not usuarios.permitido("consulta", "termo_devolucao", "POST")
     assert usuarios.permitido("operador", "termo_devolucao", "POST")
@@ -600,16 +601,17 @@ TODOS = frozenset(PERFIS)
 GESTAO = frozenset({"admin", "operador"})
 ADMIN = frozenset({"admin"})
 LEITURA = frozenset({"admin", "operador", "inventariante"})     # ler no inventário: exige ainda estar na comissão
+TERMOS_VER = frozenset({"admin", "operador", "consulta"})       # telas de termos: inventariante não vê
 
 # Chave = endpoint Flask; "<endpoint>:POST" quando o POST tem regra diferente do GET. Rota ausente = 403 para todos
 # (tests/test_permissoes.py garante que toda rota do app está aqui).
 PERMISSOES = {
     # consulta geral
     "home": TODOS, "bem": TODOS, "pesquisa": TODOS, "recorte": TODOS, "recorte_xlsx": TODOS,
-    # termos: ver para todos; emitir/registrar só gestão
-    "centro_custos": TODOS, "termos_individuais": TODOS, "termo": TODOS, "termo_documento": TODOS,
-    "termo_devolucao": TODOS, "termo_devolucao:POST": GESTAO,
-    "termos_emitidos_tela": TODOS, "termo_emitido_tela": TODOS,
+    # termos: ver para admin, operador e consulta; emitir/registrar só gestão
+    "centro_custos": TERMOS_VER, "termos_individuais": TERMOS_VER, "termo": TERMOS_VER, "termo_documento": TERMOS_VER,
+    "termo_devolucao": TERMOS_VER, "termo_devolucao:POST": GESTAO,
+    "termos_emitidos_tela": TERMOS_VER, "termo_emitido_tela": TERMOS_VER,
     "gerar": GESTAO, "gerar_individual": GESTAO, "termo_docx": GESTAO, "termo_planilha": GESTAO, "termo_registrar": GESTAO,
     "termo_emitido_documento": GESTAO, "termo_emitido_email": GESTAO,
     # cadastros: gestão inclui/edita; só admin exclui
@@ -1752,8 +1754,9 @@ def comissao(id):
     conn = _conn()
     e = _evento_ou_404(conn, id)
     if request.method == "POST":
+        # Nomes já na comissão continuam aceitos (integrantes migrados sem usuário); nome novo só se for usuário elegível.
         inventario.editar_comissao(conn, id, _nomes_para_comissao(conn, request.form.getlist("integrantes")),
-                                   elegiveis=[u["nome"] for u in _elegiveis(conn)])
+                                   elegiveis=[u["nome"] for u in _elegiveis(conn)] + e["integrantes"])
         flash("Comissão atualizada.", "success")
         return redirect(url_for("inventario.evento_tela", id=id))
     com_leituras = {r[0] for r in conn.execute("SELECT DISTINCT integrante FROM inventario_leituras WHERE evento_id = ?", (id,))}
@@ -1820,7 +1823,9 @@ Envolver o formulário de encerrar com `{% if pode('inventario.encerrar', 'POST'
 {% endblock %}
 ```
 
-Observação: a segunda lista mantém nomes antigos (ex.: integrantes migrados sem usuário) marcados; o POST os reenvia, mas `elegiveis` os recusará. Para não travar a edição em produção, a rota `comissao` passa como `elegiveis` a união dos nomes elegíveis com `e["integrantes"]` atuais: em `comissao()`, use `elegiveis=[u["nome"] for u in _elegiveis(conn)] + e["integrantes"]`. (Assim nomes antigos podem ficar ou sair, mas nenhum nome novo fora dos usuários entra.)
+Observação: a segunda lista mantém marcados os nomes antigos (ex.: integrantes migrados sem usuário). A rota `comissao`
+(Step 6) já aceita esses nomes porque passa `elegiveis = elegíveis + e["integrantes"]`: nomes antigos podem ficar ou sair,
+mas nenhum nome novo fora dos usuários entra.
 
 `templates/inventario_sala.html`:
 
