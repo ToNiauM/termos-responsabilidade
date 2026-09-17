@@ -925,6 +925,10 @@ def importar_cadastros(conn, arquivo) -> dict:
         wb.close()
     if problemas:
         raise ImportacaoInvalida("Planilha de cadastros: " + "; ".join(problemas))
+    faltam = [aba for aba, v in inv_brutos.items() if v is None]
+    if tem_inventario and faltam:
+        raise ImportacaoInvalida("Planilha de cadastros: abas de inventário incompletas (faltam: " + ", ".join(faltam)
+                                 + "). Envie as 5 abas inv_* ou nenhuma.")
 
     responsaveis, siglas = [], set()
     for r in brutos["responsaveis"]:

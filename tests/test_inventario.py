@@ -216,6 +216,20 @@ def test_planilha_sem_abas_de_inventario_nao_toca_nas_tabelas(dados, tmp_path):
     assert "inv_leituras" not in r and inventario.resumo(dados, eid)["lidos"] == 1
 
 
+def test_planilha_com_abas_de_inventario_incompletas_e_recusada(dados, tmp_path):
+    eid = semear_inventario(dados)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    from openpyxl import load_workbook
+    wb = load_workbook(db.exportar_cadastros(dados, tmp_path / "c.xlsx"))
+    for aba in ("inv_integrantes", "inv_salas", "inv_leituras", "inv_sobras"):   # sobra só inv_eventos
+        wb.remove(wb[aba])
+    wb.save(tmp_path / "parcial.xlsx")
+    with open(tmp_path / "parcial.xlsx", "rb") as f, pytest.raises(db.ImportacaoInvalida) as e:
+        db.importar_cadastros(dados, f)
+    assert "incompletas" in str(e.value) and "inv_leituras" in str(e.value)
+    assert inventario.resumo(dados, eid)["lidos"] == 1 and inventario.evento(dados, eid) is not None
+
+
 def test_planilha_de_inventario_validacoes(dados, tmp_path):
     eid = semear_inventario(dados)
     from openpyxl import load_workbook
