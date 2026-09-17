@@ -7,6 +7,7 @@ import os
 import secrets
 import shutil
 import sys
+import time
 from pathlib import Path
 
 
@@ -53,4 +54,9 @@ def chave_secreta() -> str:
         else:
             with os.fdopen(fd, "w") as f:
                 f.write(secrets.token_hex(32))
-    return caminho.read_text().strip()
+    for _ in range(50):                     # o outro processo pode ainda estar escrevendo
+        chave = caminho.read_text().strip()
+        if chave:
+            return chave
+        time.sleep(0.02)
+    raise RuntimeError(f"{caminho} continua vazio: apague o arquivo e abra o programa de novo.")

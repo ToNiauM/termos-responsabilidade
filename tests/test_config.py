@@ -47,3 +47,14 @@ def test_chave_secreta_respeita_arquivo_ja_criado_por_outro_processo(tmp_path, m
     (tmp_path / "segredo.txt").write_text("abc")
     import config
     assert config.chave_secreta() == "abc"
+
+
+def test_chave_secreta_espera_o_outro_processo_terminar_de_escrever(tmp_path, monkeypatch):
+    import threading
+    monkeypatch.setenv("TERMOS_DADOS", str(tmp_path))
+    monkeypatch.delenv("TERMOS_SEGREDO", raising=False)
+    arquivo = tmp_path / "segredo.txt"
+    arquivo.write_text("")                                   # criado, ainda não escrito
+    threading.Timer(0.1, lambda: arquivo.write_text("abc")).start()
+    import config
+    assert config.chave_secreta() == "abc"
