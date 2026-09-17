@@ -213,6 +213,8 @@ def criar_esquema(conn: sqlite3.Connection) -> None:
     if "email" not in _colunas(conn, "usuarios"):
         conn.execute("ALTER TABLE usuarios ADD COLUMN email TEXT")
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS usuarios_email ON usuarios(email) WHERE email IS NOT NULL")
+    # Evento com encerrado_em vazio ("" em vez de NULL, visto em produção em 2026-09-17) não é aberto nem encerrado.
+    conn.execute("UPDATE inventario_eventos SET encerrado_em = NULL WHERE encerrado_em = ''")
     conn.commit()
 
 

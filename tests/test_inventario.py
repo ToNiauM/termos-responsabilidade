@@ -712,3 +712,14 @@ def test_excluir_evento_apaga_tudo_com_fotos_primeiro(dados):
         assert dados.execute(f"SELECT count(*) FROM {t} WHERE evento_id = ?", (eid,)).fetchone()[0] == 0, t
     with pytest.raises(db.ErroDeNegocio, match="não encontrado"):
         inventario.excluir_evento(dados, eid, "x")
+
+
+def test_esquema_normaliza_encerrado_em_vazio(dados):
+    """Evento migrado com encerrado_em = '' (texto vazio) ficava invisível: nem aberto (IS NULL) nem encerrado (falsy)."""
+    semear(dados)
+    eid = inventario.abrir_evento(dados, "Migrado", "", ["Fulano"])
+    dados.execute("UPDATE inventario_eventos SET encerrado_em = '' WHERE id = ?", (eid,))
+    dados.commit()
+    assert inventario.evento_aberto(dados) is None                     # o limbo
+    db.criar_esquema(dados)                                             # roda a cada abertura do programa
+    assert inventario.evento_aberto(dados)["id"] == eid
