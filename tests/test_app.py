@@ -585,9 +585,9 @@ def test_foto_com_url_nao_http_nao_vira_link(cliente):
     conn = db.conectar()
     inventario.adicionar_foto(conn, eid, 1001, lambda c: "javascript:alert(1)")
     r = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI")
-    assert b'href="javascript:' not in r.data
+    assert b'href="javascript:alert' not in r.data
     r = cliente.get("/bem?numero=1001")
-    assert b'href="javascript:' not in r.data
+    assert b'href="javascript:alert' not in r.data
 
 
 def test_inventario_relatorio_xlsx_e_card_do_painel(cliente):
@@ -778,6 +778,7 @@ def test_menu_inventario_e_grupo_com_telas_do_evento_aberto(cliente):
     menu = r.split(b'id="main-navigation"')[1].split(b"menu-footer")[0]
     assert b"menu-folder" in menu and b">Eventos<" in menu and b"/painel" not in menu
     assert b'href="/inventario"' in menu and menu.count(b"menu-folder") == 1
+    assert b'<a class="menu-item" href="javascript:void(0)" role="treeitem">' in menu   # título é link: pasta fecha/abre ao clicar (drop-menu do DSGov)
     eid = _abrir(cliente, integrante=None)
     menu = cliente.get("/").data.split(b'id="main-navigation"')[1].split(b"menu-footer")[0]
     assert f'href="/inventario/{eid}"'.encode() in menu and f'href="/inventario/{eid}/painel"'.encode() in menu and f'href="/inventario/{eid}/relatorio"'.encode() in menu

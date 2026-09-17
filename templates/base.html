@@ -67,7 +67,7 @@
                 {% for rotulo, icone, url, filhos in MENU %}
                 {% if filhos %}
                 <div class="menu-folder">
-                  <div class="menu-item"><span class="icon"><i class="fas {{ icone }}" aria-hidden="true"></i></span><span class="content">{{ rotulo }}</span></div>
+                  <a class="menu-item" href="javascript:void(0)" role="treeitem"><span class="icon"><i class="fas {{ icone }}" aria-hidden="true"></i></span><span class="content">{{ rotulo }}</span></a>
                   <ul role="group">{% for r, u in filhos %}<li><a class="menu-item" href="{{ u }}" role="treeitem"><span class="content">{{ r }}</span></a></li>{% endfor %}</ul>
                 </div>
                 {% else %}
