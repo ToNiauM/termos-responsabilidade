@@ -624,3 +624,10 @@ def test_upload_acima_de_20mb_da_mensagem_e_nao_500(cliente):
     r = cliente.post("/upload", data={"arquivo": (grande, "export.xlsx")}, content_type="multipart/form-data",
                      headers={"Referer": "http://localhost/upload"}, follow_redirects=True)
     assert r.status_code == 200 and "Arquivo muito grande".encode() in r.data
+
+
+def test_form_sobra_nao_e_o_proprio_br_card(cliente):
+    eid = _abrir(cliente, integrante="Fulano")
+    html = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI").get_data(as_text=True)
+    assert 'id="card-sobra"' in html and 'id="form-sobra"' in html
+    assert 'class="br-card mt-3" id="form-sobra"' not in html   # BRCard trocaria o id do form

@@ -68,7 +68,7 @@
 </tbody></table></div>
 {% else %}<p class="text-gray-70">Nenhuma sobra nesta sala.</p>{% endif %}
 {% if not fechado %}
-<form method="post" action="{{ url_for('inventario.sobra', id=e.id, localizacao=localizacao) }}" enctype="multipart/form-data" class="br-card mt-3" id="form-sobra" hidden><div class="card-content">
+<div class="br-card mt-3" id="card-sobra" hidden><form method="post" action="{{ url_for('inventario.sobra', id=e.id, localizacao=localizacao) }}" enctype="multipart/form-data" id="form-sobra"><div class="card-content">
   <div class="text-weight-semi-bold text-up-01 mb-2">Registrar sobra</div>
   <div class="row">
     <div class="col-md-4 mb-2"><div class="br-input"><label for="s-descricao">Descrição</label><input id="s-descricao" name="descricao" type="text" required/></div></div>
@@ -78,7 +78,7 @@
   </div>
   <button class="br-button primary" type="submit">Registrar sobra</button>
   <button class="br-button ml-2" type="button" id="btn-cancelar-sobra">Cancelar</button>
-</div></form>
+</div></form></div>
 {% endif %}
 
 <div class="mt-4">
@@ -94,7 +94,7 @@
   var URL_FOTO_EXCLUIR = {{ url_for('inventario.foto_excluir', id=e.id, numero=0)|tojson }};   // troca o 0 pelo número
   var SALA = {{ localizacao|tojson }};
   var campo = document.getElementById("leitura"), aviso = document.getElementById("aviso"), avisoTexto = document.getElementById("aviso-texto");
-  var btnSobra = document.getElementById("btn-sobra"), formSobra = document.getElementById("form-sobra");
+  var btnSobra = document.getElementById("btn-sobra"), cardSobra = document.getElementById("card-sobra"), formSobra = document.getElementById("form-sobra");
   var ultimoLido = "", ultimoQuando = 0, timerAviso = null;
   if (!campo) return;
 
@@ -178,8 +178,8 @@
   campo.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); ler(campo.value); } });
   document.getElementById("btn-digitar").addEventListener("click", function () { campo.inputMode = "numeric"; campo.placeholder = "Digite o número e Enter"; campo.focus(); });
   campo.addEventListener("blur", function () { campo.inputMode = "none"; });
-  btnSobra.addEventListener("click", function () { if (formSobra) { formSobra.hidden = false; formSobra.querySelector("#s-descricao").focus(); } });
-  var btnCancelar = document.getElementById("btn-cancelar-sobra"); if (btnCancelar) btnCancelar.addEventListener("click", function () { formSobra.hidden = true; focar(); });
+  btnSobra.addEventListener("click", function () { if (cardSobra) { cardSobra.hidden = false; formSobra.querySelector("#s-descricao").focus(); } });
+  var btnCancelar = document.getElementById("btn-cancelar-sobra"); if (btnCancelar) btnCancelar.addEventListener("click", function () { cardSobra.hidden = true; focar(); });
 
   // Câmera (html5-qrcode): fica aberta para leituras seguidas até fechar.
   var leitor = null, cameraDiv = document.getElementById("camera"), cameraAberta = false;

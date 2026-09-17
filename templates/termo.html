@@ -23,7 +23,7 @@
 {% endif %}
 <div id="aviso-copiado" class="br-message success" hidden>
   <div class="icon"><i class="fas fa-check-circle fa-lg" aria-hidden="true"></i></div>
-  <div class="content" role="alert"><span class="message-title">Copiado.</span><span class="message-body" id="aviso-texto"> Cole no editor do SEI (Ctrl+V).</span></div>
+  <div class="content" role="alert"><span class="message-title" id="aviso-titulo">Copiado.</span><span class="message-body" id="aviso-texto"> Cole no editor do SEI (Ctrl+V).</span></div>
 </div>
 {% if quantidade == 0 %}
 <div class="br-message warning"><div class="icon"><i class="fas fa-exclamation-triangle fa-lg" aria-hidden="true"></i></div>
@@ -38,17 +38,26 @@
 <script>
 document.getElementById("copiar").addEventListener("click", async function () {
   var corpo = document.getElementById("documento").contentDocument.body;
-  var html = corpo.innerHTML, texto = corpo.innerText;
+  var html = corpo.innerHTML, texto = corpo.innerText, copiou = false;
+  var aviso = document.getElementById("aviso-copiado"), tituloAviso = document.getElementById("aviso-titulo"), textoAviso = document.getElementById("aviso-texto");
   try {
     await navigator.clipboard.write([new ClipboardItem({
       "text/html": new Blob([html], {type: "text/html"}),
       "text/plain": new Blob([texto], {type: "text/plain"})})]);
+    copiou = true;
   } catch (e) {
     var docIframe = corpo.ownerDocument, sel = docIframe.defaultView.getSelection(), range = docIframe.createRange();
     range.selectNodeContents(corpo); sel.removeAllRanges(); sel.addRange(range);
-    docIframe.execCommand("copy"); sel.removeAllRanges();
+    copiou = docIframe.execCommand("copy") === true; sel.removeAllRanges();
   }
-  var aviso = document.getElementById("aviso-copiado"), textoAviso = document.getElementById("aviso-texto");
+  aviso.className = "br-message " + (copiou ? "success" : "danger");
+  tituloAviso.textContent = copiou ? "Copiado." : "Não copiado.";
+  if (!copiou) {
+    textoAviso.textContent = " Não foi possível copiar. Selecione o texto do documento e copie com Ctrl+C.";
+    aviso.hidden = false;
+    setTimeout(function () { aviso.hidden = true; }, 8000);
+    return;   // sem cópia não há emissão a registrar
+  }
   textoAviso.textContent = " Cole no editor do SEI (Ctrl+V).";
   try {
     var r = await fetch(this.dataset.registrar, {method: "POST"});
