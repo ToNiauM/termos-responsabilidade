@@ -15,6 +15,7 @@ import comissoes
 import config
 import db
 import inventario
+import menu
 import painel
 import permissoes
 import termos_html
@@ -130,7 +131,8 @@ def contexto_dsgov():
     dsgov = dict(DSGOV_FIXO, ORGAO=t["orgao_nome"], SUBTITULO=t["unidade_sigla"])
     usuario = getattr(g, "usuario", None)
     contexto = {"DSGOV": dsgov, "USUARIO": usuario, "MENU": [], "CSRF": _csrf_token(),
-                "URL_INICIAL": url_for("home"), "pode": lambda *_a, **_k: False}
+                "URL_INICIAL": url_for("home"), "pode": lambda *_a, **_k: False,
+                "SECOES_AJUDA": [], "AJUDA_ANCORA": None}
     if not usuario:
         return contexto
     funcoes = usuario["funcoes"]
@@ -140,6 +142,9 @@ def contexto_dsgov():
 
     contexto["pode"] = pode
     contexto["URL_INICIAL"] = destino_inicial(usuario)
+    contexto["SECOES_AJUDA"] = menu.secoes_ajuda(funcoes, config.exigir_login())
+    contexto["AJUDA_ANCORA"] = menu.ancora_ajuda(funcoes, request.endpoint, request.view_args,
+                                                 config.exigir_login())
     inv = []
     if pode("inventario.eventos_tela"):
         inv.append(("Eventos", url_for("inventario.eventos_tela")))
@@ -594,6 +599,12 @@ def textos_salvar():
     textos.salvar_todos(conn, novos)   # valida tudo, grava tudo, um commit
     flash("Textos salvos.", "success")
     return redirect(url_for("textos_tela"))
+
+
+# ---------------------------------------------------------------- ajuda
+@app.route("/ajuda")
+def ajuda():
+    return render_template("ajuda.html", trilha=[("Ajuda", None)])
 
 
 # ---------------------------------------------------------------- cadastros

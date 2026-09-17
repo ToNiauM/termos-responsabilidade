@@ -123,3 +123,9 @@
   </div>
 </div>
 {% endmacro %}
+
+{% macro ajuda_titulo(ancora) %}
+{% if ancora %}<a class="br-button circle small ml-2" href="{{ url_for('ajuda') }}#{{ ancora }}" aria-label="Ajuda desta tela">
+  <i class="fas fa-question-circle" aria-hidden="true"></i>
+</a>{% endif %}
+{% endmacro %}

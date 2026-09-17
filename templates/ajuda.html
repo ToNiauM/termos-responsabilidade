@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block titulo %}Ajuda{% endblock %}
+{% block conteudo %}
+<h1>Ajuda</h1>
+<p>Consulte as orientações para as funções atribuídas ao seu usuário.</p>
+<nav class="br-card mb-4" aria-label="Sumário da ajuda"><div class="card-content br-list">
+{% for s in SECOES_AJUDA %}<a class="br-item" href="#{{ s.id }}">{{ s.titulo }}</a>{% endfor %}
+</div></nav>
+{% for s in SECOES_AJUDA %}
+<section class="br-card mb-4" id="{{ s.id }}" aria-labelledby="titulo-{{ s.id }}">
+<div class="card-header"><h2 class="text-up-02" id="titulo-{{ s.id }}">{{ s.titulo }}</h2></div>
+<div class="card-content">
+{% if s.id == 'inicio' %}
+  <p>O Início reúne atalhos e indicadores das áreas que você pode acessar. Clique nos indicadores que têm link para abrir a lista correspondente.</p>
+  <p>Valor não informado significa que o cadastro não traz esse dado. Valor zero é um valor cadastrado, igual a R$ 0,00. Os dois casos têm filtros separados na Análise.</p>
+{% elif s.id == 'pesquisa' %}
+  <p>Use a lupa do cabeçalho em qualquer tela em que ela estiver disponível. Digite o número de patrimônio para abrir a ficha ou palavras para procurar bens, pessoas e centros de custo.</p>
+  <p>Com várias palavras, todas precisam aparecer no resultado. Use <code>GEX*</code> para começar com GEX e <code>*ITEC</code> para terminar com ITEC. A ficha mostra dados do bem e histórico disponível para suas funções.</p>
+{% elif s.id == 'termos' %}
+  <p>O termo por centro de custo reúne os bens ativos sob a guarda do setor, excluindo os atribuídos individualmente. O termo individual reúne os bens da pessoa. O termo de devolução registra os bens que retornam ao patrimônio.</p>
+  <p>Abra as telas de termos para consultar os documentos e o histórico. Um termo pode estar vigente, desatualizado ou ainda não ter sido emitido.</p>
+  {% if pode('termo_docx') %}
+  <p>Para emitir, é necessário um processo SEI vigente do tipo correspondente. Confira o documento e use <strong>Copiar para o SEI</strong> ou <strong>Baixar .docx</strong>. As duas ações registram a emissão; abrir a prévia não registra.</p>
+  <p>Em Termos emitidos, registre o documento SEI, o bloco de assinatura e o envio do pedido de assinatura. O botão de e-mail abre seu programa de e-mail com o texto pronto. A emissão anterior permanece no histórico.</p>
+  {% endif %}
+{% elif s.id == 'analise' %}
+  <p>Filtre por situação, centro, pessoa, localização, classificação, idade, data de entrada, faixa de valor e situação do valor. Os indicadores representam o conjunto filtrado inteiro.</p>
+  <p>Os gráficos e indicadores com link refinam a seleção. Valor não informado e valor zero são filtros diferentes. Combinar valor não informado com um intervalo numérico não retorna bens.</p>
+  <p><strong>Exportar .xlsx</strong> baixa todos os bens filtrados, mesmo quando a tela limita a lista a 1.000. Célula vazia de valor indica ausência de informação; zero permanece um número.</p>
+  <p><strong>Abrir termo completo</strong> leva ao documento integral do centro ou da pessoa. Os filtros desta análise não limitam o termo.</p>
+{% elif s.id == 'inventario' %}
+  <p>A função Inventário permite conferir bens nos eventos em que você integra a comissão. Sem evento atribuído, solicite ao administrador sua inclusão. Evento encerrado aceita somente consulta.</p>
+  <ol class="br-list">
+    <li class="br-item">Abra o evento e escolha a sala que está conferindo.</li>
+    <li class="br-item">Leia a plaqueta pelo leitor de código de barras, pela câmera ou digitando o número.</li>
+    <li class="br-item">Confira conservação, quem usa o bem e observações; acrescente as fotos necessárias.</li>
+    <li class="br-item">Acompanhe os bens pendentes e as divergências da sala.</li>
+  </ol>
+  <p>Localizado foi lido na sala cadastrada; divergente foi lido em outra sala; pendente ainda não foi lido. A conferência não muda o cadastro de localização do sistema de patrimônio. Bens baixados continuam baixados.</p>
+  <p>Se a plaqueta não existir no cadastro, registre uma sobra com descrição, observação e foto quando o recurso estiver disponível. Para plaquetas ilegíveis, use a marcação em lote após conferir os bens.</p>
+  <p>Desmarcar remove a leitura e as fotos associadas. Se leu na sala errada, leia novamente na sala correta; vale a leitura mais recente.</p>
+  {% if pode('inventario.abrir','POST') %}
+  <p>O administrador abre o evento, define a comissão e o escopo das salas. Só pode haver um evento aberto. Encerrar congela os registros; excluir pede confirmação pelo nome e não pode ser desfeito.</p>
+  {% endif %}
+{% elif s.id == 'consulta-inventarios' %}
+  <p>A função Consulta de inventários permite acompanhar todos os eventos, anteriores e futuros, pelo Painel, Relatório e exportação. Ela não permite conferir bens por si só.</p>
+  <p>O Painel mostra o andamento e as distribuições do evento. No Relatório, filtre sala, situação, integrante, conservação, fotos e texto e use a ordenação das colunas.</p>
+  <p>Exporte a planilha com ou sem fotos. A opção com fotos usa recursos do Excel do Microsoft 365. Eventos encerrados preservam os registros congelados, mesmo depois de atualizar a base.</p>
+{% elif s.id == 'cadastros' %}
+  <p>Centros de custo mantêm responsáveis e contatos. Localizações associam salas aos centros. Pessoas recebem bens de uso individual. Processos SEI definem o processo vigente de cada tipo de termo.</p>
+  <p>Use busca, filtros e paginação para encontrar registros. Revise origem e destino ao mover localizações ou atribuir bens. Bem atribuído a uma pessoa deixa de entrar no termo do setor.</p>
+  {% if pode('responsaveis_excluir','POST') %}<p>Exclusões pedem confirmação. Centro com bens ativos e processo com termos registrados não podem ser excluídos.</p>{% endif %}
+  {% if pode('importar_cadastros','POST') %}<p>A planilha de cadastros substitui as tabelas inteiras. As abas de inventário devem vir todas juntas ou ser omitidas. Importar nomes não concede acesso a usuários; revise a comissão do evento aberto.</p>{% endif %}
+{% elif s.id == 'textos' %}
+  <p>Edite os dizeres dos termos e o modelo de e-mail. Preserve marcadores como <code>{nome}</code> e <code>{ccustos}</code>, preenchidos pelo sistema. Restaurar padrão recupera o texto original.</p>
+{% elif s.id == 'atualizar-base' %}
+  <p>Envie o arquivo .xlsx exportado do sistema de patrimônio. A atualização substitui a base de bens e mantém os cadastros de responsáveis, pessoas e atribuições, conforme as validações apresentadas.</p>
+  <p>O histórico registra entradas, saídas e mudanças dos bens. Exportar bens gera uma planilha no formato de importação para cópia de segurança.</p>
+{% elif s.id == 'usuarios' %}
+  <p>Crie usuários e selecione somente as funções necessárias. Administrador gerencia o sistema; Operador emite termos, mantém cadastros e textos e atualiza a base; Consulta lê acervo e termos; Inventário faz conferência na própria comissão; Consulta de inventários acompanha painéis, relatórios e exportações de todos os eventos.</p>
+  <p>As funções selecionadas se somam. Criar um usuário com Inventário não o inclui automaticamente em uma comissão. Login é único; o e-mail é opcional, único e também pode ser usado para entrar.</p>
+  <p>Usuários são inativados, não excluídos. Nova senha gera uma senha temporária mostrada uma única vez, com troca obrigatória no acesso seguinte. Cinco tentativas erradas bloqueiam o login por 15 minutos.</p>
+{% elif s.id == 'conta' %}
+  <p>Seu nome e suas funções aparecem no cabeçalho. Para trocar a senha, informe a atual e a nova, com pelo menos oito caracteres. Sair encerra a sessão. A sessão expira após 12 horas sem uso.</p>
+{% elif s.id == 'perguntas' %}
+  {% if pode('termo') %}<h3 class="text-up-01">Por que o termo está desatualizado?</h3><p>Entraram ou saíram bens desde a última emissão. A equipe com função Operador pode conferir e emitir outro; o anterior permanece no histórico.</p>{% endif %}
+  {% if pode('cadastros') %}<h3 class="text-up-01">Um bem de uso pessoal aparece no termo do setor.</h3><p>Atribua o bem à pessoa em Cadastros → Pessoas para que passe ao termo individual.</p>{% endif %}
+  {% if pode('inventario.ler','POST') %}<h3 class="text-up-01">A foto não foi enviada.</h3><p>Confira a conexão e tente novamente. A foto é enviada no momento do registro. Se continuar falhando, avise o administrador.</p>{% endif %}
+  {% if pode('analise') %}<h3 class="text-up-01">Onde está o Recorte?</h3><p>A tela passou a se chamar Análise. Ela reúne filtros, gráficos, indicadores e exportação do acervo.</p>{% endif %}
+  {% if pode('inventario.relatorio_tela') %}<h3 class="text-up-01">Por que a atualização da base não mudou o evento encerrado?</h3><p>O encerramento congela os dados do evento. Essa preservação permite consultar o que foi registrado naquele inventário.</p>{% endif %}
+{% endif %}
+</div></section>
+{% endfor %}
+{% endblock %}
