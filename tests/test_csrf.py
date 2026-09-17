@@ -36,7 +36,7 @@ def test_post_sem_token_da_400_e_com_token_passa(dados, monkeypatch):
     assert novo != token
     assert c.post("/textos", data={"restaurar": "orgao_nome", "csrf": novo}).status_code == 302
     r = c.post("/termo/ccusto/CCI/registrar")                  # JSON sem cabeçalho
-    assert r.status_code == 400 and "Sessão expirada".encode() in r.data and r.is_json
+    assert r.status_code == 400 and r.is_json and r.get_json()["erro"].startswith("Sessão expirada")
     r = c.post("/termo/ccusto/CCI/registrar", headers={"X-CSRF": novo})
     assert r.status_code in (200, 409)                          # passou do CSRF (409 = sem processo vigente)
 
@@ -57,10 +57,14 @@ def test_todo_formulario_post_tem_csrf_campo():
 def test_meta_e_cabecalho_nos_fetch(cliente):
     html = cliente.get("/").data
     assert re.search(rb'<meta name="csrf" content="[^"]{20,}"', html)
-    sala = (TEMPLATES / "inventario_sala.html").read_text(encoding="utf-8")
-    assert sala.count("fetch(") == sala.count('"X-CSRF"'), "todo fetch da sala manda X-CSRF"
-    termo = (TEMPLATES / "termo.html").read_text(encoding="utf-8")
-    assert '"X-CSRF"' in termo
+    faltam = []
+    for caminho in sorted(TEMPLATES.rglob("*.html")):
+        texto = caminho.read_text(encoding="utf-8")
+        if "fetch(" not in texto:
+            continue
+        if texto.count("fetch(") != texto.count('"X-CSRF"'):
+            faltam.append(str(caminho.relative_to(TEMPLATES)))
+    assert not faltam, "Nem todo fetch manda X-CSRF: " + ", ".join(faltam)
 
 
 def test_cliente_de_teste_injeta_token(cliente):

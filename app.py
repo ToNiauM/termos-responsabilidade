@@ -28,7 +28,6 @@ app = Flask(__name__, template_folder=str(config.pasta_recursos() / "templates")
 app.secret_key = config.chave_secreta()   # por instalação: TERMOS_SEGREDO ou dados/segredo.txt
 app.config.update(PERMANENT_SESSION_LIFETIME=timedelta(hours=12), SESSION_COOKIE_HTTPONLY=True,
                   SESSION_COOKIE_SAMESITE="Lax", SESSION_COOKIE_SECURE=config.exigir_login())   # site é só https
-app.json.ensure_ascii = False   # respostas JSON com acento legível, não \uXXXX
 app.register_blueprint(usuarios_bp)
 ROTAS_JSON = {"inventario.ler", "inventario.atualizar_leitura", "inventario.foto_leitura", "termo_registrar"}
 app.register_blueprint(inventario_bp)
