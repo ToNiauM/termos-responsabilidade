@@ -5,7 +5,7 @@ from urllib.parse import unquote
 from openpyxl import Workbook, load_workbook
 
 import db
-from tests.conftest import semear, confirmar_revisao, logar, ADMIN_LOGIN, ADMIN_NOME, ADMIN_SENHA
+from tests.conftest import semear, confirmar_revisao, logar, ADMIN_LOGIN, ADMIN_NOME, ADMIN_SENHA, SENHA_PADRAO
 from tests.test_db import CABECALHO
 
 
@@ -822,3 +822,39 @@ def test_inventario_desktop_admin_local_entra_na_comissao(cliente_local):
     assert inventario.evento(conn, eid)["integrantes"] == ["Administrador local", "Xis"]
     j = cliente_local.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"}).get_json()
     assert j["integrante"] == "Administrador local"
+
+
+def test_inventario_fora_da_comissao_nao_edita_nem_apaga(cliente, monkeypatch):
+    import io
+    from PIL import Image
+    import db, fotos, inventario
+    eid = _abrir(cliente, comissao=["Beltrana"])                      # Fulano (logado) não está na comissão
+    cliente.post("/sair"); logar(cliente, "beltrana", SENHA_PADRAO)
+    cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+    cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/sobra", data={"descricao": "VENTILADOR", "observacao": "sem plaqueta"})
+    sobra_id = inventario.bens_da_sala(db.conectar(), eid, "01 - SALA CCI")["sobras"][0]["id"]
+    cliente.post("/sair"); logar(cliente, ADMIN_LOGIN, ADMIN_SENHA)
+    r = cliente.post(f"/inventario/{eid}/leitura/1001", json={"conservacao": "Bom"})
+    assert r.status_code == 409 and "comissão" in r.get_json()["erro"].lower()
+    for v in fotos.VARIAVEIS:
+        monkeypatch.setenv(v, "x")
+    monkeypatch.setenv("R2_PUBLIC_URL", "https://f.exemplo.org")
+    monkeypatch.setattr(fotos, "enviar", lambda chave, dados: f"https://f.exemplo.org/{chave}")
+    buf = io.BytesIO(); Image.new("RGB", (30, 20), (1, 2, 3)).save(buf, "PNG"); imagem = buf.getvalue()
+    r = cliente.post(f"/inventario/{eid}/leitura/1001/foto", data={"foto": (io.BytesIO(imagem), "a.png")}, content_type="multipart/form-data")
+    assert r.status_code == 409 and "comissão" in r.get_json()["erro"].lower()
+    r = cliente.post(f"/inventario/{eid}/leitura/1001/foto/1/excluir", follow_redirects=True)
+    assert "não faz parte da comissão".encode() in r.data
+    r = cliente.post(f"/inventario/{eid}/sobra/{sobra_id}/excluir", follow_redirects=True)
+    assert "não faz parte da comissão".encode() in r.data
+    assert any(s["id"] == sobra_id for s in inventario.bens_da_sala(db.conectar(), eid, "01 - SALA CCI")["sobras"])   # sobra continua
+    cliente.post(f"/inventario/{eid}/comissao", data={"integrantes": ["Fulano", "Beltrana"]})
+    r = cliente.post(f"/inventario/{eid}/leitura/1001", json={"conservacao": "Bom"})
+    assert r.status_code == 200
+
+
+def test_inventario_comissao_so_em_evento_aberto(cliente):
+    eid = _abrir(cliente)
+    cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"})
+    r = cliente.get(f"/inventario/{eid}/comissao", follow_redirects=True)
+    assert b"encerrado" in r.data.lower()

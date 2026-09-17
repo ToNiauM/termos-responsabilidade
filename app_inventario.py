@@ -40,7 +40,7 @@ def _elegiveis(conn) -> list[dict]:
     return lista
 
 
-def _nomes_para_comissao(conn, marcados: list) -> list[str]:
+def _nomes_para_comissao(marcados: list) -> list[str]:
     nomes = list(marcados)
     if g.usuario["id"] is None and g.usuario["nome"] not in nomes:
         nomes.append(g.usuario["nome"])
@@ -49,6 +49,14 @@ def _nomes_para_comissao(conn, marcados: list) -> list[str]:
 
 def _na_comissao(e) -> bool:
     return g.usuario["nome"] in e["integrantes"]
+
+
+def _exigir_comissao(conn, id):
+    """Quem não está na comissão do evento não altera leituras, fotos nem sobras (mesma regra de ler)."""
+    e = _evento_ou_404(conn, id)
+    if g.usuario["nome"] not in e["integrantes"]:
+        raise db.ErroDeNegocio(inventario.FORA_DA_COMISSAO)
+    return e
 
 
 @inventario_bp.route("")
@@ -65,7 +73,7 @@ def abrir():
     conn = _conn()
     f = request.form
     salas = None if f.get("escopo", "todas") == "todas" else f.getlist("salas")
-    eid = inventario.abrir_evento(conn, f.get("nome", ""), f.get("descricao", ""), _nomes_para_comissao(conn, f.getlist("integrantes")),
+    eid = inventario.abrir_evento(conn, f.get("nome", ""), f.get("descricao", ""), _nomes_para_comissao(f.getlist("integrantes")),
                                   salas, elegiveis=[u["nome"] for u in _elegiveis(conn)])
     flash("Evento aberto. Comece pelas salas.", "success")
     return redirect(url_for("inventario.evento_tela", id=eid))
@@ -94,9 +102,10 @@ def encerrar(id):
 def comissao(id):
     conn = _conn()
     e = _evento_ou_404(conn, id)
+    inventario._evento_aberto_ou_erro(conn, id)
     if request.method == "POST":
         # Nomes já na comissão continuam aceitos (integrantes migrados sem usuário); nome novo só se for usuário elegível.
-        inventario.editar_comissao(conn, id, _nomes_para_comissao(conn, request.form.getlist("integrantes")),
+        inventario.editar_comissao(conn, id, _nomes_para_comissao(request.form.getlist("integrantes")),
                                    elegiveis=[u["nome"] for u in _elegiveis(conn)] + e["integrantes"])
         flash("Comissão atualizada.", "success")
         return redirect(url_for("inventario.evento_tela", id=id))
@@ -169,8 +178,10 @@ def atualizar_leitura(id, numero):
     dados = _corpo_json()
     if dados is None:
         return jsonify({"erro": "Envie um objeto JSON."}), 400
+    conn = _conn()
     try:
-        inventario.atualizar_leitura(_conn(), id, numero, **{k: v for k, v in dados.items() if k in ("conservacao", "quem_usa", "observacao")})
+        _exigir_comissao(conn, id)
+        inventario.atualizar_leitura(conn, id, numero, **{k: v for k, v in dados.items() if k in ("conservacao", "quem_usa", "observacao")})
     except db.ErroDeNegocio as e:
         return _json_erro(e)
     return jsonify({"ok": True})
@@ -225,6 +236,7 @@ def foto_leitura(id, numero):
     conn = _conn()
     try:
         inventario._evento_aberto_ou_erro(conn, id)
+        _exigir_comissao(conn, id)
         dados = _foto_processada()
 
         def enviar(chave):
@@ -242,6 +254,7 @@ def foto_leitura(id, numero):
 @inventario_bp.route("/<int:id>/leitura/<int:numero>/foto/<int:nfoto>/excluir", methods=["POST"])
 def foto_excluir(id, numero, nfoto):
     conn = _conn()
+    _exigir_comissao(conn, id)
     leitura = conn.execute("SELECT localizacao FROM inventario_leituras WHERE evento_id = ? AND numero = ?", (id, numero)).fetchone()
     if not leitura:
         abort(404)
@@ -278,7 +291,9 @@ def sobra(id, localizacao):
 
 @inventario_bp.route("/<int:id>/sobra/<int:sobra_id>/excluir", methods=["POST"])
 def sobra_excluir(id, sobra_id):
-    s = inventario.excluir_sobra(_conn(), id, sobra_id, apagar=_apagar_no_bucket)
+    conn = _conn()
+    _exigir_comissao(conn, id)
+    s = inventario.excluir_sobra(conn, id, sobra_id, apagar=_apagar_no_bucket)
     flash("Sobra excluída.", "success")
     return redirect(url_for("inventario.sala_tela", id=id, localizacao=s["localizacao"]))
 
