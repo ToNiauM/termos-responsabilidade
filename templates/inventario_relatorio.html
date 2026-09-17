@@ -35,7 +35,7 @@
     <td>{% if x.situacao_inv == 'localizado' %}<span class="br-tag bg-success text-pure-0"><span>Localizado</span></span>{% elif x.situacao_inv == 'divergente' %}<span class="br-tag bg-warning"><span>Divergente</span></span>{% else %}<span class="br-tag bg-gray-20"><span>Não localizado</span></span>{% endif %}</td>
     <td>{{ x.conservacao or '' }}</td><td>{{ x.quem_usa or '' }}</td><td>{{ x.observacao or '' }}</td><td>{{ x.integrante or '' }}</td>
     <td>{% if x.lido_em %}{{ x.lido_em[8:10] }}/{{ x.lido_em[5:7] }}/{{ x.lido_em[:4] }} {{ x.lido_em[11:16] }}{% endif %}</td>
-    <td>{% if x.foto_url and x.foto_url.startswith(('http://', 'https://')) %}<button type="button" class="foto-abrir" data-foto="{{ x.foto_url }}" aria-label="Ver foto do bem {{ x.numero }}"><img src="{{ x.foto_url }}" alt="" class="dsgov-miniatura"/></button>{% else %}—{% endif %}</td>
+    <td>{% if x.foto_url and x.foto_url.startswith(('http://', 'https://')) %}<button type="button" class="foto-abrir" data-foto="{{ x.foto_url }}" aria-label="Ver foto do bem {{ x.numero }}"><img src="{{ x.foto_url }}" alt="" class="dsgov-miniatura"/></button>{% if x.n_fotos > 1 %} <span class="br-tag small">+{{ x.n_fotos - 1 }}</span>{% endif %}{% else %}—{% endif %}</td>
     <td>{{ x.situacao_bem }}</td></tr>
   {% else %}<tr><td colspan="12">Nenhum bem neste filtro.</td></tr>
   {% endfor %}</tbody>

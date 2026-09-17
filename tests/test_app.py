@@ -579,12 +579,14 @@ def test_inventario_relatorio_filtros_ordem_modal_e_xlsx_com_fotos(cliente):
     cliente.post(f"/inventario/{eid}/leitura/1001", json={"quem_usa": "José"})
     import db, inventario
     inventario.adicionar_foto(db.conectar(), eid, 1001, lambda chave: "https://x/1001.webp")
+    inventario.adicionar_foto(db.conectar(), eid, 1001, lambda chave: "https://x/1001b.webp")
     r = cliente.get(f"/inventario/{eid}/relatorio?integrante=Fulano&busca=jose&ordem=numero&dir=desc")
     corpo = r.data.split(b"<tbody>")[1]
     assert r.status_code == 200 and b">1001<" in corpo and b">1002<" not in corpo
     assert "Integrante Fulano".encode() in r.data and b"Busca &#34;jose&#34;" in r.data and b"fa-sort-down" in r.data
     assert b"ordem=numero&amp;dir=asc" in r.data or b"dir=asc&amp;ordem=numero" in r.data      # clique de novo inverte
     assert b'data-foto="https://x/1001.webp"' in r.data and b'id="scrim-foto"' in r.data and b'name="fotos"' in r.data
+    assert b'<span class="br-tag small">+1</span>' in r.data and b'data-foto="https://x/1001b.webp"' not in r.data
     assert b'name="ordem" value="numero"' in r.data and b"1 linha(s)" in r.data
     r = cliente.get(f"/inventario/{eid}/relatorio?foto=sem&conservacao=-")
     assert b">1001<" not in r.data.split(b"<tbody>")[1] and b"Sem foto" in r.data and "Não informada".encode() in r.data
