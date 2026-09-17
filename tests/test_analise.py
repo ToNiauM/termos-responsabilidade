@@ -1,9 +1,12 @@
 """Análise: separar valor não informado (NULL), valor zero e intervalos numéricos."""
+import io
 import re
 
 import pytest
+from openpyxl import load_workbook
+
 import db
-from tests.conftest import semear
+from tests.conftest import logar, semear
 
 
 def test_zero_e_ausente_sao_conjuntos_distintos(dados):
@@ -74,3 +77,51 @@ def test_analise_http_seis_cards_e_situacao_do_valor(cliente, dados):
 
     descricao = cliente.get('/analise?valor_status=zero').get_data(as_text=True)
     assert 'valor zero' in descricao   # frase de painel.descrever para valor_status
+
+
+def test_termo_completo_nao_e_limitado_pelo_filtro(cliente,dados):
+    antes=dados.execute('SELECT count(*) FROM termos_emitidos').fetchone()[0]
+    html=cliente.get('/analise?ccusto=CCI&classificacao=MÓVEIS').get_data(as_text=True)
+    assert 'Abrir termo completo' in html
+    assert 'Os filtros desta análise não limitam o termo' in html
+    assert '/termo/ccusto/CCI' in html
+    assert dados.execute('SELECT count(*) FROM termos_emitidos').fetchone()[0]==antes
+
+
+def test_exportacao_integral_e_valores_preservados(dados):
+    semear(dados)
+    dados.executemany('''INSERT INTO bens VALUES (?,'ATIVO','BEM','','MÓVEIS',
+      '99 - SEM MAPA','01/01/2020',1,?)''',
+      [(n,None if n%2 else 0) for n in range(2000,3105)])
+    f={'situacao':'ATIVO'}
+    r=db.recorte(dados,f)
+    assert r['truncado'] and len(r['bens'])==1000 and r['quantidade']==1108
+    arq=io.BytesIO(); db.exportar_recorte(dados,f,arq)
+    ws=load_workbook(io.BytesIO(arq.getvalue())).active
+    assert ws.title=='analise' and ws.max_row-1==1108
+    valores={row[0]:row[-1] for row in ws.iter_rows(min_row=2,values_only=True)}
+    assert valores[2000]==0 and valores[2001] is None
+
+
+def test_consulta_abre_analise_e_termo_sem_botoes_de_emissao(cliente, usuarios_exemplo):
+    """Consulta acessa a Análise e o termo completo (só leitura); os botões que registram emissão
+    (Copiar para o SEI, Baixar .docx, Baixar planilha) são exclusivos de Operador/Admin."""
+    cliente.post('/sair'); logar(cliente, *usuarios_exemplo['consulta'])
+    html = cliente.get('/analise?ccusto=CCI').get_data(as_text=True)
+    assert 'Abrir termo completo' in html and '/termo/ccusto/CCI' in html
+    r = cliente.get('/termo/ccusto/CCI')
+    assert r.status_code == 200
+    termo_html = r.get_data(as_text=True)
+    assert 'Copiar para o SEI' not in termo_html
+    assert 'Baixar .docx' not in termo_html
+    assert 'Baixar planilha' not in termo_html
+
+
+def test_inventario_sozinho_recebe_403_na_analise_no_xlsx_e_nos_aliases(cliente, usuarios_exemplo):
+    """Quem só tem a função Inventário não vê o acervo: a matriz nega antes de qualquer redirecionamento,
+    inclusive nos aliases /recorte(/xlsx), que devem responder 403 e não 301."""
+    cliente.post('/sair'); logar(cliente, *usuarios_exemplo['inventariante'])
+    assert cliente.get('/analise').status_code == 403
+    assert cliente.get('/analise/xlsx').status_code == 403
+    assert cliente.get('/recorte').status_code == 403
+    assert cliente.get('/recorte/xlsx').status_code == 403

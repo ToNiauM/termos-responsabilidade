@@ -20,8 +20,12 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    **Atualizar base** guarda o que mudou a cada importação (novos, removidos, movidos, situação) e a
    ficha do bem mostra o histórico dele.
    **Início** é o painel: cards e gráficos por situação, centro, classificação, localização, idade, ano e
-   faixa de valor, todos clicáveis. **Recorte** filtra bens por qualquer combinação, com os mesmos
-   gráficos, o termo do centro/pessoa quando couber e *Exportar .xlsx*.
+   faixa de valor, todos clicáveis. **Análise** filtra bens por qualquer combinação, com os mesmos
+   gráficos, os cards de valor não informado × valor zero (contados à parte um do outro), o termo
+   completo do centro/pessoa quando couber (os filtros da tela não limitam o termo) e *Exportar .xlsx*
+   (`analise.xlsx`, com todos os bens do filtro, sem o limite de 1000 linhas da tabela na tela).
+   A antiga tela **Recorte** passou a se chamar **Análise**; `/recorte` e `/recorte/xlsx` continuam
+   funcionando e redirecionam para os novos endereços.
    **Inventário** (menu próprio): abra um evento (nome, portaria, comissão; todas as salas com bens
    ativos ou uma amostra), escolha o integrante e leia as plaquetas por sala com leitor de código de
    barras, câmera do celular ou digitação. Bem lido na sala cadastrada = localizado; em outra sala =
