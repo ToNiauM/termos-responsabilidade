@@ -48,10 +48,13 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
 5. **Textos**: os dizeres dos termos (abertura, compromissos, parágrafos, quem recebe a devolução,
    cidade, sigla do órgão) são editáveis no menu Textos, com marcadores como `{nome}` e `{ccustos}`;
    "Restaurar padrão" volta ao texto original.
-6. **Planilha de cadastros**: Cadastros → *Exportar cadastros* gera `cadastros.xlsx` (4 abas). Edite no
-   Excel e importe em *Atualizar base → Importar cadastros* — substitui as 4 tabelas inteiras.
+6. **Planilha de cadastros**: Cadastros → *Exportar cadastros* gera `cadastros.xlsx` (4 abas; quando já
+   existe inventário, mais 5 abas `inv_*`). Edite no Excel e importe em *Atualizar base → Importar
+   cadastros* — substitui as 4 tabelas inteiras; as abas `inv_*` só são aceitas todas juntas (e então
+   substituem o inventário inteiro) ou nenhuma (inventário preservado).
 
-Backup = copiar a pasta `dados/`.
+Backup = copiar a pasta `dados/`. `dados/segredo.txt` — chave que assina a sessão do navegador, criada
+na primeira execução; na web pode vir da variável `TERMOS_SEGREDO`.
 
 ## Desenvolvimento
 

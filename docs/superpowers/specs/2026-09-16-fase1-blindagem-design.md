@@ -1,6 +1,6 @@
 # Fase 1 — Blindagem barata: design
 
-Data: 16/09/2026. Estado: aprovado em conversa (triagem em `../notes/2026-09-16-revisao-system-improvement-plan.md`).
+Data: 16/09/2026. Estado: implementado no branch fase1-blindagem em 17/09/2026; aguardando merge e publicação.
 Base: `main` em `9950dc1`.
 
 ## 1. Objetivo
