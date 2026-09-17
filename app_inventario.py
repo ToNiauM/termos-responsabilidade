@@ -83,6 +83,12 @@ def _json_erro(e, status=409):
     return jsonify({"erro": str(e)}), status
 
 
+def _corpo_json() -> dict | None:
+    """Corpo JSON das rotas de leitura: precisa ser um objeto; qualquer outra coisa é 400."""
+    dados = request.get_json(silent=True)
+    return dados if isinstance(dados, dict) else None
+
+
 def _numero_lido(texto) -> int | None:
     t = str(texto or "").strip()
     return int(t) if t.isdigit() and t.strip("0") else None
@@ -116,7 +122,10 @@ def sala_tela(id, localizacao):
 @inventario_bp.route("/<int:id>/sala/<path:localizacao>/ler", methods=["POST"])
 def ler(id, localizacao):
     conn = _conn()
-    numero = _numero_lido((request.get_json(silent=True) or {}).get("numero"))
+    dados = _corpo_json()
+    if dados is None:
+        return jsonify({"erro": "Envie um objeto JSON."}), 400
+    numero = _numero_lido(dados.get("numero"))
     if numero is None:
         return jsonify({"erro": "Número inválido.", "numero": None}), 404
     try:
@@ -130,7 +139,9 @@ def ler(id, localizacao):
 
 @inventario_bp.route("/<int:id>/leitura/<int:numero>", methods=["POST"])
 def atualizar_leitura(id, numero):
-    dados = request.get_json(silent=True) or {}
+    dados = _corpo_json()
+    if dados is None:
+        return jsonify({"erro": "Envie um objeto JSON."}), 400
     try:
         inventario.atualizar_leitura(_conn(), id, numero, **{k: v for k, v in dados.items() if k in ("conservacao", "quem_usa", "observacao")})
     except db.ErroDeNegocio as e:

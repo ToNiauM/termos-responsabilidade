@@ -21,6 +21,7 @@ app = Flask(__name__, template_folder=str(config.pasta_recursos() / "templates")
             static_folder=str(config.pasta_recursos() / "static"))
 app.secret_key = config.chave_secreta()   # por instalação: TERMOS_SEGREDO ou dados/segredo.txt
 app.register_blueprint(inventario_bp)
+app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024   # mesmo limite do nginx (client_max_body_size 20m)
 app.template_filter("moeda")(painel.moeda)   # R$ 1.234,56 em todas as telas
 
 DSGOV_FIXO = {"SISTEMA": "Termos de Responsabilidade"}
@@ -60,6 +61,12 @@ def fechar_conn(_exc):
 @app.errorhandler(db.ErroDeNegocio)
 def erro_de_negocio(e):
     flash(str(e), "error")
+    return redirect(request.referrer or url_for("home"))
+
+
+@app.errorhandler(413)
+def arquivo_grande(_e):
+    flash("Arquivo muito grande: o limite é 20 MB.", "error")
     return redirect(request.referrer or url_for("home"))
 
 

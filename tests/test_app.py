@@ -609,3 +609,18 @@ def test_docx_tipo_invalido_da_404_e_head_nao_registra(cliente):
     assert db.termos_emitidos(db.conectar()) == []
     assert cliente.get("/termo/ccusto/CCI/docx").status_code == 200
     assert len(db.termos_emitidos(db.conectar())) == 1
+
+
+def test_leitura_com_json_que_nao_e_objeto_da_400(cliente):
+    eid = _abrir(cliente, integrante="Fulano")
+    r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json=[1, 2])
+    assert r.status_code == 400 and "objeto JSON" in r.get_json()["erro"]
+    r = cliente.post(f"/inventario/{eid}/leitura/1001", json="texto")
+    assert r.status_code == 400 and "objeto JSON" in r.get_json()["erro"]
+
+
+def test_upload_acima_de_20mb_da_mensagem_e_nao_500(cliente):
+    grande = io.BytesIO(b"x" * (20 * 1024 * 1024 + 1))
+    r = cliente.post("/upload", data={"arquivo": (grande, "export.xlsx")}, content_type="multipart/form-data",
+                     headers={"Referer": "http://localhost/upload"}, follow_redirects=True)
+    assert r.status_code == 200 and "Arquivo muito grande".encode() in r.data
