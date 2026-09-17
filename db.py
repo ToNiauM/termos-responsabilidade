@@ -149,6 +149,19 @@ CREATE TABLE IF NOT EXISTS inventario_fotos (
   PRIMARY KEY (evento_id, numero, nfoto),
   FOREIGN KEY (evento_id, numero) REFERENCES inventario_leituras(evento_id, numero) ON DELETE CASCADE
 );
+CREATE TABLE IF NOT EXISTS usuarios (
+  id            INTEGER PRIMARY KEY,
+  login         TEXT NOT NULL UNIQUE,
+  nome          TEXT NOT NULL,
+  senha_hash    TEXT NOT NULL,
+  perfil        TEXT NOT NULL CHECK (perfil IN ('admin','operador','inventariante','consulta')),
+  ativo         INTEGER NOT NULL DEFAULT 1,
+  trocar_senha  INTEGER NOT NULL DEFAULT 0,
+  falhas        INTEGER NOT NULL DEFAULT 0,
+  bloqueado_ate TEXT,
+  criado_em     TEXT NOT NULL,
+  ultimo_acesso TEXT
+);
 """
 
 
