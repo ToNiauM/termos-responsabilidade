@@ -42,14 +42,26 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    A planilha de cadastros ganha abas `inv_*` para exportar/importar inventários inteiros
    (migração de outros sistemas). No menu, *Inventário* é um grupo com *Eventos* e, quando há
    evento aberto, o próprio evento, *Painel* e *Relatório*.
-   **Usuários e perfis** (site): entrar com login (ou e-mail, se cadastrado) e senha. O e-mail é opcional e único. Perfis: *administrador* (tudo: usuários, abrir/encerrar/
-   excluir inventário, exclusões e importação de cadastros), *operador* (termos, cadastros, textos, atualizar base),
-   *inventariante* (lê bens nos eventos em que está na comissão) e *consulta* (só vê; não emite termo). A comissão
-   do inventário é escolhida pelo administrador entre os usuários; a leitura grava o nome de quem está logado.
+   **Usuários e funções** (site): entrar com login (ou e-mail, se cadastrado) e senha. O e-mail é opcional e
+   único. Cada usuário soma quantas funções quiser — não são perfis excludentes: *Administrador* (tudo:
+   usuários, abrir/encerrar/excluir inventário, exclusões e importação de cadastros), *Operador* (termos,
+   cadastros, textos, atualizar base), *Consulta* (só vê o acervo; não emite termo), *Inventário* (lê bens,
+   tira foto e registra sobra nos eventos em que está na comissão) e *Consulta de inventários* (acompanha
+   telas, painel, relatório e `.xlsx` de qualquer evento, aberto ou encerrado, sem poder ler bens). As funções
+   se somam: por exemplo, Inventário + Consulta de inventários enxerga todos os eventos, mas só grava leitura,
+   foto e sobra no evento da própria comissão. A comissão de cada evento é escolhida pelo administrador entre
+   os usuários com Administrador ou Inventário, na tela do próprio evento; criar um usuário com a função
+   Inventário não o inclui automaticamente em nenhuma comissão — é preciso adicioná-lo depois, evento a
+   evento. A leitura grava o nome de quem está logado.
    Usuário não é excluído, só inativado. *Nova senha* gera uma senha temporária mostrada uma vez, com troca
    obrigatória no primeiro acesso. Cinco senhas erradas seguidas bloqueiam o login por 15 minutos. O programa
    Windows não pede senha: entra como "Administrador local". Renomear um usuário mantém o nome atualizado na
    comissão do evento aberto (se ele estiver nela); leituras já feitas continuam com o nome antigo.
+   Quem vem de uma instalação com os quatro perfis antigos recebe, na migração, exatamente a função do mesmo
+   código (*admin*→Administrador, *operador*→Operador, *consulta*→Consulta, *inventariante*→Inventário);
+   isso é restrito por identidade, não por nome — usuários homônimos na comissão de um evento não são
+   religados automaticamente, e o administrador precisa selecionar as contas certas na tela Comissão de cada
+   evento que ainda estiver aberto.
 2. **Atualizar base**: envie o export do sistema de patrimônio (`.xlsx`). Só a tabela de bens muda.
    *Exportar bens (formato SPW)* devolve a mesma tabela em `.xlsx`, nas 9 colunas do export — backup reimportável.
 3. **Cadastros**: quatro áreas com busca visível, filtros, ordenação e paginação de 10/20/50 registros.

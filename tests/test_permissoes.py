@@ -95,6 +95,24 @@ def test_rotas_por_funcao(cliente, usuarios_exemplo, funcao):
         assert r.status_code == esperado[funcao], f"{funcao} POST {rota}: {r.status_code} != {esperado[funcao]}"
 
 
+def test_consulta_de_inventarios_na_matriz_de_rotas(cliente, dados):
+    """A quinta função (fora de `usuarios_exemplo`, isolada e sem nenhuma comissão): nas rotas genéricas do
+    acervo e dos cadastros ela é negada exatamente como Inventário (nenhuma das duas tem ACERVO/GESTAO/ADMIN;
+    ambas têm EVENTOS). O que as distingue — ver/baixar relatório de qualquer evento sem poder ler bens — é
+    escopo por evento, coberto em test_escopo_inventario.py."""
+    import usuarios as u
+    from tests.conftest import SENHA_PADRAO
+    u.criar(dados, "chefe", "Chefe", SENHA_PADRAO, ["consulta_inventarios"], trocar_senha=False)
+    cliente.post("/sair")
+    assert logar(cliente, "chefe", SENHA_PADRAO).status_code == 302
+    for rota, esperado in _ROTAS_GET.items():
+        r = cliente.get(rota)
+        assert r.status_code == esperado["inventariante"], f"chefe GET {rota}: {r.status_code} != {esperado['inventariante']}"
+    for rota, esperado in _ROTAS_POST.items():
+        r = cliente.post(rota, data={"ccusto": "CCI", "nome": "ANA SILVA", "limpar": "1"})
+        assert r.status_code == esperado["inventariante"], f"chefe POST {rota}: {r.status_code} != {esperado['inventariante']}"
+
+
 def test_403_em_json_para_rotas_do_leitor(cliente, usuarios_exemplo):
     cliente.post("/sair")
     logar(cliente, *usuarios_exemplo["consulta"])

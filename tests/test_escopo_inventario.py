@@ -1,14 +1,16 @@
 """Escopo do inventário por identidade (Fase 5A, tarefa 4): quem vê e quem confere um evento é decidido
 pelos vínculos de `inventario_comissao_usuarios` (IDs), nunca pelo nome digitado na comissão."""
+import io
 import sqlite3
 
 import pytest
 
 import comissoes
 import db
+import fotos
 import inventario
 import usuarios
-from tests.conftest import semear
+from tests.conftest import ADMIN_LOGIN, ADMIN_SENHA, SENHA_PADRAO, logar, semear
 from tests.test_permissoes import NEGADO
 
 
@@ -238,3 +240,144 @@ def test_tela_da_comissao_mostra_integrante_sem_conta_vinculada(cliente, dados):
     r = cliente.post(f"/inventario/{eid}/comissao", data={"usuarios": [beltrana]}, follow_redirects=True)
     assert "Comissão atualizada".encode() in r.data and _integrantes(dados, eid) == ["Beltrana"]
     assert b"sem conta vinculada" not in cliente.get(f"/inventario/{eid}/comissao").data
+
+
+# ---------------------------------------------------------------- tarefa 6: regressão de autorização
+def test_revogacao_usa_banco_na_proxima_chamada(cliente, dados):
+    """A revogação não depende de expirar sessão: a próxima requisição já lê a função atual do banco."""
+    uid = usuarios.por_login(dados, 'beltrana')['id']
+    usuarios.editar(dados, uid, 'Beltrana', ['inventariante', 'consulta'], True)
+    cliente.post('/sair'); logar(cliente, 'beltrana', SENHA_PADRAO)
+    assert cliente.get('/bem?numero=1001').status_code == 200
+    usuarios.editar(dados, uid, 'Beltrana', ['inventariante'], True)
+    assert cliente.get('/bem?numero=1001').status_code == 403
+
+
+def _cenario_sem_vinculo(dados, cenario):
+    """Monta um evento com a comissão 'Ana' + 'Carla' e devolve (eid, login) para cada motivo de negativa:
+    só Consulta, inventariante de outra comissão, homônimo sem vínculo e função retirada depois do vínculo."""
+    if cenario == "so_consulta":
+        usuarios.criar(dados, "so_consulta", "Só Consulta", SENHA_PADRAO, ["consulta"], trocar_senha=False)
+        ana = usuarios.criar(dados, "ana", "Ana", SENHA_PADRAO, ["inventariante"], trocar_senha=False)
+        eid = comissoes.abrir(dados, "Evento", "", [ana], None)
+        return eid, "so_consulta"
+    if cenario == "outra_comissao":
+        beto = usuarios.criar(dados, "beto", "Beto", SENHA_PADRAO, ["inventariante"], trocar_senha=False)
+        antigo = comissoes.abrir(dados, "Antigo", "", [beto], None)
+        inventario.encerrar_evento(dados, antigo)
+        ana = usuarios.criar(dados, "ana", "Ana", SENHA_PADRAO, ["inventariante"], trocar_senha=False)
+        eid = comissoes.abrir(dados, "Evento", "", [ana], None)
+        return eid, "beto"
+    if cenario == "homonimo":
+        ana = usuarios.criar(dados, "ana", "Ana", SENHA_PADRAO, ["inventariante"], trocar_senha=False)
+        usuarios.criar(dados, "ana2", "Ana", SENHA_PADRAO, ["inventariante"], trocar_senha=False)
+        eid = comissoes.abrir(dados, "Evento", "", [ana], None)
+        return eid, "ana2"
+    if cenario == "funcao_retirada":
+        ana = usuarios.criar(dados, "ana", "Ana", SENHA_PADRAO, ["inventariante"], trocar_senha=False)
+        carla = usuarios.criar(dados, "carla", "Carla", SENHA_PADRAO, ["inventariante"], trocar_senha=False)
+        eid = comissoes.abrir(dados, "Evento", "", [ana, carla], None)
+        usuarios.editar(dados, carla, "Carla", ["consulta"], ativo=True)   # continua vinculada, mas sem a função
+        return eid, "carla"
+    raise ValueError(cenario)
+
+
+_MUTACOES = [
+    ("POST", "/inventario/{eid}/sala/01 - SALA CCI/ler", dict(json={"numero": "1001"})),
+    ("POST", "/inventario/{eid}/leitura/1001", dict(json={"conservacao": "Bom"})),
+    ("POST", "/inventario/{eid}/sala/01 - SALA CCI/lote", dict(data={"acao": "marcar", "numeros": ["1001"]})),
+    ("POST", "/inventario/{eid}/leitura/1001/foto", "foto"),
+    ("POST", "/inventario/{eid}/leitura/1001/foto/1/excluir", dict(data={})),
+    ("POST", "/inventario/{eid}/sala/01 - SALA CCI/sobra", dict(data={"descricao": "VENTILADOR"})),
+    ("POST", "/inventario/{eid}/sobra/1/excluir", dict(data={})),
+]
+_RELATORIOS = [
+    ("GET", "/inventario/{eid}/relatorio", {}),
+    ("GET", "/inventario/{eid}/painel", {}),
+    ("GET", "/inventario/{eid}/xlsx", {}),
+]
+
+
+@pytest.mark.parametrize("cenario", ["so_consulta", "outra_comissao", "homonimo", "funcao_retirada"])
+@pytest.mark.parametrize("metodo,rota,kw", _MUTACOES + _RELATORIOS,
+                         ids=[r for _, r, _ in _MUTACOES + _RELATORIOS])
+def test_mutacoes_e_relatorios_negam_quem_nao_tem_vinculo_valido(cliente, dados, monkeypatch, cenario, metodo, rota, kw):
+    """Nenhuma mutação do inventário nem relatório aceita quem não tem vínculo válido com a comissão do
+    evento (só Consulta, inventariante de outra comissão, homônimo sem vínculo, função retirada depois do
+    vínculo): tudo cai em 403 antes da view, sem chamar o serviço nem o storage."""
+    chamadas = []
+
+    def _espiao(nome):
+        def _fn(*a, **k):
+            chamadas.append(nome)
+            raise AssertionError(f"{nome} não deveria ser chamado")
+        return _fn
+
+    for nome in ("ler", "atualizar_leitura", "ler_lote", "desfazer_leituras", "adicionar_foto", "apagar_foto",
+                 "registrar_sobra", "excluir_sobra", "relatorio", "painel", "exportar_xlsx"):
+        monkeypatch.setattr(inventario, nome, _espiao(f"inventario.{nome}"))
+    for nome in ("enviar", "apagar"):
+        monkeypatch.setattr(fotos, nome, _espiao(f"fotos.{nome}"))
+
+    if kw == "foto":     # BytesIO só pode ser lido uma vez: monta o arquivo fresco a cada chamada
+        kw = dict(data={"foto": (io.BytesIO(b"fake"), "a.png")}, content_type="multipart/form-data")
+
+    eid, login = _cenario_sem_vinculo(dados, cenario)
+    cliente.post("/sair"); logar(cliente, login, SENHA_PADRAO)
+    r = getattr(cliente, metodo.lower())(rota.format(eid=eid), **kw)
+    assert r.status_code == 403
+    assert chamadas == []
+
+
+def test_consulta_de_inventarios_ve_evento_antigo_e_futuro_mas_so_le_com_vinculo(cliente, dados):
+    """Consulta de inventários vê e baixa o .xlsx (GET e HEAD) de qualquer evento, encerrado antes da função
+    ser concedida ou criado depois; não lê bens em nenhum. Somada a Inventário, só escreve no próprio evento."""
+    ana = usuarios.por_login(dados, "beltrana")["id"]
+    antigo = comissoes.abrir(dados, "Antigo", "", [ana], None)
+    inventario.encerrar_evento(dados, antigo)
+    chefe = usuarios.criar(dados, "chefe", "Chefe", SENHA_PADRAO, ["consulta_inventarios"], trocar_senha=False)
+    novo = comissoes.abrir(dados, "Novo", "", [ana], None)          # criado depois de o chefe já ter a função
+    cliente.post("/sair"); logar(cliente, "chefe", SENHA_PADRAO)
+    for eid in (antigo, novo):
+        assert cliente.get(f"/inventario/{eid}/xlsx").status_code == 200
+        assert cliente.open(f"/inventario/{eid}/xlsx", method="HEAD").status_code == 200
+        r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+        assert r.status_code == 403 and r.get_json()["erro"] == NEGADO
+    cliente.post("/sair"); logar(cliente, ADMIN_LOGIN, ADMIN_SENHA)
+    usuarios.editar(dados, chefe, "Chefe", ["consulta_inventarios", "inventariante"], ativo=True)
+    cliente.post("/sair"); logar(cliente, "chefe", SENHA_PADRAO)
+    assert cliente.post(f"/inventario/{antigo}/sala/01 - SALA CCI/ler", json={"numero": "1001"}).status_code == 403
+    assert cliente.post(f"/inventario/{novo}/sala/01 - SALA CCI/ler", json={"numero": "1001"}).status_code == 403
+    cliente.post("/sair"); logar(cliente, ADMIN_LOGIN, ADMIN_SENHA)
+    comissoes.definir(dados, novo, [ana, chefe])
+    cliente.post("/sair"); logar(cliente, "chefe", SENHA_PADRAO)
+    r = cliente.post(f"/inventario/{novo}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+    assert r.status_code == 200 and r.get_json()["situacao"] == "localizado"     # agora é da própria comissão
+
+
+def test_home_sem_evento_atribuido_nao_mostra_cartao_alheio(cliente, dados):
+    """Consulta + Inventário sem vínculo com o evento aberto: o cartão de inventário em andamento do Início
+    não aparece (não vaza contagem nem nome de comissão alheia)."""
+    fulano = usuarios.por_login(dados, ADMIN_LOGIN)["id"]
+    mista = usuarios.criar(dados, "mista", "Mista", SENHA_PADRAO, ["consulta", "inventariante"], trocar_senha=False)
+    comissoes.abrir(dados, "Inventário Alheio", "", [fulano], None)
+    cliente.post("/sair"); logar(cliente, "mista", SENHA_PADRAO)
+    html = cliente.get("/").get_data(as_text=True)
+    assert "Inventário em andamento" not in html and "Inventário Alheio" not in html
+
+
+def test_queda_de_funcao_nao_apaga_historico(cliente, dados):
+    """Perder uma função (inventariante e operador) nunca apaga leituras, sobras, fotos ou termos emitidos:
+    usuarios.editar só grava em usuarios e usuarios_funcoes."""
+    ana = usuarios.criar(dados, "ana", "Ana", SENHA_PADRAO, ["inventariante", "operador"], trocar_senha=False)
+    eid = comissoes.abrir(dados, "Evento", "", [ana], None)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Ana")
+    inventario.registrar_sobra(dados, eid, "01 - SALA CCI", "VENT", "", "obs", "", "Ana", exigir_foto=False)
+    inventario.adicionar_foto(dados, eid, 1001, lambda c: "https://x/a.webp")
+    cliente.post("/cadastros/processos/incluir", data={"tipo": "ccusto", "descricao": "T", "numero_sei": "1111", "vigente": "1"})
+    cliente.get("/termo/ccusto/CCI/docx")                              # gera e registra a emissão
+    tabelas = ("inventario_leituras", "inventario_sobras", "inventario_fotos", "termos_emitidos")
+    antes = {t: [tuple(r) for r in dados.execute(f"SELECT * FROM {t}")] for t in tabelas}
+    usuarios.editar(dados, ana, "Ana", ["consulta"], ativo=True)       # perde inventariante e operador
+    depois = {t: [tuple(r) for r in dados.execute(f"SELECT * FROM {t}")] for t in tabelas}
+    assert antes == depois and all(antes[t] for t in tabelas)
