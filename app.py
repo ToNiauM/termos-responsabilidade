@@ -426,10 +426,7 @@ def textos_salvar():
         flash(f"Padrão restaurado: {textos.ROTULOS.get(chave, chave)}.", "success")
         return redirect(url_for("textos_tela"))
     novos = {c: request.form.get(c, "").replace("\r\n", "\n") for c in textos.PADRAO}
-    for c, v in novos.items():
-        textos.validar(c, v)          # tudo validado antes de gravar qualquer coisa
-    for c, v in novos.items():
-        textos.salvar(conn, c, v)
+    textos.salvar_todos(conn, novos)   # valida tudo, grava tudo, um commit
     flash("Textos salvos.", "success")
     return redirect(url_for("textos_tela"))
 

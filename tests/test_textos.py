@@ -82,3 +82,18 @@ def test_nome_proprio():
 
 def test_com_nome_com_outro_marcador():
     assert textos.com_nome("Eu, {responsavel}, do {orgao_sigla}.", {"responsavel": "ANA", "orgao_sigla": "CFC"}, "responsavel") == ("Eu, ", "ANA", ", do CFC.")
+
+
+def test_salvar_todos_e_tudo_ou_nada(dados):
+    import sqlite3
+    valores = dict(textos.PADRAO, orgao_nome="Conselho X", cidade="Goiânia (GO)")
+    dados.execute("CREATE TRIGGER falha BEFORE INSERT ON textos WHEN (SELECT count(*) FROM textos) >= 1 "
+                  "BEGIN SELECT RAISE(ABORT, 'falha simulada'); END")
+    with pytest.raises(sqlite3.IntegrityError):
+        textos.salvar_todos(dados, valores)
+    assert dados.execute("SELECT count(*) FROM textos").fetchone()[0] == 0
+    dados.execute("DROP TRIGGER falha")
+    textos.salvar_todos(dados, valores)
+    t = textos.obter(dados)
+    assert t["orgao_nome"] == "Conselho X" and t["cidade"] == "Goiânia (GO)"
+    assert dados.execute("SELECT count(*) FROM textos").fetchone()[0] == 2   # só o que difere do padrão

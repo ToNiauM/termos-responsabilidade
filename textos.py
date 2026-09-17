@@ -155,17 +155,35 @@ def obter(conn) -> dict:
 
 
 def salvar(conn, chave: str, valor: str) -> None:
-    validar(chave, valor)
-    if valor == PADRAO[chave]:
-        restaurar(conn, chave)
-        return
-    conn.execute("INSERT OR REPLACE INTO textos VALUES (?, ?)", (chave, valor))
+    _gravar(conn, chave, valor)
     conn.commit()
 
 
 def restaurar(conn, chave: str) -> None:
     conn.execute("DELETE FROM textos WHERE chave = ?", (chave,))
     conn.commit()
+
+
+def salvar_todos(conn, valores: dict) -> None:
+    """Tela Textos: valida tudo antes de gravar qualquer coisa e commita uma vez. Tudo ou nada."""
+    for chave, valor in valores.items():
+        validar(chave, valor)
+    try:
+        for chave, valor in valores.items():
+            _gravar(conn, chave, valor)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def _gravar(conn, chave: str, valor: str) -> None:
+    """Sem commit. Igual ao padrão = apaga a linha (só o que difere fica no banco)."""
+    validar(chave, valor)
+    if valor == PADRAO[chave]:
+        conn.execute("DELETE FROM textos WHERE chave = ?", (chave,))
+    else:
+        conn.execute("INSERT OR REPLACE INTO textos VALUES (?, ?)", (chave, valor))
 
 
 def campos_gerais(t: dict) -> dict:
