@@ -1,25 +1,66 @@
 {% extends "base.html" %}
 {% from "_macros.html" import select, cabecalho_tabela %}
 {% block titulo %}Relatório — {{ e.nome }}{% endblock %}
+{% macro th(col, rotulo) -%}
+<th scope="col">{% if col in colunas_ordem %}<a href="{{ url_for('inventario.relatorio_tela', id=e.id, **dict(ativos, ordem=col, dir=('desc' if f.ordem == col and f.dir != 'desc' else 'asc'))) }}">{{ rotulo }}{% if f.ordem == col %} <i class="fas fa-sort-{{ 'down' if f.dir == 'desc' else 'up' }}" aria-hidden="true"></i>{% endif %}</a>{% else %}{{ rotulo }}{% endif %}</th>
+{%- endmacro %}
 {% block conteudo %}
 <div class="d-flex align-items-center mb-3"><h1 class="mb-0">Relatório · {{ e.nome }}</h1>
-  <a class="br-button primary ml-auto" href="{{ url_for('inventario.xlsx', id=e.id, localizacao=localizacao) }}"><i class="fas fa-file-excel mr-1" aria-hidden="true"></i>Exportar .xlsx</a></div>
-<form method="get" class="row mb-3">
-  <div class="col-md-4 mb-2">{{ select('localizacao', 'Sala', [('', 'Todas')] + salas, selecionado=localizacao or '', obrigatorio=False) }}</div>
-  <div class="col-md-3 mb-2">{{ select('situacao', 'Situação', [('', 'Todas')] + rotulos.items()|list, selecionado=situacao or '', obrigatorio=False) }}</div>
-  <div class="col-md-2 mb-2 d-flex align-items-end"><button class="br-button secondary" type="submit">Filtrar</button></div>
-</form>
+  <a class="br-button secondary ml-auto" href="{{ url_for('inventario.painel_tela', id=e.id) }}"><i class="fas fa-chart-pie mr-1" aria-hidden="true"></i>Painel</a></div>
+<form method="get" class="br-card mb-3"><div class="card-content row">
+  <div class="col-md-3 mb-3">{{ select('localizacao', 'Sala', [('', 'Todas')] + salas, selecionado=f.localizacao or '', obrigatorio=False) }}</div>
+  <div class="col-md-3 mb-3">{{ select('situacao', 'Situação', [('', 'Todas')] + rotulos.items()|list, selecionado=f.situacao or '', obrigatorio=False) }}</div>
+  <div class="col-md-3 mb-3">{{ select('integrante', 'Integrante', [('', 'Todos')] + e.integrantes, selecionado=f.integrante or '', obrigatorio=False) }}</div>
+  <div class="col-md-3 mb-3">{{ select('conservacao', 'Conservação', [('', 'Todas'), ('-', 'Não informada')] + conservacao|list, selecionado=f.conservacao or '', obrigatorio=False) }}</div>
+  <div class="col-md-3 mb-3">{{ select('foto', 'Foto', [('', 'Todas'), ('com', 'Com foto'), ('sem', 'Sem foto')], selecionado=f.foto or '', obrigatorio=False) }}</div>
+  <div class="col-md-4 mb-3"><div class="br-input"><label for="busca">Busca (nº, descrição, quem usa, observação)</label><input id="busca" name="busca" type="search" value="{{ f.busca or '' }}"/></div></div>
+  {% if f.ordem %}<input type="hidden" name="ordem" value="{{ f.ordem }}"/><input type="hidden" name="dir" value="{{ f.dir or 'asc' }}"/>{% endif %}
+  <div class="col-md-5 mb-3 d-flex align-items-end flex-wrap">
+    <button class="br-button primary" type="submit"><i class="fas fa-filter mr-1" aria-hidden="true"></i>Aplicar</button>
+    <a class="br-button ml-2" href="{{ url_for('inventario.relatorio_tela', id=e.id) }}">Limpar</a>
+    <div class="br-checkbox ml-3 mr-2"><input id="fotos" name="fotos" type="checkbox" value="1"/><label for="fotos">Incluir fotos</label></div>
+    <button class="br-button secondary" type="submit" formaction="{{ url_for('inventario.xlsx', id=e.id) }}"><i class="fas fa-file-excel mr-1" aria-hidden="true"></i>Exportar .xlsx</button>
+  </div>
+</div></form>
 {% set r = e.resumo %}
-<p class="text-gray-70">{{ r.lidos }} localizados · {{ r.divergentes }} divergentes · {{ r.pendentes }} pendentes · {{ r.sobras }} sobras · {{ linhas|length }} linha(s) no filtro</p>
+<p class="text-gray-70">{{ descricao }} · {{ linhas|length }} linha(s) · evento: {{ r.lidos }} localizados, {{ r.divergentes }} divergentes, {{ r.pendentes }} pendentes, {{ r.sobras }} sobras</p>
+{% if n_fotos >= 50 %}
+<div class="br-message warning mb-3"><div class="icon"><i class="fas fa-exclamation-triangle fa-lg" aria-hidden="true"></i></div>
+  <div class="content" role="alert"><span class="message-title">Relatório pesado.</span><span class="message-body"> {{ n_fotos }} fotos no filtro: o .xlsx com fotos pode demorar para abrir.</span></div></div>
+{% endif %}
 {{ cabecalho_tabela('Bens', 'rel') }}
-  <thead><tr><th scope="col">Nº</th><th scope="col">Descrição</th><th scope="col">Local sistema</th><th scope="col">Local inventário</th><th scope="col">Situação</th><th scope="col">Conservação</th><th scope="col">Quem usa</th><th scope="col">Observação</th><th scope="col">Integrante</th><th scope="col">Data/hora</th><th scope="col">Foto</th><th scope="col">Situação do bem</th></tr></thead>
+  <thead><tr>{{ th('numero', 'Nº') }}{{ th('descricao', 'Descrição') }}{{ th('local_sistema', 'Local sistema') }}{{ th('local_inventario', 'Local inventário') }}{{ th('situacao_inv', 'Situação') }}{{ th('conservacao', 'Conservação') }}{{ th('quem_usa', 'Quem usa') }}<th scope="col">Observação</th>{{ th('integrante', 'Integrante') }}{{ th('lido_em', 'Data/hora') }}<th scope="col">Foto</th><th scope="col">Situação do bem</th></tr></thead>
   <tbody>{% for x in linhas %}
-  <tr><td><a href="{{ url_for('bem', numero=x.numero) }}">{{ x.numero }}</a></td><td>{{ x.descricao }}</td><td>{{ x.local_sistema }}</td><td>{{ x.local_inventario or '—' }}</td>
+  <tr><td><a href="{{ url_for('bem', numero=x.numero) }}">{{ x.numero }}</a></td><td>{{ x.descricao }}{% if x.complemento %} <span class="text-gray-70">{{ x.complemento }}</span>{% endif %}</td><td>{{ x.local_sistema }}</td><td>{{ x.local_inventario or '—' }}</td>
     <td>{% if x.situacao_inv == 'localizado' %}<span class="br-tag bg-success text-pure-0"><span>Localizado</span></span>{% elif x.situacao_inv == 'divergente' %}<span class="br-tag bg-warning"><span>Divergente</span></span>{% else %}<span class="br-tag bg-gray-20"><span>Não localizado</span></span>{% endif %}</td>
     <td>{{ x.conservacao or '' }}</td><td>{{ x.quem_usa or '' }}</td><td>{{ x.observacao or '' }}</td><td>{{ x.integrante or '' }}</td>
     <td>{% if x.lido_em %}{{ x.lido_em[8:10] }}/{{ x.lido_em[5:7] }}/{{ x.lido_em[:4] }} {{ x.lido_em[11:16] }}{% endif %}</td>
-    <td>{% if x.foto_url %}<a href="{{ x.foto_url }}" target="_blank" rel="noopener">ver</a>{% endif %}</td>
+    <td>{% if x.foto_url %}<button type="button" class="foto-abrir" data-foto="{{ x.foto_url }}" aria-label="Ver foto do bem {{ x.numero }}"><img src="{{ x.foto_url }}" alt="" class="dsgov-miniatura"/></button>{% else %}—{% endif %}</td>
     <td>{{ x.situacao_bem }}</td></tr>
+  {% else %}<tr><td colspan="12">Nenhum bem neste filtro.</td></tr>
   {% endfor %}</tbody>
 </table></div>
+<div class="br-scrim-util foco" id="scrim-foto" hidden>
+  <div class="br-modal medium" role="dialog" aria-modal="true" aria-labelledby="modal-foto-titulo">
+    <div class="br-modal-header"><div class="br-modal-title" id="modal-foto-titulo">Foto</div>
+      <button class="br-button circle small" type="button" id="modal-foto-fechar" aria-label="Fechar"><i class="fas fa-times" aria-hidden="true"></i></button></div>
+    <div class="br-modal-body text-center"><img id="modal-foto-img" src="" alt="Foto do bem" style="max-width:100%;max-height:70vh"/></div>
+    <div class="br-modal-footer justify-content-end"><a class="br-button secondary" id="modal-foto-link" href="#" target="_blank" rel="noopener">Abrir em nova aba</a></div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<style>.foto-abrir { border: 0; background: none; padding: 0; cursor: pointer; }</style>
+<script>
+(function () {
+  var scrim = document.getElementById("scrim-foto"), img = document.getElementById("modal-foto-img"), link = document.getElementById("modal-foto-link");
+  function fechar() { scrim.hidden = true; scrim.classList.remove("active"); img.src = ""; }
+  document.querySelectorAll(".foto-abrir").forEach(function (b) {
+    b.addEventListener("click", function () { img.src = b.dataset.foto; link.href = b.dataset.foto; scrim.hidden = false; scrim.classList.add("active"); });
+  });
+  document.getElementById("modal-foto-fechar").addEventListener("click", fechar);
+  scrim.addEventListener("click", function (ev) { if (ev.target === scrim) fechar(); });
+  document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !scrim.hidden) fechar(); });
+})();
+</script>
 {% endblock %}

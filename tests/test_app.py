@@ -538,6 +538,34 @@ def test_inventario_relatorio_xlsx_e_card_do_painel(cliente):
     assert r.status_code == 200 and r.headers["Content-Disposition"].endswith(".xlsx")
 
 
+def test_inventario_relatorio_filtros_ordem_modal_e_xlsx_com_fotos(cliente):
+    import io
+    from openpyxl import load_workbook
+    eid = _abrir(cliente)
+    cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+    cliente.post(f"/inventario/{eid}/leitura/1001", json={"quem_usa": "José"})
+    import db, inventario
+    inventario.atualizar_leitura(db.conectar(), eid, 1001, foto_url="https://x/1001.webp")
+    r = cliente.get(f"/inventario/{eid}/relatorio?integrante=Fulano&busca=jose&ordem=numero&dir=desc")
+    corpo = r.data.split(b"<tbody>")[1]
+    assert r.status_code == 200 and b">1001<" in corpo and b">1002<" not in corpo
+    assert "Integrante Fulano".encode() in r.data and 'Busca "jose"'.encode() in r.data and b"fa-sort-down" in r.data
+    assert b"ordem=numero&amp;dir=asc" in r.data or b"dir=asc&amp;ordem=numero" in r.data      # clique de novo inverte
+    assert b'data-foto="https://x/1001.webp"' in r.data and b'id="scrim-foto"' in r.data and b'name="fotos"' in r.data
+    assert b'name="ordem" value="numero"' in r.data and b"1 linha(s)" in r.data
+    r = cliente.get(f"/inventario/{eid}/relatorio?foto=sem&conservacao=-")
+    assert b">1001<" not in r.data.split(b"<tbody>")[1] and b"Sem foto" in r.data and "Não informada".encode() in r.data
+    r_xss = cliente.get(f"/inventario/{eid}/relatorio?busca=<script>alert(1)</script>")
+    assert b"<script>alert(1)</script>" not in r_xss.data and b"&lt;script&gt;" in r_xss.data
+    r = cliente.get(f"/inventario/{eid}/xlsx?integrante=Fulano&fotos=1")
+    assert r.status_code == 200 and r.headers["Content-Disposition"].endswith(".xlsx")
+    ws = load_workbook(io.BytesIO(r.data))["Bens"]
+    assert ws.cell(row=3, column=1).value == "Todas as salas · Integrante Fulano" and ws.max_row == 6
+    assert ws.cell(row=6, column=13).value == '=_xlfn.IMAGE("https://x/1001.webp")'
+    ws = load_workbook(io.BytesIO(cliente.get(f"/inventario/{eid}/xlsx").data))["Bens"]
+    assert ws.cell(row=6, column=13).value == "https://x/1001.webp" and ws.max_row == 8      # 5 de cabeçalho + 1001, 1002, 1004
+
+
 def test_inventario_painel(cliente):
     eid = _abrir(cliente)
     cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})

@@ -3,6 +3,7 @@ A conexão por request e o errorhandler de ErroDeNegocio são os de app.py (g.co
 import io
 
 from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, send_file, session, url_for
+from markupsafe import Markup, escape
 
 import db
 import fotos
@@ -220,24 +221,33 @@ def sobra_excluir(id, sobra_id):
     return redirect(url_for("inventario.sala_tela", id=id, localizacao=s["localizacao"]))
 
 
+def _filtros_relatorio() -> dict:
+    return {k: (request.args.get(k) or None) for k in inventario.FILTROS_RELATORIO}
+
+
 @inventario_bp.route("/<int:id>/relatorio")
 def relatorio_tela(id):
     conn = _conn()
     e = _evento_ou_404(conn, id)
-    loc, sit = request.args.get("localizacao") or None, request.args.get("situacao") or None
-    return render_template("inventario_relatorio.html", e=e, linhas=inventario.relatorio(conn, id, loc, sit), localizacao=loc, situacao=sit,
+    f = _filtros_relatorio()
+    linhas = inventario.relatorio(conn, id, **f)
+    # descrição em HTML seguro: escapa cada valor de filtro (vindo da querystring) antes de compor a frase,
+    # preservando as aspas literais que a própria frase usa em torno da busca (só perigosas em atributo, não em texto)
+    f_seguro = {k: (str(escape(v)) if isinstance(v, str) else v) for k, v in f.items()}
+    return render_template("inventario_relatorio.html", e=e, linhas=linhas, f=f, ativos={k: v for k, v in f.items() if v},
+                           descricao=Markup(inventario.descrever_filtros(f_seguro)), n_fotos=inventario.contar_fotos(linhas),
                            salas=[s["localizacao"] for s in inventario.salas(conn, id)], rotulos=inventario.ROTULO_SITUACAO,
-                           trilha=_trilha(e, ("Relatório", None)))
+                           conservacao=inventario.CONSERVACAO, colunas_ordem=inventario.COLUNAS_ORDEM, trilha=_trilha(e, ("Relatório", None)))
 
 
 @inventario_bp.route("/<int:id>/xlsx")
 def xlsx(id):
     conn = _conn()
-    e = _evento_ou_404(conn, id)
-    loc = request.args.get("localizacao") or None
-    arquivo = inventario.exportar_xlsx(conn, id, io.BytesIO(), loc)
+    _evento_ou_404(conn, id)
+    f = _filtros_relatorio()
+    arquivo = inventario.exportar_xlsx(conn, id, io.BytesIO(), fotos=request.args.get("fotos") == "1", **f)
     arquivo.seek(0)
-    nome = f"inventario_{id}_{''.join(c if c.isalnum() else '_' for c in (loc or 'todas'))}.xlsx"
+    nome = f"inventario_{id}_{''.join(c if c.isalnum() else '_' for c in (f['localizacao'] or 'todas'))}.xlsx"
     return send_file(arquivo, as_attachment=True, download_name=nome)
 
 
