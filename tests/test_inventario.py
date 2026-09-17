@@ -77,6 +77,20 @@ def test_abrir_evento_com_elegiveis_e_editar_comissao(dados):
         inventario.editar_comissao(dados, eid, ["Fulano"])
 
 
+def test_renomear_integrante_mantem_comissao_do_evento_aberto(dados):
+    eid = semear_inventario(dados)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    n = inventario.renomear_integrante(dados, "Fulano", "Fulano Silva")
+    assert n == 1
+    assert inventario.evento(dados, eid)["integrantes"] == ["Beltrana", "Fulano Silva"]
+    assert dados.execute("SELECT integrante FROM inventario_leituras WHERE evento_id = ? AND numero = 1001",
+                         (eid,)).fetchone()[0] == "Fulano"                          # leitura mantém o nome antigo
+    inventario.encerrar_evento(dados, eid)
+    n2 = inventario.renomear_integrante(dados, "Beltrana", "Beltrana Silva")
+    assert n2 == 0                                                                  # evento encerrado: não muda
+    assert inventario.evento(dados, eid)["integrantes"] == ["Beltrana", "Fulano Silva"]
+
+
 def test_salas_contadores_e_resumo(dados):
     eid = semear_inventario(dados)
     s = {x["localizacao"]: x for x in inventario.salas(dados, eid)}

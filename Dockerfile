@@ -1,7 +1,8 @@
 # Servir o sistema na web (patrimonio.sistemascfc.org). O programa de desktop (main.py/build.bat) não usa este arquivo.
 FROM python:3.12-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 TERMOS_DADOS=/app/dados
+# TERMOS_LOGIN=1: a imagem sempre exige login; o compose pode sobrescrever se algum dia precisar do modo desktop.
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 TERMOS_DADOS=/app/dados TERMOS_LOGIN=1
 WORKDIR /app
 
 # Só o que o servidor precisa: pywebview e pyinstaller são do desktop.

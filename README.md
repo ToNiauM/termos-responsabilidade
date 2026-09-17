@@ -48,7 +48,8 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    do inventário é escolhida pelo administrador entre os usuários; a leitura grava o nome de quem está logado.
    Usuário não é excluído, só inativado. *Nova senha* gera uma senha temporária mostrada uma vez, com troca
    obrigatória no primeiro acesso. Cinco senhas erradas seguidas bloqueiam o login por 15 minutos. O programa
-   Windows não pede senha: entra como "Administrador local".
+   Windows não pede senha: entra como "Administrador local". Renomear um usuário mantém o nome atualizado na
+   comissão do evento aberto (se ele estiver nela); leituras já feitas continuam com o nome antigo.
 2. **Atualizar base**: envie o export do sistema de patrimônio (`.xlsx`). Só a tabela de bens muda.
    *Exportar bens (formato SPW)* devolve a mesma tabela em `.xlsx`, nas 9 colunas do export — backup reimportável.
 3. **Cadastros**: quatro áreas com busca visível, filtros, ordenação e paginação de 10/20/50 registros.

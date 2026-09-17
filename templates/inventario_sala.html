@@ -141,6 +141,7 @@
       var form = document.createElement("form"); form.method = "post"; form.className = "d-inline";
       form.action = URL_FOTO_EXCLUIR.replace(/\/0\/foto\/0\/excluir$/, "/" + numero + "/foto/" + f.nfoto + "/excluir");
       var input = document.createElement("input"); input.type = "hidden"; input.name = "volta"; input.value = SALA;
+      var tok = document.createElement("input"); tok.type = "hidden"; tok.name = "csrf"; tok.value = CSRF; form.appendChild(tok);
       var btn = document.createElement("button"); btn.className = "br-button circle small"; btn.type = "submit"; btn.setAttribute("aria-label", "Excluir foto " + f.nfoto);
       btn.innerHTML = '<i class="fas fa-trash" aria-hidden="true"></i>';
       form.appendChild(input); form.appendChild(btn); wrap.appendChild(form);

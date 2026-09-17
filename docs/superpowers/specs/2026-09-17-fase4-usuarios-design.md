@@ -109,10 +109,10 @@ emissão):
 Notas:
 
 - Para o **consulta**, "ver sem emitir" significa: `centro_custos`, `termos_individuais`, `termo_devolucao`
-  (GET), `termo`, `termos_emitidos_tela`, `termo_emitido` abrem; `gerar`, `gerar_individual`,
-  `termo_documento`, `termo_docx`, `termo_planilha`, `termo_registrar`, e os POSTs de `termo_devolucao`
-  devolvem 403. Na tela do termo os botões "Copiar para o SEI" e "Baixar .docx" não aparecem para ele
-  (mesma condição no template).
+  (GET), `termo`, `termo_documento` (o iframe do documento; não registra emissão), `termos_emitidos_tela`,
+  `termo_emitido` abrem; `gerar`, `gerar_individual`, `termo_docx`, `termo_planilha`, `termo_registrar`, e os
+  POSTs de `termo_devolucao` devolvem 403. Na tela do termo os botões "Copiar para o SEI" e "Baixar .docx"
+  não aparecem para ele (mesma condição no template).
 - **Comissão** é checagem adicional em `inventario.ler`, `ler_lote`, `registrar_sobra`, edição de leitura e
   fotos: além do perfil, `g.usuario["nome"]` tem que estar em `inventario_integrantes` do evento. A checagem
   que já existe ("Escolha o integrante da comissão antes de ler") vira "Você não faz parte da comissão deste

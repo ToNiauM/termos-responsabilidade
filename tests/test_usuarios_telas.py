@@ -51,6 +51,7 @@ def test_nova_senha_temporaria_aparece_uma_vez(cliente, dados, usuarios_exemplo)
     op = usuarios.por_login(dados, "op")["id"]
     r = cliente.post(f"/usuarios/{op}/nova-senha")
     assert r.status_code == 200 and b"Anote agora" in r.data
+    assert r.headers["Cache-Control"] == "no-store"
     temp = re.search(rb'id="senha-temporaria">([A-Za-z0-9]{10})<', r.data).group(1).decode()
     assert temp not in cliente.get(f"/usuarios/{op}/editar").data.decode()
     assert usuarios.por_id(dados, op)["trocar_senha"] == 1

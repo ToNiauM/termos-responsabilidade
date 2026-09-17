@@ -35,6 +35,9 @@ def test_login_acerto_erro_e_proximo(cliente, dados):
         r = cliente.post(f"/login?proximo={proximo}", data={"login": ADMIN_LOGIN, "senha": ADMIN_SENHA})
         assert r.headers["Location"] == "/"
         cliente.post("/sair")
+    r = cliente.post("/login?proximo=/bem%0D%0Ainjetado", data={"login": ADMIN_LOGIN, "senha": ADMIN_SENHA})
+    assert r.status_code == 302 and r.headers["Location"] == "/"
+    cliente.post("/sair")
 
 
 def test_login_inativo_e_bloqueado(cliente, dados, monkeypatch):

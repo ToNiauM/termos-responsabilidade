@@ -88,6 +88,17 @@ def editar_comissao(conn, evento_id: int, integrantes: list, elegiveis: list | N
     conn.commit()
 
 
+def renomear_integrante(conn, antigo: str, novo: str) -> int:
+    """Usuário renomeado (app_usuarios.editar): atualiza o nome na comissão do evento aberto para que ele não
+    caia em "fora da comissão" por causa da troca. Leituras e sobras já registradas mantêm o nome antigo
+    (spec §5); eventos encerrados também não mudam. Devolve quantas linhas foram atualizadas."""
+    cur = conn.execute(
+        "UPDATE inventario_integrantes SET nome = ? WHERE nome = ? AND evento_id IN "
+        "(SELECT id FROM inventario_eventos WHERE encerrado_em IS NULL)", (novo, antigo))
+    conn.commit()
+    return cur.rowcount
+
+
 def abrir_evento(conn, nome: str, descricao, integrantes: list, salas: list | None = None, elegiveis: list | None = None) -> int:
     """Um evento aberto por vez. salas=None → todas as localizações com bens ATIVO; lista → amostragem."""
     nome = _obrigatorio(nome, "Nome do evento")

@@ -69,3 +69,14 @@ def test_meta_e_cabecalho_nos_fetch(cliente):
 
 def test_cliente_de_teste_injeta_token(cliente):
     assert cliente.post("/textos", data={"restaurar": "orgao_nome"}).status_code == 302
+
+
+def test_form_montado_via_js_tem_csrf():
+    faltam = []
+    for caminho in sorted(TEMPLATES.rglob("*.html")):
+        texto = caminho.read_text(encoding="utf-8")
+        if 'createElement("form")' not in texto:
+            continue
+        if re.search(r'\.name\s*=\s*"csrf"', texto) is None:
+            faltam.append(str(caminho.relative_to(TEMPLATES)))
+    assert not faltam, "Formulário criado via JS sem campo csrf: " + ", ".join(faltam)

@@ -213,7 +213,7 @@ def atualizar_leitura(id, numero):
 def lote(id, localizacao):
     """Marcar como localizados (leitura sem plaqueta) ou desmarcar (apaga a leitura) os bens selecionados."""
     conn = _conn()
-    _evento_ou_404(conn, id)
+    _exigir_comissao(conn, id)
     volta = redirect(url_for("inventario.sala_tela", id=id, localizacao=localizacao))
     numeros = [int(n) for n in request.form.getlist("numeros") if n.strip().isdecimal()]
     if not numeros:

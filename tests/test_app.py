@@ -848,9 +848,26 @@ def test_inventario_fora_da_comissao_nao_edita_nem_apaga(cliente, monkeypatch):
     r = cliente.post(f"/inventario/{eid}/sobra/{sobra_id}/excluir", follow_redirects=True)
     assert "não faz parte da comissão".encode() in r.data
     assert any(s["id"] == sobra_id for s in inventario.bens_da_sala(db.conectar(), eid, "01 - SALA CCI")["sobras"])   # sobra continua
+    n_antes = db.conectar().execute("SELECT count(*) FROM inventario_leituras WHERE evento_id = ? AND numero = 1001", (eid,)).fetchone()[0]
+    r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "desmarcar", "numeros": ["1001"]}, follow_redirects=True)
+    assert "não faz parte da comissão".encode() in r.data
+    n_depois = db.conectar().execute("SELECT count(*) FROM inventario_leituras WHERE evento_id = ? AND numero = 1001", (eid,)).fetchone()[0]
+    assert n_depois == n_antes                                    # leitura de Beltrana continua
+    r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "marcar", "numeros": ["1002"]}, follow_redirects=True)
+    assert "não faz parte da comissão".encode() in r.data
     cliente.post(f"/inventario/{eid}/comissao", data={"integrantes": ["Fulano", "Beltrana"]})
     r = cliente.post(f"/inventario/{eid}/leitura/1001", json={"conservacao": "Bom"})
     assert r.status_code == 200
+
+
+def test_renomear_usuario_mantem_na_comissao_do_evento_aberto(cliente):
+    import db, usuarios
+    eid = _abrir(cliente, comissao=["Fulano", "Beltrana"])
+    admin_id = usuarios.por_login(db.conectar(), ADMIN_LOGIN)["id"]
+    r = cliente.post(f"/usuarios/{admin_id}/editar", data={"nome": "Fulano Silva", "perfil": "admin", "ativo": "1"}, follow_redirects=True)
+    assert r.status_code == 200
+    j = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"}).get_json()
+    assert j["situacao"] == "localizado" and j["integrante"] == "Fulano Silva"
 
 
 def test_inventario_comissao_so_em_evento_aberto(cliente):

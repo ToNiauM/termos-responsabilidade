@@ -21,6 +21,10 @@ _FORMATO = "%Y-%m-%d %H:%M:%S"
 # Modo desktop (sem TERMOS_LOGIN): quem usa o programa Windows é o administrador da instalação.
 USUARIO_LOCAL = {"id": None, "login": "local", "nome": "Administrador local", "perfil": "admin", "ativo": 1, "trocar_senha": 0}
 
+# Hash fictício calculado uma vez na importação: usado para gastar o mesmo tempo de um check_password_hash
+# real quando o login não existe (ou está inativo), para não dar pista por tempo de resposta.
+_HASH_FALSO = generate_password_hash("senha-falsa-para-tempo-constante")
+
 _COLUNAS_LISTA = "id, login, nome, perfil, ativo, trocar_senha, falhas, bloqueado_ate, criado_em, ultimo_acesso"
 
 
@@ -172,6 +176,7 @@ def autenticar(conn, login, senha) -> dict:
     por 15 minutos (a senha certa também falha nesse período e não conta como falha)."""
     u = por_login(conn, login)
     if not u or not u["ativo"]:
+        check_password_hash(_HASH_FALSO, str(senha or ""))    # tempo constante: não denuncia login inexistente/inativo
         raise ErroDeNegocio(_INVALIDO)
     agora = _agora_dt()
     if u["bloqueado_ate"] and agora.strftime(_FORMATO) < u["bloqueado_ate"]:
