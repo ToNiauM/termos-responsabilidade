@@ -392,3 +392,34 @@ def test_relatorio_filtros_busca_e_ordem(dados):
     assert inventario.descrever_filtros({"localizacao": "01 - SALA CCI", "situacao": "divergente", "integrante": "Fulano",
                                          "conservacao": "-", "foto": "com", "busca": " cadeira ", "ordem": "numero"}) == \
         'Sala 01 - SALA CCI · Situação Divergente · Integrante Fulano · Conservação Não informada · Com foto · Busca "cadeira"'
+
+
+def test_painel_dados(dados):
+    eid = semear_inventario(dados)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    inventario.ler(dados, eid, "01 - SALA CCI", 2001, "Beltrana")      # divergente (é da SALA B)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1002, "Fulano")
+    inventario.atualizar_leitura(dados, eid, 1001, conservacao="Ruim")
+    p = inventario.painel(dados, eid)
+    assert p["resumo"]["lidos"] == 2
+    assert [(x["chave"], x["rotulo"], x["quantidade"]) for x in p["situacao"]] == \
+        [("localizado", "Localizado", 2), ("divergente", "Divergente", 1), ("pendente", "Não localizado", 3)]
+    assert [(x["chave"], x["quantidade"]) for x in p["integrantes"]] == [("Fulano", 2), ("Beltrana", 1)]
+    assert [(x["chave"], x["rotulo"], x["quantidade"]) for x in p["conservacao"]] == [("Ruim", "Ruim", 1), ("-", "Não informada", 2)]
+    assert p["andares"] == [{"andar": "01", "total": 2, "localizados": 2, "pendentes": 0, "divergentes": 1, "salas": 1},
+                            {"andar": "02", "total": 2, "localizados": 0, "pendentes": 2, "divergentes": 0, "salas": 1},
+                            {"andar": "99", "total": 1, "localizados": 0, "pendentes": 1, "divergentes": 0, "salas": 1}]
+    assert p["salas_do_andar"] == []
+    assert inventario.painel(dados, eid, "02")["salas_do_andar"] == \
+        [{"localizacao": "02 - SALA B", "total": 2, "localizados": 0, "pendentes": 2, "divergentes": 0}]
+    with pytest.raises(db.ErroDeNegocio):
+        inventario.painel(dados, 999)
+
+
+def test_painel_sala_sem_andar_vai_por_ultimo(dados):
+    semear(dados)
+    dados.execute("INSERT INTO bens VALUES (5001,'ATIVO','QUADRO','','MÓVEIS','TERMOS INDIVIDUAIS','01/01/2020',1,1)")
+    dados.commit()
+    eid = inventario.abrir_evento(dados, "Inv", None, ["Fulano"])
+    assert [a["andar"] for a in inventario.painel(dados, eid)["andares"]] == ["01", "99", inventario.ANDAR_SEM]
+    assert [x["chave"] for x in inventario.painel(dados, eid)["integrantes"]] == [] and inventario.painel(dados, eid)["conservacao"] == []

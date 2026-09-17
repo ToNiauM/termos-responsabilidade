@@ -142,6 +142,35 @@ def resumo(conn, evento_id: int) -> dict:
             "pct_bens": round(100 * lidos / bens, 1) if bens else 0.0}
 
 
+def painel(conn, evento_id: int, andar_sel: str | None = None) -> dict:
+    """Números do painel do evento: situação dos bens, leituras por integrante, conservação informada, progresso
+    por andar e, se andar_sel, por sala do andar. Tudo a partir de salas() (que lê da fonte do evento)."""
+    if not _um(conn, "SELECT id FROM inventario_eventos WHERE id = ?", evento_id):
+        raise ErroDeNegocio("Evento de inventário não encontrado.")
+    ss = salas(conn, evento_id)
+    r = resumo(conn, evento_id)
+    situacao = [{"chave": "localizado", "rotulo": ROTULO_SITUACAO["localizado"], "quantidade": r["lidos"]},
+                {"chave": "divergente", "rotulo": ROTULO_SITUACAO["divergente"], "quantidade": r["divergentes"]},
+                {"chave": "pendente", "rotulo": ROTULO_SITUACAO["pendente"], "quantidade": r["pendentes"]}]
+    integrantes = [{"chave": n, "rotulo": n, "quantidade": q} for n, q in conn.execute(
+        "SELECT integrante, count(*) FROM inventario_leituras WHERE evento_id = ? GROUP BY integrante ORDER BY count(*) DESC, integrante", (evento_id,))]
+    por_cons = dict(conn.execute("SELECT coalesce(conservacao, ?), count(*) FROM inventario_leituras WHERE evento_id = ? GROUP BY 1",
+                                 (CONSERVACAO_VAZIA, evento_id)).fetchall())
+    conservacao = [{"chave": c, "rotulo": "Não informada" if c == CONSERVACAO_VAZIA else c, "quantidade": por_cons[c]}
+                   for c in (*CONSERVACAO, CONSERVACAO_VAZIA) if por_cons.get(c)]
+    andares: dict = {}
+    for s in ss:
+        a = andares.setdefault(andar(s["localizacao"]), {"andar": andar(s["localizacao"]), "total": 0, "localizados": 0, "pendentes": 0, "divergentes": 0, "salas": 0})
+        for k in ("total", "localizados", "pendentes", "divergentes"):
+            a[k] += s[k]
+        a["salas"] += 1
+    lista_andares = [andares[k] for k in sorted(andares, key=lambda k: (k == ANDAR_SEM, k))]
+    salas_do_andar = [{k: s[k] for k in ("localizacao", "total", "localizados", "pendentes", "divergentes")}
+                      for s in ss if andar_sel and andar(s["localizacao"]) == andar_sel]
+    return {"resumo": r, "situacao": situacao, "integrantes": integrantes, "conservacao": conservacao,
+            "andares": lista_andares, "salas_do_andar": salas_do_andar}
+
+
 # ---------------------------------------------------------------- leituras
 _LEITURA = "r.localizacao AS lido_em_sala, r.lido_em, r.integrante, r.conservacao, r.quem_usa, r.observacao, r.foto_url"
 
