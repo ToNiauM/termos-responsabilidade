@@ -102,6 +102,9 @@ def test_grafico_tipos_pela_quantidade_de_itens(dados):
 
 
 def test_indicadores_nao_trocam_filtro(dados):
+    """Teste de fumaça do brief: todas as contagens são zero, então todo card fica sem link por
+    short-circuit de `refinar` (`not contagem`) — não prova por si só o ramo de conflito de filtro
+    (ver test_indicadores_bloqueiam_com_filtro_ja_fixado_em_outro_valor, abaixo)."""
     from app import app
     import painel
     r = dict(quantidade=1, valor_total=10, imoveis=0, valor_imoveis=0,
@@ -109,6 +112,27 @@ def test_indicadores_nao_trocam_filtro(dados):
     with app.test_request_context():
         cards = painel.indicadores_analise(r, {'ccusto': 'CCI', 'classificacao': 'MÓVEIS', 'valor_de': '1'})
     assert all(c['url'] is None for c in cards)
+
+
+def test_indicadores_bloqueiam_com_filtro_ja_fixado_em_outro_valor():
+    """O primeiro `if` de `refinar` (painel.py) é o ponto central da tarefa ("sem trocar filtros"):
+    um filtro já fixado num valor DIFERENTE do que o card ofereceria bloqueia o link mesmo com
+    contagem positiva — não só quando a contagem é zero (short-circuit, teste acima) nem quando o
+    filtro já está exatamente no valor do card (a outra branch, coberta em
+    test_indicadores_analise_clique_completo com classificacao='imoveis' e valor_status='zero'/'nao_informado')."""
+    from app import app
+    import painel
+    r = dict(quantidade=10, valor_total=100, imoveis=3, valor_imoveis=30,
+             sem_centro=4, valor_nao_informado=2, valor_zero=2)
+    with app.test_request_context():
+        por = {c['rotulo']: c for c in painel.indicadores_analise(r, {'classificacao': 'TERRENOS'})}
+        assert por['Imóveis']['url'] is None                # classificação já fixada numa classe real diferente
+        por = {c['rotulo']: c for c in painel.indicadores_analise(r, {'valor_status': 'zero'})}
+        assert por['Valor não informado']['url'] is None    # situação do valor já fixada em 'zero'
+        por = {c['rotulo']: c for c in painel.indicadores_analise(r, {'valor_status': 'nao_informado'})}
+        assert por['Valor zero']['url'] is None              # situação do valor já fixada em 'não informado'
+        por = {c['rotulo']: c for c in painel.indicadores_analise(r, {'ccusto': 'CCI'})}
+        assert por['Sem centro nem pessoa']['url'] is None   # centro já fixado num centro real
 
 
 def test_indicadores_valor_status_bloqueado_por_intervalo_numerico():
@@ -150,8 +174,11 @@ def test_indicadores_analise_valores_e_detalhe(dados):
 
 def test_indicadores_analise_clique_completo(dados):
     """Clique num indicador positivo: decodifica a URL do card e confirma que db.recorte com esses
-    filtros traz a mesma contagem. Cobre situacao=, centro, pessoa, imóvel, intervalo, NULL, zero e
-    filtros já fixados (onde o card correto deixa de oferecer link)."""
+    filtros traz a mesma contagem (o laço `clicar` faz isso para todo card positivo, em toda chamada
+    abaixo). Cobre situacao=, centro, pessoa, imóvel, intervalo, NULL, zero e filtros já fixados —
+    nesses últimos, cada cenário assere explicitamente se o card correspondente ficou sem link (valor
+    já fixado, real e diferente do que o card ofereceria) ou se o link continua disponível (só um dos
+    dois lados de 'sem centro nem pessoa' está fixado)."""
     from urllib.parse import urlparse, parse_qs
     from app import app
     from tests.conftest import semear
@@ -181,15 +208,29 @@ def test_indicadores_analise_clique_completo(dados):
     # situacao padrão (ATIVO)
     clicar({'situacao': 'ATIVO'})
 
-    # centro já fixado
-    clicar({'situacao': 'ATIVO', 'ccusto': 'CCI'})
+    # centro já fixado num centro real (diverge de '-'): "sem centro nem pessoa" fica sem link
+    r, por = clicar({'situacao': 'ATIVO', 'ccusto': 'CCI'})
+    assert por['Sem centro nem pessoa']['url'] is None
 
-    # pessoa já fixada
-    clicar({'situacao': 'ATIVO', 'pessoa': 'ANA SILVA'})
+    # pessoa já fixada (diverge de '-'): mesma lógica sobre pessoa
+    r, por = clicar({'situacao': 'ATIVO', 'pessoa': 'ANA SILVA'})
+    assert por['Sem centro nem pessoa']['url'] is None
 
-    # classificação de imóvel já fixada: sem novo refinamento de imóveis
+    # ccusto já na sentinela '-' e pessoa livre: a spec permite continuar oferecendo o link (falta só
+    # fixar pessoa) — o card tem link e o round-trip do laço acima já confere a contagem
+    r, por = clicar({'situacao': 'ATIVO', 'ccusto': '-'})
+    assert por['Sem centro nem pessoa']['url'] is not None and r['sem_centro'] > 0
+
+    # classificação já EXATAMENTE no valor do card ('imoveis'): sem novo refinamento (branch 2 de
+    # refinar — nada sobra para oferecer)
     r, por = clicar({'situacao': 'ATIVO', 'classificacao': 'imoveis'})
     assert por['Imóveis']['url'] is None
+
+    # classificação fixada numa classe real de imóvel (TERRENOS, diverge de 'imoveis'): mesmo com
+    # r['imoveis'] positivo (TERRENOS pertence ao grupo), o link fica bloqueado — branch 1 de refinar
+    # com dado real, não só sintético (achado do reviewer)
+    r, por = clicar({'situacao': 'ATIVO', 'classificacao': 'TERRENOS'})
+    assert r['imoveis'] > 0 and por['Imóveis']['url'] is None
 
     # intervalo numérico ativo: bloqueia os dois cards de situação do valor
     r, por = clicar({'situacao': 'ATIVO', 'valor_de': '0'})

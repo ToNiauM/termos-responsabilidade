@@ -1,4 +1,6 @@
 """Análise: separar valor não informado (NULL), valor zero e intervalos numéricos."""
+import re
+
 import pytest
 import db
 from tests.conftest import semear
@@ -43,3 +45,32 @@ def test_sem_centro_nem_pessoa_exige_ambas_as_ausencias(dados):
     r = db.recorte(dados, {'situacao': 'ATIVO'})
     # 1001 (centro CCI, sem pessoa) e 1004 (sem centro, mas com pessoa) não contam; só 5001 conta.
     assert r['sem_centro'] == 1
+
+
+def test_analise_http_seis_cards_e_situacao_do_valor(cliente, dados):
+    """GET /analise (Tarefa 3 fase5b): os seis cards dsgov-kpi aparecem, o filtro 'Situação do valor'
+    está no formulário e a tabela distingue 'Não informado' (NULL) de 'R$ 0,00' (moeda(0), valor zero)
+    -- a troca de `or 0` por `is none` no template evita confundir os dois conjuntos."""
+    dados.execute("INSERT INTO bens VALUES (9001,'ATIVO','SEM VALOR','','MÓVEIS','01 - SALA CCI','01/01/2020',NULL,NULL)")
+    dados.execute("INSERT INTO bens VALUES (9002,'ATIVO','VALOR ZERO','','MÓVEIS','01 - SALA CCI','01/01/2020',0,0)")
+    dados.commit()
+
+    r = cliente.get('/analise')
+    assert r.status_code == 200
+    html = r.get_data(as_text=True)
+
+    assert html.count('dsgov-kpi') == 6   # seis cards (com ou sem link de drill-down)
+    kpi_hrefs = re.findall(r'<a class="br-card h-100 dsgov-kpi" href="([^"]*)">', html)
+    assert kpi_hrefs and all(h.startswith('/analise?') for h in kpi_hrefs)   # ao menos um card com link
+
+    assert 'name="valor_status"' in html
+    assert 'value="nao_informado"' in html and 'value="zero"' in html
+    assert 'Valor não informado' in html and 'Valor zero' in html
+
+    linha_9001 = re.search(r'<tr>.*?9001.*?</tr>', html)
+    linha_9002 = re.search(r'<tr>.*?9002.*?</tr>', html)
+    assert linha_9001 and 'Não informado' in linha_9001.group()   # NULL
+    assert linha_9002 and 'R$ 0,00' in linha_9002.group()         # zero, não "Não informado"
+
+    descricao = cliente.get('/analise?valor_status=zero').get_data(as_text=True)
+    assert 'valor zero' in descricao   # frase de painel.descrever para valor_status
