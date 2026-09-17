@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import cabecalho_tabela %}
+{% from "_macros.html" import cabecalho_tabela, th_selecao, td_selecao %}
 {% block titulo %}{{ localizacao }}{% endblock %}
 {% block conteudo %}
 {% set fechado = e.encerrado_em is not none %}
@@ -35,12 +35,19 @@
   <div id="camera" class="mt-3" hidden><div id="leitor-camera" class="dsgov-leitor"></div><button class="br-button small mt-2" type="button" id="btn-fechar-camera">Fechar câmera</button></div>
 </div></div>
 
-{{ cabecalho_tabela('Bens da sala', 'bens') }}
-  <thead><tr><th scope="col">Nº</th><th scope="col">Descrição</th><th scope="col">Situação</th><th scope="col">Conservação</th><th scope="col">Quem usa</th><th scope="col">Observação</th><th scope="col">Foto</th></tr></thead>
+{% if not fechado %}
+<form method="post" action="{{ url_for('inventario.lote', id=e.id, localizacao=localizacao) }}" id="form-lote" class="mb-2 d-flex align-items-center flex-wrap">
+  <button class="br-button secondary small" type="submit" name="acao" value="marcar"{% if not integrante %} disabled{% endif %}><i class="fas fa-check-double mr-1" aria-hidden="true"></i>Marcar selecionados como localizados</button>
+  <button class="br-button small ml-2" type="submit" name="acao" value="desmarcar"{% if not integrante %} disabled{% endif %}><i class="fas fa-undo mr-1" aria-hidden="true"></i>Desmarcar</button>
+  <span class="text-down-01 text-gray-70 ml-2">plaqueta ilegível ou ausente: marque na lista e use os botões</span>
+</form>
+{% endif %}
+{{ cabecalho_tabela('Bens da sala', 'bens', selecao=not fechado) }}
+  <thead><tr>{% if not fechado %}{{ th_selecao('bens') }}{% endif %}<th scope="col">Nº</th><th scope="col">Descrição</th><th scope="col">Situação</th><th scope="col">Conservação</th><th scope="col">Quem usa</th><th scope="col">Observação</th><th scope="col">Foto</th></tr></thead>
   <tbody id="tabela-bens">
   {% for b in bens %}
   <tr data-numero="{{ b.numero }}" data-situacao="{{ b.situacao_inv }}">
-    <td>{{ b.numero }}</td><td>{{ b.descricao }}{% if b.complemento %} <span class="text-gray-70">{{ b.complemento }}</span>{% endif %}</td>
+    {% if not fechado %}{{ td_selecao('bens', loop.index, 'numeros', b.numero, form='form-lote') }}{% endif %}<td>{{ b.numero }}</td><td>{{ b.descricao }}{% if b.complemento %} <span class="text-gray-70">{{ b.complemento }}</span>{% endif %}</td>
     <td class="situacao">{% if b.situacao_inv == 'localizado' %}<span class="br-tag bg-success text-pure-0"><span>Localizado</span></span>{% elif b.situacao_inv == 'divergente' %}<span class="br-tag bg-warning"><span>Divergente · lido em {{ b.lido_em_sala }}</span></span>{% else %}<span class="br-tag bg-gray-20"><span>Pendente</span></span>{% endif %}</td>
     <td><select class="campo" data-campo="conservacao"{% if fechado or not b.lido_em %} disabled{% endif %}><option value="">—</option>{% for c in conservacao %}<option{% if b.conservacao == c %} selected{% endif %}>{{ c }}</option>{% endfor %}</select></td>
     <td><input class="campo" data-campo="quem_usa" type="text" value="{{ b.quem_usa or '' }}"{% if fechado or not b.lido_em %} disabled{% endif %}/></td>
@@ -97,6 +104,13 @@
   var btnSobra = document.getElementById("btn-sobra"), cardSobra = document.getElementById("card-sobra"), formSobra = document.getElementById("form-sobra");
   var ultimoLido = "", ultimoQuando = 0, timerAviso = null;
   if (!campo) return;
+
+  var formLote = document.getElementById("form-lote");
+  if (formLote) formLote.addEventListener("submit", function (ev) {
+    var n = document.querySelectorAll('input[name="numeros"]:checked').length;
+    if (!n) { ev.preventDefault(); mostrar("warning", "Selecione ao menos um bem na lista."); return; }
+    if (ev.submitter && ev.submitter.value === "desmarcar" && !confirm("Desfazer a leitura de " + n + " bem(ns)? Eles voltam a pendentes e a foto é apagada.")) ev.preventDefault();
+  });
 
   function focar() { if (!campo.disabled) { campo.value = ""; campo.focus(); } }
   function mostrar(tipo, texto, sobra) {

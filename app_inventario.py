@@ -150,6 +150,29 @@ def atualizar_leitura(id, numero):
     return jsonify({"ok": True})
 
 
+@inventario_bp.route("/<int:id>/sala/<path:localizacao>/lote", methods=["POST"])
+def lote(id, localizacao):
+    """Marcar como localizados (leitura sem plaqueta) ou desmarcar (apaga a leitura) os bens selecionados."""
+    conn = _conn()
+    _evento_ou_404(conn, id)
+    volta = redirect(url_for("inventario.sala_tela", id=id, localizacao=localizacao))
+    numeros = [int(n) for n in request.form.getlist("numeros") if n.strip().isdigit()]
+    if not numeros:
+        flash("Selecione ao menos um bem.", "warning")
+        return volta
+    if request.form.get("acao") == "desmarcar":
+        for url in inventario.desfazer_leituras(conn, id, numeros):
+            fotos.apagar(url)
+        flash("Leitura(s) desfeita(s): os bens voltaram a pendentes.", "success")
+        return volta
+    r = inventario.ler_lote(conn, id, localizacao, numeros, session.get("integrante") or "")
+    msg = f"{r['lidos']} bem(ns) marcado(s) como localizado(s)."
+    if r["nao_encontrados"]:
+        msg += " Não encontrado(s): " + ", ".join(str(n) for n in r["nao_encontrados"]) + "."
+    flash(msg, "success" if r["lidos"] else "warning")
+    return volta
+
+
 def _foto_processada():
     """Valida e comprime a foto enviada em request.files['foto']; ErroDeNegocio se faltar ou fotos desativadas."""
     if not fotos.configurado():

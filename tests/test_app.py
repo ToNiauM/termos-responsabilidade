@@ -581,6 +581,32 @@ def test_inventario_painel(cliente):
     assert b"Evento encerrado" in cliente.get(f"/inventario/{eid}/painel").data
 
 
+def test_inventario_lote_marcar_e_desmarcar(cliente, monkeypatch):
+    import fotos
+    eid = _abrir(cliente)
+    r = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI")
+    assert b'id="form-lote"' in r.data and b'name="numeros"' in r.data and b'value="marcar"' in r.data and b'value="desmarcar"' in r.data
+    r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "marcar", "numeros": ["1001", "1002", "99999"]}, follow_redirects=True)
+    assert b"2 bem(ns) marcado(s)" in r.data and b"99999" in r.data and r.data.count(b">Localizado<") == 2
+    r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "marcar"}, follow_redirects=True)
+    assert b"Selecione ao menos um bem" in r.data
+    import db, inventario
+    inventario.atualizar_leitura(db.conectar(), eid, 1001, foto_url="https://x/1001.webp")
+    apagadas = []
+    monkeypatch.setattr(fotos, "apagar", apagadas.append)
+    r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "desmarcar", "numeros": ["1001"]}, follow_redirects=True)
+    assert b"desfeita" in r.data and apagadas == ["https://x/1001.webp"] and r.data.count(b">Localizado<") == 1
+    with cliente.session_transaction() as sess:
+        sess.pop("integrante", None)
+    r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "marcar", "numeros": ["1002"]}, follow_redirects=True)
+    assert b"integrante" in r.data.lower()
+    cliente.post(f"/inventario/{eid}/integrante", data={"integrante": "Fulano"})
+    cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"})
+    r = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/lote", data={"acao": "marcar", "numeros": ["1002"]}, follow_redirects=True)
+    assert b"Evento encerrado" in r.data
+    assert b'id="form-lote"' not in cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI").data
+
+
 def test_pessoa_com_email_e_matricula(cliente):
     r = cliente.post("/cadastros/pessoas/incluir", data={"nome": "bruno lima", "email": "nao-e-email", "matricula": "1"})
     assert b"Informe um e-mail v" in r.data

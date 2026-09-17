@@ -28,6 +28,12 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    divergente (o cadastro do SPW não muda); não lido = pendente; sem cadastro = sobra (com foto).
    Bem baixado lido fica registrado (continua baixado). Conservação, quem usa, observação e foto por bem.
    Relatório e `.xlsx` por evento. O evento fica aberto até ser encerrado; encerrar congela tudo.
+   Cada evento tem **Painel** (KPIs e gráficos por situação, integrante, conservação, andar e sala —
+   o andar é o texto antes do primeiro `-` no nome da sala), relatório com filtros/ordenação e `.xlsx`
+   com opção *Incluir fotos* (`=IMAGEM`). Na sala, é possível marcar bens como localizados em lote
+   (plaqueta ilegível) e desmarcar. Ao encerrar, os bens do evento são congelados
+   (`inventario_bens_encerrados`): o relatório de um evento encerrado não muda quando a base do SPW
+   é atualizada.
    Fotos vão para o bucket R2 configurado em `secrets/.env` (variáveis `R2_*`); sem ele, fotos ficam
    desativadas. A planilha de cadastros ganha abas `inv_*` para exportar/importar inventários inteiros
    (migração de outros sistemas).
