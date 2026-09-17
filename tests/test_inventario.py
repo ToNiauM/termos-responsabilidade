@@ -582,3 +582,39 @@ def test_aba_inv_fotos_exporta_importa_e_valida(dados, tmp_path):
         db.importar_cadastros(dados, f)
     msg = str(ex.value)
     assert "não tem leitura" in msg and "nfoto inválido" in msg and "repetida" in msg and "url vazia" in msg and "pasta de fotos repetida" in msg
+
+
+def test_importar_cadastros_recusa_inv_sobras_sem_foto_url(dados, tmp_path):
+    """`opcionais` da leitura da aba é só para inv_leituras (foto_url/fotos_seq); em inv_sobras foto_url
+    continua obrigatória no cabeçalho — planilha sem ela não pode ser aceita com foto vazia em silêncio."""
+    from openpyxl import load_workbook
+    eid = semear_inventario(dados)
+    inventario.registrar_sobra(dados, eid, "01 - SALA CCI", "VENTILADOR", None, "achado", "http://x/s.webp", "Fulano")
+    wb = load_workbook(db.exportar_cadastros(dados, tmp_path / "c.xlsx"))
+    ws = wb["inv_sobras"]
+    coluna = inventario.ABAS["inv_sobras"].index("foto_url") + 1
+    ws.delete_cols(coluna)
+    wb.save(tmp_path / "sem_foto_url.xlsx")
+    with open(tmp_path / "sem_foto_url.xlsx", "rb") as f, pytest.raises(db.ImportacaoInvalida) as ex:
+        db.importar_cadastros(dados, f)
+    msg = str(ex.value)
+    assert "inv_sobras" in msg and "foto_url" in msg
+
+
+def test_fotos_seq_sobrevive_a_exportar_e_importar(dados, tmp_path):
+    """nfoto nunca reaproveitado mesmo depois de um ciclo de exportar/importar a planilha de cadastros:
+    fotos_seq viaja na última coluna de inv_leituras."""
+    from openpyxl import load_workbook
+    eid = semear_inventario(dados)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    foto_falsa(dados, eid, 1001); foto_falsa(dados, eid, 1001)
+    inventario.apagar_foto(dados, eid, 1001, 2)                                        # fica só a 1
+    wb = load_workbook(db.exportar_cadastros(dados, tmp_path / "c.xlsx"))
+    cabecalho = list(wb["inv_leituras"].iter_rows(values_only=True))[0]
+    assert cabecalho[-1] == "fotos_seq"
+    linha_1001 = next(l for l in wb["inv_leituras"].iter_rows(min_row=2, values_only=True) if l[1] == 1001)
+    assert linha_1001[-1] == 2                                                         # maior nfoto já usado
+    with open(tmp_path / "c.xlsx", "rb") as f:
+        db.importar_cadastros(dados, f)
+    f3 = foto_falsa(dados, eid, 1001)
+    assert [x["nfoto"] for x in f3] == [1, 3]                                          # não voltou a ser 2

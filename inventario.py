@@ -519,7 +519,7 @@ ABAS = {
     "inv_eventos": ["id", "nome", "descricao", "aberto_em", "encerrado_em"],
     "inv_integrantes": ["evento_id", "nome"],
     "inv_salas": ["evento_id", "localizacao"],
-    "inv_leituras": ["evento_id", "numero", "localizacao", "lido_em", "integrante", "conservacao", "quem_usa", "observacao"],
+    "inv_leituras": ["evento_id", "numero", "localizacao", "lido_em", "integrante", "conservacao", "quem_usa", "observacao", "fotos_seq"],
     "inv_sobras": ["evento_id", "localizacao", "descricao", "complemento", "observacao", "foto_url", "integrante", "criado_em"],
     "inv_bens_encerrados": ["evento_id", "numero", "situacao", "descricao", "complemento", "classificacao", "localizacao"],
     "inv_fotos": ["evento_id", "numero", "nfoto", "url", "criado_em"],
@@ -643,9 +643,16 @@ def validar_abas(conn, brutos: dict) -> tuple[dict, list]:
             valido = False
         if not valido:
             continue
+        seq = db._numero(r.get("fotos_seq"))
+        if seq is None:
+            seq = 0
+        elif seq != int(seq) or seq < 0:
+            problemas.append(f"{rot}: fotos_seq inválido"); continue
+        else:
+            seq = int(seq)
         vistos.add((eid, num))
         leituras_ok.add((eid, num))
-        linhas["inv_leituras"].append((eid, num, loc, lido, integ, cons, _texto(r["quem_usa"]) or None, _texto(r["observacao"]) or None))
+        linhas["inv_leituras"].append((eid, num, loc, lido, integ, cons, _texto(r["quem_usa"]) or None, _texto(r["observacao"]) or None, seq))
         if _texto(r.get("foto_url")):
             fotos_antigas.append((eid, num, 1, _texto(r["foto_url"]), lido))
     for r in brutos["inv_sobras"]:
@@ -723,7 +730,7 @@ def substituir_tabelas(conn, linhas: dict) -> None:
     conn.executemany("INSERT INTO inventario_eventos (id, nome, descricao, aberto_em, encerrado_em) VALUES (?,?,?,?,?)", linhas["inv_eventos"])
     conn.executemany("INSERT INTO inventario_integrantes VALUES (?,?)", linhas["inv_integrantes"])
     conn.executemany("INSERT INTO inventario_salas VALUES (?,?)", linhas["inv_salas"])
-    conn.executemany("INSERT INTO inventario_leituras (evento_id, numero, localizacao, lido_em, integrante, conservacao, quem_usa, observacao) VALUES (?,?,?,?,?,?,?,?)", linhas["inv_leituras"])
+    conn.executemany("INSERT INTO inventario_leituras (evento_id, numero, localizacao, lido_em, integrante, conservacao, quem_usa, observacao, fotos_seq) VALUES (?,?,?,?,?,?,?,?,?)", linhas["inv_leituras"])
     conn.executemany("INSERT INTO inventario_sobras (evento_id, localizacao, descricao, complemento, observacao, foto_url, integrante, criado_em) VALUES (?,?,?,?,?,?,?,?)", linhas["inv_sobras"])
     conn.executemany(f"INSERT OR IGNORE INTO inventario_bens_encerrados (evento_id, {_COLS_SNAPSHOT}) VALUES (?,?,?,?,?,?,?)", snapshot)
     conn.executemany("INSERT INTO inventario_fotos (evento_id, numero, nfoto, url, criado_em) VALUES (?,?,?,?,?)", linhas["inv_fotos"])
