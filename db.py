@@ -638,11 +638,15 @@ def incluir_pessoa(conn, nome: str, email: str | None = None, matricula: str | N
 
 
 def salvar_pessoa(conn, antigo: str, dados: dict) -> str:
-    """Renomeia (mantendo atribuições e histórico) e atualiza e-mail e matrícula."""
-    novo = renomear_pessoa(conn, antigo, dados.get("nome"))
-    conn.execute("UPDATE pessoas SET email = ?, matricula = ? WHERE nome = ?",
-                 (_texto(dados.get("email")) or None, _texto(dados.get("matricula")) or None, novo))
-    conn.commit()
+    """Renomeia (mantendo atribuições e histórico) e atualiza e-mail e matrícula. Tudo ou nada."""
+    try:
+        novo = _renomear_pessoa(conn, antigo, dados.get("nome"))
+        conn.execute("UPDATE pessoas SET email = ?, matricula = ? WHERE nome = ?",
+                     (_texto(dados.get("email")) or None, _texto(dados.get("matricula")) or None, novo))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     return novo
 
 
@@ -652,6 +656,13 @@ def excluir_pessoa(conn, nome: str) -> None:
 
 
 def renomear_pessoa(conn, antigo: str, novo: str) -> str:
+    novo = _renomear_pessoa(conn, antigo, novo)
+    conn.commit()
+    return novo
+
+
+def _renomear_pessoa(conn, antigo: str, novo: str) -> str:
+    """Sem commit: quem chama decide quando a transação termina."""
     novo = _obrigatorio(novo, "Nome").upper()
     if antigo not in pessoas(conn):
         raise ErroDeNegocio(f"Pessoa {antigo} não encontrada.")
@@ -661,7 +672,6 @@ def renomear_pessoa(conn, antigo: str, novo: str) -> str:
         raise ErroDeNegocio(f"Já existe uma pessoa chamada {novo}.")
     conn.execute("UPDATE pessoas SET nome = ? WHERE nome = ?", (novo, antigo))  # cascateia em atribuicoes
     conn.execute("UPDATE termos_emitidos SET chave = ? WHERE tipo IN ('individual','devolucao') AND chave = ?", (novo, antigo))
-    conn.commit()
     return novo
 
 

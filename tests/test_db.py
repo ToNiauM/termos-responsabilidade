@@ -648,6 +648,18 @@ def test_pessoa_email_matricula_e_salvar(dados):
         db.salvar_pessoa(dados, "BRUNO SOUZA", {"nome": "ana silva"})
 
 
+def test_salvar_pessoa_e_tudo_ou_nada(dados):
+    import sqlite3
+    semear(dados)
+    dados.execute("CREATE TRIGGER falha BEFORE UPDATE OF email ON pessoas BEGIN SELECT RAISE(ABORT, 'falha simulada'); END")
+    with pytest.raises(sqlite3.IntegrityError):
+        db.salvar_pessoa(dados, "ANA SILVA", {"nome": "ana souza", "email": "a@cfc", "matricula": "1"})
+    outra = db.conectar()   # o que outra conexão enxerga = o que foi commitado
+    assert db.pessoa(outra, "ANA SILVA") is not None and db.pessoa(outra, "ANA SOUZA") is None
+    assert db.pessoa_do_bem(outra, 1002) == "ANA SILVA"
+    outra.close()
+
+
 def test_bloco_sei_e_registro_de_email(dados):
     semear(dados)
     db.incluir_processo(dados, "ccusto", "T", "1111")
