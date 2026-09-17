@@ -21,3 +21,29 @@ def test_sem_env_usa_pasta_dados_do_projeto(monkeypatch):
     monkeypatch.delenv("TERMOS_DADOS", raising=False)
     import config
     assert config.pasta_dados() == Path(config.__file__).parent / "dados"
+
+
+def test_chave_secreta_vem_da_variavel_de_ambiente(tmp_path, monkeypatch):
+    monkeypatch.setenv("TERMOS_DADOS", str(tmp_path))
+    monkeypatch.setenv("TERMOS_SEGREDO", "segredo-da-web")
+    import config
+    assert config.chave_secreta() == "segredo-da-web"
+    assert not (tmp_path / "segredo.txt").exists()
+
+
+def test_chave_secreta_e_gerada_uma_vez_por_instalacao(tmp_path, monkeypatch):
+    monkeypatch.setenv("TERMOS_DADOS", str(tmp_path / "dados"))   # pasta ainda não existe
+    monkeypatch.delenv("TERMOS_SEGREDO", raising=False)
+    import config
+    chave = config.chave_secreta()
+    assert len(chave) == 64 and int(chave, 16) >= 0
+    assert (tmp_path / "dados" / "segredo.txt").read_text() == chave
+    assert config.chave_secreta() == chave                          # segunda chamada lê o arquivo
+
+
+def test_chave_secreta_respeita_arquivo_ja_criado_por_outro_processo(tmp_path, monkeypatch):
+    monkeypatch.setenv("TERMOS_DADOS", str(tmp_path))
+    monkeypatch.delenv("TERMOS_SEGREDO", raising=False)
+    (tmp_path / "segredo.txt").write_text("abc")
+    import config
+    assert config.chave_secreta() == "abc"

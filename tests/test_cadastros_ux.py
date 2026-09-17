@@ -5,13 +5,13 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 
 import db
-from app import app
 from tests.conftest import semear, confirmar_revisao
 
 
 @pytest.fixture
 def cliente(dados):
     semear(dados)
+    from app import app
     app.config['TESTING'] = True
     with app.test_client() as client:
         yield client

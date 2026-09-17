@@ -19,7 +19,7 @@ from termo_devolucao import gerar_termo_devolucao
 
 app = Flask(__name__, template_folder=str(config.pasta_recursos() / "templates"),
             static_folder=str(config.pasta_recursos() / "static"))
-app.secret_key = "termos-cfc-local"  # sessão só guarda seleção de bens; programa roda em 127.0.0.1
+app.secret_key = config.chave_secreta()   # por instalação: TERMOS_SEGREDO ou dados/segredo.txt
 app.register_blueprint(inventario_bp)
 app.template_filter("moeda")(painel.moeda)   # R$ 1.234,56 em todas as telas
 
