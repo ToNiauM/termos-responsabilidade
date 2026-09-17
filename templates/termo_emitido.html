@@ -13,13 +13,15 @@
     <div class="col-md-2"><dt>Bens</dt><dd>{{ t.quantidade }}</dd></div>
     <div class="col-md-2"><dt>Valor total</dt><dd>{{ (t.valor_total)|moeda }}</dd></div>
   </dl>
+  {% if pode('termo_emitido_documento', 'POST') %}
   <form method="post" action="{{ url_for('termo_emitido_documento', id=t.id) }}" class="d-flex align-items-end flex-wrap">
     <div class="br-input mr-2"><label for="documento_sei">Documento no SEI</label><input id="documento_sei" name="documento_sei" type="text" value="{{ t.documento_sei or '' }}"/></div>
     <div class="br-input mr-2"><label for="bloco_sei">Bloco de assinatura</label><input id="bloco_sei" name="bloco_sei" type="text" value="{{ t.bloco_sei or '' }}"/></div>
     <button class="br-button secondary" type="submit"><i class="fas fa-save mr-1" aria-hidden="true"></i>Salvar</button>
   </form>
+  {% endif %}
   <div class="d-flex align-items-center flex-wrap mt-3">
-    {% if mailto %}
+    {% if mailto and pode('termo_emitido_email', 'POST') %}
     <a class="br-button primary mr-3" href="{{ mailto }}" id="enviar-email"><i class="fas fa-envelope mr-1" aria-hidden="true"></i>{{ 'Enviar e-mail novamente' if t.email_enviado_em else 'Enviar e-mail para assinatura' }}</a>
     <form method="post" action="{{ url_for('termo_emitido_email', id=t.id) }}" id="registrar-email" hidden></form>
     {% elif not email %}

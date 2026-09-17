@@ -34,7 +34,7 @@
 </div></div>
 {% endblock %}
 {% block scripts %}
-{% if processo %}
+{% if processo and pode('termo_docx') %}
 <script>
 document.getElementById("copiar").addEventListener("click", async function () {
   var corpo = document.getElementById("documento").contentDocument.body;

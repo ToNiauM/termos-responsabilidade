@@ -2,7 +2,7 @@
 import pytest
 
 import usuarios
-from tests.conftest import logar, SENHA_PADRAO
+from tests.conftest import logar
 
 
 def test_permitido_por_perfil():
@@ -107,10 +107,21 @@ def test_menu_por_perfil(cliente, usuarios_exemplo):
 def test_consulta_nao_ve_botoes_de_emissao(cliente, usuarios_exemplo):
     cliente.post("/cadastros/processos/incluir", data={"tipo": "ccusto", "descricao": "T", "numero_sei": "1111", "vigente": "1"})
     assert b"Copiar para o SEI" in cliente.get("/termo/ccusto/CCI").data
+    assert b"Gerar termo" in cliente.get("/centro-custos").data
+    assert b"Gerar termo" in cliente.get("/termos-individuais").data
+    assert cliente.get("/termo/ccusto/CCI/docx").status_code == 200          # gera e registra a emissão (id 1)
+    r = cliente.get("/termos-emitidos/1")
+    assert r.status_code == 200 and b"Salvar" in r.data
     cliente.post("/sair"); logar(cliente, *usuarios_exemplo["consulta"])
     r = cliente.get("/termo/ccusto/CCI")
     assert r.status_code == 200 and b"Copiar para o SEI" not in r.data and b"Baixar .docx" not in r.data and b"Baixar planilha" not in r.data
     assert b"Processo SEI 1111" in r.data
+    r = cliente.get("/centro-custos")
+    assert r.status_code == 200 and b"Gerar termo" not in r.data
+    r = cliente.get("/termos-individuais")
+    assert r.status_code == 200 and b"Gerar termo" not in r.data
+    r = cliente.get("/termos-emitidos/1")
+    assert r.status_code == 200 and b"Salvar" not in r.data
 
 
 def test_modo_desktop_sem_tela_de_usuarios(cliente_local):
