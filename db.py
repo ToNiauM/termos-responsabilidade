@@ -1081,7 +1081,7 @@ FAIXAS_IDADE = [("ate5", "até 5 anos"), ("5a10", "5 a 10 anos"), ("10a20", "10 
 FAIXAS_VALOR = [("ate100", "até R$ 100"), ("100a500", "R$ 100 a 500"), ("500a1000", "R$ 500 a 1.000"),
                 ("1000a5000", "R$ 1.000 a 5.000"), ("5000a20000", "R$ 5.000 a 20.000"), ("mais20000", "acima de R$ 20.000")]
 FILTROS = ("situacao", "ccusto", "pessoa", "localizacao", "classificacao", "valor_de", "valor_ate",
-           "entrada_de", "entrada_ate", "idade", "faixa", "ano")
+           "entrada_de", "entrada_ate", "idade", "faixa", "ano", "valor_status")
 _DE = ("FROM bens b LEFT JOIN localizacoes l ON l.localizacao = b.localizacao "
        "LEFT JOIN atribuicoes a ON a.numero = b.numero")
 _DATA_ISO = ("CASE WHEN b.data_entrada LIKE '__/__/____' THEN substr(b.data_entrada,7,4)||'-'||"
@@ -1122,10 +1122,17 @@ def _where(f: dict) -> tuple[str, list]:
         cl.append(f"NOT {_IMOVEIS_SQL}")
     elif c:
         cl.append("b.classificacao = ?"); p.append(c)
+    status_valor = f.get("valor_status")
+    if status_valor == "nao_informado":
+        cl.append("b.valor_atual IS NULL")
+    elif status_valor == "zero":
+        cl.append("b.valor_atual = 0")
+    elif status_valor:
+        raise ErroDeNegocio("Situação do valor inválida.")
     if f.get("valor_de"):
-        cl.append(f"{_V} >= ?"); p.append(float(f["valor_de"]))
+        cl.append("b.valor_atual >= ?"); p.append(float(f["valor_de"]))
     if f.get("valor_ate"):
-        cl.append(f"{_V} <= ?"); p.append(float(f["valor_ate"]))
+        cl.append("b.valor_atual <= ?"); p.append(float(f["valor_ate"]))
     if f.get("entrada_de"):
         cl.append(f"{_DATA_ISO} >= ?"); p.append(f["entrada_de"])
     if f.get("entrada_ate"):
@@ -1186,12 +1193,15 @@ def painel(conn) -> dict:
         "imoveis": um(f"SELECT count(*) {_DE} WHERE {ativo} AND {_IMOVEIS_SQL}"),
         "valor_imoveis": um(f"SELECT coalesce(sum(b.valor_atual), 0) {_DE} WHERE {ativo} AND {_IMOVEIS_SQL}"),
         "sem_centro": um(f"SELECT count(*) {_DE} WHERE {ativo} AND l.ccustos IS NULL AND a.nome IS NULL"),
-        "sem_valor": um(f"SELECT count(*) FROM bens b WHERE {ativo} AND {_V} = 0"),
         "ultima_importacao": (importacoes(conn, 1) or [None])[0],
         "centros": situacoes_centros(conn),
         "pessoas": situacoes_pessoas(conn),
         "dimensoes": dimensoes(conn, {"situacao": "ATIVO"}),
     }
+    d.update({
+        "valor_nao_informado": um(f"SELECT count(*) FROM bens b WHERE {ativo} AND b.valor_atual IS NULL"),
+        "valor_zero": um(f"SELECT count(*) FROM bens b WHERE {ativo} AND b.valor_atual = 0"),
+    })
     d["a_emitir_centros"] = sum(1 for c in d["centros"] if c["estado"] != "vigente" and c["quantidade"])
     d["a_emitir_pessoas"] = sum(1 for p in d["pessoas"] if p["estado"] != "vigente" and p["quantidade"])
     return d
@@ -1201,9 +1211,17 @@ def recorte(conn, f: dict, limite: int | None = 1000) -> dict:
     where, p = _where(f)
     sql = f"SELECT b.*, l.ccustos AS ccustos, a.nome AS pessoa {_DE} WHERE {where} ORDER BY b.numero"
     bens = _todos(conn, sql + (f" LIMIT {limite + 1}" if limite else ""), *p)
-    tot = conn.execute(f"SELECT count(*), coalesce(sum(b.valor_atual), 0) {_DE} WHERE {where}", p).fetchone()
-    return {"bens": bens[:limite] if limite else bens, "truncado": bool(limite) and len(bens) > limite,
-            "quantidade": tot[0], "valor_total": tot[1], "dimensoes": dimensoes(conn, f)}
+    totais = dict(conn.execute(f"""SELECT
+      count(*) AS quantidade,
+      coalesce(sum(b.valor_atual),0) AS valor_total,
+      coalesce(sum(CASE WHEN {_IMOVEIS_SQL} THEN 1 ELSE 0 END),0) AS imoveis,
+      coalesce(sum(CASE WHEN {_IMOVEIS_SQL} THEN b.valor_atual ELSE 0 END),0) AS valor_imoveis,
+      coalesce(sum(CASE WHEN l.ccustos IS NULL AND a.nome IS NULL THEN 1 ELSE 0 END),0) AS sem_centro,
+      coalesce(sum(CASE WHEN b.valor_atual IS NULL THEN 1 ELSE 0 END),0) AS valor_nao_informado,
+      coalesce(sum(CASE WHEN b.valor_atual = 0 THEN 1 ELSE 0 END),0) AS valor_zero
+      {_DE} WHERE {where}""", p).fetchone())
+    return dict(totais, bens=bens[:limite] if limite else bens,
+                truncado=bool(limite) and len(bens) > limite, dimensoes=dimensoes(conn, f))
 
 
 def exportar_recorte(conn, f: dict, destino):

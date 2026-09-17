@@ -34,10 +34,12 @@
   </div>
 </div>
 
-{% if p.sem_valor %}
+{% if p.valor_nao_informado %}
 <div class="br-message warning mb-3"><div class="icon"><i class="fas fa-exclamation-triangle fa-lg" aria-hidden="true"></i></div>
-  <div class="content" role="alert"><span class="message-title">{{ p.sem_valor }} bem(ns) ativo(s) sem valor.</span><span class="message-body"> Não entram nas somas. <a href="{{ url_recorte(f, valor_ate='0') }}">Ver quais</a>.</span></div></div>
+  <div class="content" role="alert"><span class="message-title">{{ p.valor_nao_informado }} bem(ns) ativo(s) com valor não informado.</span><span class="message-body"> Não entram nas somas. <a href="{{ url_recorte(f, valor_status='nao_informado') }}">Ver quais</a>.</span></div></div>
 {% endif %}
+{% if p.valor_zero %}<p class="text-gray-70">{{ p.valor_zero }} bem(ns) ativo(s) com valor zero.
+  <a href="{{ url_recorte(f, valor_status='zero') }}">Ver bens com valor zero</a>.</p>{% endif %}
 
 <div class="row mb-2">
   {% set kpis = [
