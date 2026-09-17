@@ -126,11 +126,14 @@ def _links_ajuda(html):
 
 
 def _checar_pagina(cliente, resposta, funcoes, endpoint, args, login_ativo=True):
-    """O botão de ajuda da página (se houver) bate com menu.ancora_ajuda e leva a uma seção de fato
-    renderizada em /ajuda para o mesmo usuário; sem âncora, a página não mostra nenhum botão."""
+    """Cada página varrida tem exatamente um <h1>; o botão de ajuda (se houver) bate com
+    menu.ancora_ajuda e leva a uma seção de fato renderizada em /ajuda para o mesmo usuário;
+    sem âncora, a página não mostra nenhum botão."""
     assert resposta.status_code == 200, endpoint
     html = resposta.get_data(as_text=True)
-    links = _links_ajuda(html)
+    estrutura = Estrutura(html)
+    assert estrutura.h1 == 1, (endpoint, estrutura.h1)
+    links = [l for l in estrutura.links if l.startswith('/ajuda#')]
     esperado = menu.ancora_ajuda(funcoes, endpoint, args, login_ativo)
     if esperado is None:
         assert links == [], (endpoint, links)
@@ -158,6 +161,7 @@ def test_telas_interativas_oferecem_ajuda_coerente(cliente, dados):
         ('/cadastros/responsaveis', 'cadastros', {'aba': 'responsaveis'}),
         ('/cadastros/localizacoes', 'cadastros', {'aba': 'localizacoes'}),
         ('/cadastros/pessoas', 'cadastros', {'aba': 'pessoas'}),
+        ('/cadastros/pessoas?nome=ANA SILVA', 'cadastros', {'aba': 'pessoas'}),
         ('/cadastros/processos', 'cadastros', {'aba': 'processos'}),
         ('/textos', 'textos_tela', {}),
         ('/upload', 'upload', {}),
@@ -175,6 +179,16 @@ def test_telas_interativas_oferecem_ajuda_coerente(cliente, dados):
     ]
     for url, endpoint, args in telas:
         _checar_pagina(cliente, cliente.get(url), funcoes, endpoint, args)
+    _checar_pagina(cliente, cliente.get('/cadastros/localizacoes/alterar', query_string={'localizacao': '01 - SALA CCI'}),
+                   funcoes, 'localizacoes_alterar', {})
+    antes_atribuicoes = dados.execute("SELECT COUNT(*) FROM atribuicoes").fetchone()[0]
+    # Tela filha via POST com erro: cadastros/atribuir.html com número inválido, sem gravar nada.
+    _checar_pagina(cliente, cliente.post('/cadastros/pessoas/atribuir', data={'nome': 'ANA SILVA', 'numero': 'abc'}),
+                   funcoes, 'pessoas_atribuir', {})
+    # Tela filha de revisão: cadastros/confirmar.html só é exibida; sem o token assinado, nada é gravado.
+    _checar_pagina(cliente, cliente.post('/cadastros/pessoas/atribuir', data={'nome': 'ANA SILVA', 'numero': '1001'}),
+                   funcoes, 'pessoas_atribuir', {})
+    assert dados.execute("SELECT COUNT(*) FROM atribuicoes").fetchone()[0] == antes_atribuicoes
     # Tela filha via POST com erro: não cria usuário, não emite termo.
     r = cliente.post('/usuarios/incluir', data={
         'login': 'novato', 'nome': 'Fulano', 'senha': 'Senha!234', 'confirmacao': 'outra-senha', 'funcoes': ['consulta'],

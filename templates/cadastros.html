@@ -9,13 +9,13 @@
     {% for id, area in areas.items() %}<li class="tab-item{% if id == aba %} active{% endif %}"><a href="{{ url_for('cadastros', aba=id) }}"{% if id == aba %} aria-current="page" class="text-weight-semi-bold bg-gray-10"{% endif %}><span class="name">{{ area[0] }}</span></a></li>{% endfor %}
   </ul></div>
 </nav>
+<div class="d-flex flex-wrap align-items-center mb-3">
+  <h1 class="mb-2 mr-3">{{ areas[aba][0] }}</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}
+  {% if not nome %}<a class="br-button primary ml-auto" href="{{ link('cadastro_novo', aba=aba) }}"><i class="fas fa-plus mr-1" aria-hidden="true"></i>{{ areas[aba][2] }}</a>{% endif %}
+</div>
 {% if nome %}
   {% include 'cadastros/_pessoa.html' %}
 {% else %}
-<div class="d-flex flex-wrap align-items-center mb-3">
-  <h1 class="mb-2 mr-3">{{ areas[aba][0] }}</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}
-  <a class="br-button primary ml-auto" href="{{ link('cadastro_novo', aba=aba) }}"><i class="fas fa-plus mr-1" aria-hidden="true"></i>{{ areas[aba][2] }}</a>
-</div>
 <p class="text-gray-70">{{ areas[aba][1] }}.</p>
 {% if salvo %}<div class="br-message info"><div class="content" role="status">O registro {{ salvo[0] }} foi salvo e não aparece nesta página com os filtros atuais. <a href="{{ salvo[1] }}">Acessar registro</a></div></div>{% endif %}
 {% if aba == 'localizacoes' and pendentes %}
