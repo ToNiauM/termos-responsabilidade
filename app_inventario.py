@@ -238,3 +238,8 @@ def xlsx(id):
     arquivo.seek(0)
     nome = f"inventario_{id}_{''.join(c if c.isalnum() else '_' for c in (loc or 'todas'))}.xlsx"
     return send_file(arquivo, as_attachment=True, download_name=nome)
+
+
+@inventario_bp.route("/<int:id>/painel")
+def painel_tela(id):
+    abort(501)
