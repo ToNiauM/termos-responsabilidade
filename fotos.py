@@ -2,10 +2,14 @@
 Transcrito do sistema antigo (sga/cfc: app/services/storage.py e images.py), sem Flask.
 
 Credenciais nas variáveis de ambiente R2_* (compose.yml lê secrets/.env). Sem elas, `configurado()` é
-falso e as telas desativam os botões de foto; o resto do inventário funciona (programa Windows offline)."""
+falso e as telas desativam os botões de foto; o resto do inventário funciona (programa Windows offline).
+
+Chave `{pasta}/{nfoto}-{numero}.webp` (pasta = nome do evento normalizado); fotos anteriores à Fase 3
+ficam em `inventario/INV...`."""
 import io
 import os
-from datetime import datetime
+import re
+import unicodedata
 
 from db import ErroDeNegocio
 
@@ -13,7 +17,6 @@ VARIAVEIS = ("R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_ENDPOINT_URL", "R2_
 EXTENSOES = {".jpg", ".jpeg", ".png", ".webp"}
 TAMANHO_MAX = 5 * 1024 * 1024
 LARGURA_MAX, ALTURA_MAX, QUALIDADE = 1920, 1080, 85
-PREFIXO = "inventario/"
 
 
 def configurado() -> bool:
@@ -67,35 +70,48 @@ def _url(chave: str) -> str:
     return f"{os.environ['R2_ENDPOINT_URL'].rstrip('/')}/{os.environ['R2_BUCKET_NAME']}/{chave}"
 
 
-def enviar(nome: str, dados: bytes) -> str:
-    """Grava `inventario/<nome>` no bucket e devolve a URL pública."""
+def pasta(nome: str, evento_id: int) -> str:
+    """Pasta das fotos do evento no bucket: nome em minúsculas, sem acento, só [a-z0-9]. Vazio → evento<id>."""
+    base = unicodedata.normalize("NFD", nome or "")
+    limpo = re.sub(r"[^a-z0-9]", "", "".join(c for c in base if not unicodedata.combining(c)).casefold())
+    return limpo or f"evento{evento_id}"
+
+
+def chave_bem(pasta: str, nfoto: int, numero: int) -> str:
+    return f"{pasta}/{nfoto}-{numero}.webp"
+
+
+def chave_sobra(pasta: str, sobra_id: int) -> str:
+    return f"{pasta}/sobra-{sobra_id}.webp"
+
+
+def enviar(chave: str, dados: bytes) -> str:
+    """Grava `chave` no bucket exatamente como recebida e devolve a URL pública."""
     if not configurado():
         raise ErroDeNegocio("Fotos desativadas: bucket não configurado.")
-    chave = PREFIXO + nome
     _cliente().put_object(Bucket=os.environ["R2_BUCKET_NAME"], Key=chave, Body=dados, ContentType="image/webp")
     return _url(chave)
 
 
+_PREFIXO_ANTIGO = "inventario/"
+
+
 def apagar(url: str | None) -> None:
-    """Apaga o objeto pela chave contida na URL; erro só é ignorado (a URL some do banco de qualquer jeito)."""
+    """Apaga o objeto pela chave contida na URL: URL nova = base pública + chave; URL antiga (antes da
+    Fase 3) tem "inventario/" no meio. Erro do bucket é ignorado (a URL some do banco de qualquer jeito)."""
     if not url or not configurado():
         return
-    pos = url.find(PREFIXO)
-    if pos < 0:
+    base = _url("")
+    if url.startswith(base):
+        chave = url[len(base):]
+    else:
+        pos = url.find(_PREFIXO_ANTIGO)
+        if pos < 0:
+            return
+        chave = url[pos:]
+    if not chave:
         return
     try:
-        _cliente().delete_object(Bucket=os.environ["R2_BUCKET_NAME"], Key=url[pos:])
+        _cliente().delete_object(Bucket=os.environ["R2_BUCKET_NAME"], Key=chave)
     except Exception:
         pass
-
-
-def _carimbo() -> str:
-    return datetime.now().strftime("%Y%m%d%H%M%S")
-
-
-def nome_bem(evento_id: int, numero: int) -> str:
-    return f"INV{evento_id}_BEM_{numero}_{_carimbo()}.webp"
-
-
-def nome_sobra(evento_id: int, sobra_id: int) -> str:
-    return f"INV{evento_id}_SOBRA_{sobra_id}_{_carimbo()}.webp"

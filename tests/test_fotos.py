@@ -51,6 +51,16 @@ class ClienteFalso:
         self.apagados.append((Bucket, Key))
 
 
+def test_pasta_e_chaves():
+    assert fotos.pasta("Inventário 2026", 1) == "inventario2026"
+    assert fotos.pasta("  INVENTÁRIO – Sede / Anexo 2 ", 1) == "inventariosedeanexo2"
+    assert fotos.pasta("Ação Çedilha", 1) == "acaocedilha"
+    assert fotos.pasta("???", 7) == "evento7"
+    assert fotos.pasta("", 7) == "evento7"
+    assert fotos.chave_bem("inventario2026", 1, 12334) == "inventario2026/1-12334.webp"
+    assert fotos.chave_sobra("inventario2026", 7) == "inventario2026/sobra-7.webp"
+
+
 def test_enviar_apagar_e_configuracao(monkeypatch):
     for v in fotos.VARIAVEIS:
         monkeypatch.delenv(v, raising=False)
@@ -63,14 +73,19 @@ def test_enviar_apagar_e_configuracao(monkeypatch):
     falso = ClienteFalso()
     monkeypatch.setattr(fotos, "_cliente", lambda: falso)
     assert fotos.configurado()
-    url = fotos.enviar("INV1_BEM_1001_20260915120000.webp", b"webp")
-    assert url == "https://fotos.exemplo.org/inventario/INV1_BEM_1001_20260915120000.webp"
-    assert falso.enviados == [("fotos", "inventario/INV1_BEM_1001_20260915120000.webp", 4, "image/webp")]
+    url = fotos.enviar("inventario2026/1-1001.webp", b"webp")
+    assert url == "https://fotos.exemplo.org/inventario2026/1-1001.webp"
+    assert falso.enviados == [("fotos", "inventario2026/1-1001.webp", 4, "image/webp")]
     fotos.apagar(url)
-    assert falso.apagados == [("fotos", "inventario/INV1_BEM_1001_20260915120000.webp")]
+    assert falso.apagados == [("fotos", "inventario2026/1-1001.webp")]
+    # formato antigo (fotos gravadas antes da Fase 3) continua reconhecido
+    fotos.apagar("https://fotos.exemplo.org/inventario/INV1_BEM_1001_20260915120000.webp")
+    assert falso.apagados[-1] == ("fotos", "inventario/INV1_BEM_1001_20260915120000.webp")
     fotos.apagar("https://outro/sem-prefixo.webp")                       # ignora
-    assert len(falso.apagados) == 1
+    fotos.apagar(None)
+    assert len(falso.apagados) == 2
     monkeypatch.delenv("R2_PUBLIC_URL")
-    assert fotos.enviar("a.webp", b"1") == "https://acc.r2.cloudflarestorage.com/fotos/inventario/a.webp"
-    assert fotos.nome_bem(3, 1001).startswith("INV3_BEM_1001_") and fotos.nome_sobra(3, 7).startswith("INV3_SOBRA_7_")
-    assert fotos.nome_bem(3, 1001).endswith(".webp")
+    assert fotos.enviar("a/1-2.webp", b"1") == "https://acc.r2.cloudflarestorage.com/fotos/a/1-2.webp"
+    fotos.apagar("https://acc.r2.cloudflarestorage.com/fotos/a/1-2.webp")
+    assert falso.apagados[-1] == ("fotos", "a/1-2.webp")
+    assert not hasattr(fotos, "nome_bem") and not hasattr(fotos, "PREFIXO")
