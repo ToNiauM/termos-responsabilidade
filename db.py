@@ -10,6 +10,7 @@ from pathlib import Path
 from openpyxl import Workbook, load_workbook
 
 import config
+from migracoes_acesso import migrar
 
 ESQUEMA = """
 CREATE TABLE IF NOT EXISTS bens (
@@ -155,7 +156,6 @@ CREATE TABLE IF NOT EXISTS usuarios (
   email         TEXT,                        -- opcional; também serve para entrar
   nome          TEXT NOT NULL,
   senha_hash    TEXT NOT NULL,
-  perfil        TEXT NOT NULL CHECK (perfil IN ('admin','operador','inventariante','consulta')),
   ativo         INTEGER NOT NULL DEFAULT 1,
   trocar_senha  INTEGER NOT NULL DEFAULT 0,
   falhas        INTEGER NOT NULL DEFAULT 0,
@@ -216,6 +216,9 @@ def criar_esquema(conn: sqlite3.Connection) -> None:
     # Evento com encerrado_em vazio ("" em vez de NULL, visto em produção em 2026-09-17) não é aberto nem encerrado.
     conn.execute("UPDATE inventario_eventos SET encerrado_em = NULL WHERE encerrado_em = ''")
     conn.commit()
+    # Fase 5A: perfil único de usuários.perfil vira funções (usuarios_funcoes); a comissão de
+    # inventário ganha identidade de usuário quando o nome não é ambíguo. Reserva a própria transação.
+    migrar(conn)
 
 
 def inicializar() -> None:
