@@ -103,9 +103,21 @@ def test_exportacao_integral_e_valores_preservados(dados):
     assert valores[2000]==0 and valores[2001] is None
 
 
-def test_consulta_abre_analise_e_termo_sem_botoes_de_emissao(cliente, usuarios_exemplo):
+def test_consulta_abre_analise_e_termo_sem_botoes_de_emissao(cliente, usuarios_exemplo, dados):
     """Consulta acessa a Análise e o termo completo (só leitura); os botões que registram emissão
-    (Copiar para o SEI, Baixar .docx, Baixar planilha) são exclusivos de Operador/Admin."""
+    (Copiar para o SEI, Baixar .docx, Baixar planilha) são exclusivos de Operador/Admin -- com um
+    processo SEI vigente cadastrado, para não confundir "sem processo" (que também esconde os botões,
+    de qualquer função) com "sem permissão"."""
+    db.incluir_processo(dados, 'ccusto', 'Termo de centro de custo', '1111', vigente=True)
+    antes = dados.execute('SELECT count(*) FROM termos_emitidos').fetchone()[0]
+
+    admin_html = cliente.get('/termo/ccusto/CCI').get_data(as_text=True)   # cliente já logado como admin
+    assert 'Copiar para o SEI' in admin_html and 'Baixar .docx' in admin_html and 'Baixar planilha' in admin_html
+
+    cliente.post('/sair'); logar(cliente, *usuarios_exemplo['operador'])
+    op_html = cliente.get('/termo/ccusto/CCI').get_data(as_text=True)
+    assert 'Copiar para o SEI' in op_html and 'Baixar .docx' in op_html and 'Baixar planilha' in op_html
+
     cliente.post('/sair'); logar(cliente, *usuarios_exemplo['consulta'])
     html = cliente.get('/analise?ccusto=CCI').get_data(as_text=True)
     assert 'Abrir termo completo' in html and '/termo/ccusto/CCI' in html
@@ -115,6 +127,7 @@ def test_consulta_abre_analise_e_termo_sem_botoes_de_emissao(cliente, usuarios_e
     assert 'Copiar para o SEI' not in termo_html
     assert 'Baixar .docx' not in termo_html
     assert 'Baixar planilha' not in termo_html
+    assert dados.execute('SELECT count(*) FROM termos_emitidos').fetchone()[0] == antes   # a prévia não emite
 
 
 def test_inventario_sozinho_recebe_403_na_analise_no_xlsx_e_nos_aliases(cliente, usuarios_exemplo):

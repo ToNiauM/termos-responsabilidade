@@ -2,10 +2,11 @@
 {% from "_macros.html" import select, grafico, tag_termo, cabecalho_tabela %}
 {% block titulo %}Análise{% endblock %}
 {% block conteudo %}
+{% set mostra_termo_completo = termo_de and pode('termo') %}
 <div class="d-flex align-items-center mb-3">
   <h1 class="mb-0">Análise</h1>
   <div class="ml-auto">
-    {% if termo_de and pode('termo') %}
+    {% if mostra_termo_completo %}
     <a class="br-button primary" href="{{ url_for('termo', tipo=termo_de[0], chave=termo_de[1]) }}">
       <i class="fas fa-file-alt mr-1" aria-hidden="true"></i>Abrir termo completo
     </a>
@@ -15,7 +16,7 @@
   </div>
 </div>
 <p class="text-gray-70">{{ descricao }}</p>
-{% if termo_de and pode('termo') %}
+{% if mostra_termo_completo %}
 <p class="text-down-01 text-gray-70">Os filtros desta análise não limitam o termo.</p>
 {% endif %}
 
