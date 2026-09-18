@@ -1,4 +1,5 @@
 """Ajuda: seções conforme as funções do usuário, sumário coerente e âncora contextual de cada tela."""
+import pathlib
 from html.parser import HTMLParser
 
 from flask import g
@@ -108,6 +109,19 @@ def test_contexto_sem_usuario_nao_oferece_ajuda(dados):
         contexto = {}
         app.update_template_context(contexto)
     assert contexto['SECOES_AJUDA'] == [] and contexto['AJUDA_ANCORA'] is None
+
+
+def test_dsgov_devolve_o_id_do_servidor_depois_do_brcard():
+    """Guarda de regressão do navegador (invisível ao cliente de teste, que não roda JS): o BRCard do core
+    reescreve o id de TODO .br-card, o que apagaria as âncoras das seções de /ajuda depois de a página
+    carregar. O bridge `dsgov.js` precisa guardar o id do servidor e devolvê-lo após construir o BRCard."""
+    raiz = pathlib.Path(__file__).resolve().parent.parent
+    core = (raiz / 'static/dsgov/vendor/govbr-ds/core.min.js').read_text(encoding='utf-8')
+    assert 'setAttribute("id",`card${n}`)' in core                      # o core de fato sobrescreve
+    bloco = (raiz / 'static/dsgov/js/dsgov.js').read_text(encoding='utf-8')
+    bloco = bloco.split('querySelectorAll(".br-card")')[1].split('});')[0]
+    assert 'getAttribute("id")' in bloco
+    assert bloco.index('new window.core.BRCard') < bloco.index('setAttribute("id", idDoServidor)')
 
 
 def test_macro_de_ajuda_da_tela(dados):

@@ -74,7 +74,13 @@
     raiz.querySelectorAll(".br-card").forEach(function (el, i) {
       if (el.dataset.dsgovInit) return;
       el.dataset.dsgovInit = "1";
+      /* O BRCard do core sobrescreve o id de TODO .br-card por `card<seq>` (card.js do 3.7.0, sem opção de
+         desligar; internamente só usa esse id no dataTransfer do arrastar). Guardar e devolver o id vindo
+         do servidor: sem isso as seções de /ajuda (cards com id próprio) perdem a âncora no navegador, e
+         nem o sumário nem o botão de ajuda contextual (/ajuda#secao) levam a lugar nenhum. */
+      var idDoServidor = el.getAttribute("id");
       try { new window.core.BRCard("br-card", el, seq + i); } catch (e) { console.warn("dsgov: br-card", e); }
+      if (idDoServidor) el.setAttribute("id", idDoServidor);
     });
     COMPONENTES.forEach(function (par) {
       var seletor = par[0], nome = par[1];
