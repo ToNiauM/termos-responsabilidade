@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from '_macros.html' import ajuda_titulo %}
+{% from '_macros.html' import ajuda_titulo, cabecalho_tabela %}
 {% block titulo %}Atualizar base{% endblock %}
 {% block conteudo %}
 <div class="mb-4"><h1 class="mb-1">Atualizar base</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}
@@ -35,7 +35,6 @@
 </div>
 {% endif %}
 {% if importacoes %}
-{% from "_macros.html" import cabecalho_tabela %}
 <div class="mt-4">
 {{ cabecalho_tabela('Últimas cargas de bens', 'imp') }}
   <thead><tr><th scope="col">Data</th><th scope="col">Arquivo</th><th scope="col" class="dsgov-numero">Total</th><th scope="col" class="dsgov-numero">Ativos</th><th scope="col" class="dsgov-numero">Novos</th><th scope="col" class="dsgov-numero">Removidos</th><th scope="col" class="dsgov-numero">Movidos</th><th scope="col" class="dsgov-numero">Situação</th></tr></thead>
@@ -43,6 +42,23 @@
   {% for i in importacoes %}
   <tr><td><a href="{{ url_for('importacao_tela', id=i.id) }}">{{ i.importado_em[8:10] }}/{{ i.importado_em[5:7] }}/{{ i.importado_em[:4] }} {{ i.importado_em[11:16] }}</a></td><td>{{ i.arquivo or '—' }}</td>
     <td class="dsgov-numero">{{ i.total }}</td><td class="dsgov-numero">{{ i.ativos }}</td><td class="dsgov-numero">{{ i.novos }}</td><td class="dsgov-numero">{{ i.removidos }}</td><td class="dsgov-numero">{{ i.movidos }}</td><td class="dsgov-numero">{{ i.situacao }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+</div>
+{% endif %}
+{% if execucoes %}
+<div class="mt-4">
+{{ cabecalho_tabela('Execuções do robô (SPW, dias úteis às 4h)', 'robo') }}
+  <thead><tr><th scope="col">Início</th><th scope="col">Resultado</th><th scope="col">Detalhe</th></tr></thead>
+  <tbody>
+  {% for e in execucoes %}
+  <tr><td>{{ e.iniciado_em[8:10] }}/{{ e.iniciado_em[5:7] }}/{{ e.iniciado_em[:4] }} {{ e.iniciado_em[11:16] }}</td>
+    <td>{% if e.resultado == 'importado' and e.importacao_id %}<a href="{{ url_for('importacao_tela', id=e.importacao_id) }}" class="br-tag bg-success text-pure-0"><span>importado</span></a>
+      {% elif e.resultado == 'importado' %}<span class="br-tag bg-success text-pure-0"><span>importado</span></span>
+      {% elif e.resultado == 'sem_mudanca' %}<span class="br-tag bg-gray-20"><span>sem mudança</span></span>
+      {% else %}<span class="br-tag bg-danger text-pure-0"><span>erro</span></span>{% endif %}</td>
+    <td>{{ e.mensagem or '—' }}</td></tr>
   {% endfor %}
   </tbody>
 </table></div>

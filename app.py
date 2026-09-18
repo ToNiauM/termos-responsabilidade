@@ -503,7 +503,8 @@ def upload():
               f"{resumo['removidos']} removido(s), {resumo['movidos']} movido(s), {resumo['situacao']} com situação alterada.", "success")
         return redirect(url_for("upload"))
     return render_template("upload.html", sem_centro=db.localizacoes_sem_centro(obter_conn()),
-                           importacoes=db.importacoes(obter_conn()), trilha=[("Atualizar base", None)])
+                           importacoes=db.importacoes(obter_conn()), execucoes=db.execucoes_robo(obter_conn()),
+                           trilha=[("Atualizar base", None)])
 
 
 @app.route("/bens/exportar")

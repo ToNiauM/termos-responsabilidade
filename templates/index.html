@@ -42,12 +42,18 @@
   </div></a></div>
   {% endfor %}
   {% if pode('importacao_tela') %}
+  {% set robo = p.robo %}
+  {% set alerta = p.importacao_desatualizada or (robo and robo.resultado == 'erro') %}
   <div class="col-sm-6 col-lg-4 mb-3">
-    {% if p.ultima_importacao %}<a class="br-card h-100 dsgov-kpi" href="{{ url_for('importacao_tela', id=p.ultima_importacao.id) }}"><div class="card-content">
+    {% if p.ultima_importacao %}<a class="br-card h-100 dsgov-kpi{% if alerta %} dsgov-kpi-alerta{% endif %}" href="{{ url_for('importacao_tela', id=p.ultima_importacao.id) }}"><div class="card-content">
       <div class="valor">{{ p.ultima_importacao.importado_em[8:10] }}/{{ p.ultima_importacao.importado_em[5:7] }}</div>
       <div class="text-down-01 text-gray-70">última importação · {{ p.ultima_importacao.novos }} novos, {{ p.ultima_importacao.removidos }} removidos</div>
+      {% if robo %}{% if robo.resultado == 'erro' %}<div class="text-down-01 dsgov-robo-erro"><i class="fas fa-exclamation-triangle mr-1" aria-hidden="true"></i>robô falhou {{ robo.iniciado_em[8:10] }}/{{ robo.iniciado_em[5:7] }}: {{ robo.mensagem|truncate(80) }}</div>
+      {% else %}<div class="text-down-01 text-gray-70">robô ok · {{ robo.iniciado_em[8:10] }}/{{ robo.iniciado_em[5:7] }}</div>{% endif %}{% endif %}
     </div></a>
-    {% else %}<div class="br-card h-100"><div class="card-content"><div class="valor">—</div><div class="text-down-01 text-gray-70">Nenhuma importação registrada</div></div></div>{% endif %}
+    {% else %}<div class="br-card h-100 dsgov-kpi{% if alerta %} dsgov-kpi-alerta{% endif %}"><div class="card-content"><div class="valor">—</div><div class="text-down-01 text-gray-70">Nenhuma importação registrada</div>
+      {% if robo and robo.resultado == 'erro' %}<div class="text-down-01 dsgov-robo-erro"><i class="fas fa-exclamation-triangle mr-1" aria-hidden="true"></i>robô falhou {{ robo.iniciado_em[8:10] }}/{{ robo.iniciado_em[5:7] }}: {{ robo.mensagem|truncate(80) }}</div>{% endif %}
+    </div></div>{% endif %}
   </div>
   {% endif %}
   {% if pode('inventario.eventos_tela') %}

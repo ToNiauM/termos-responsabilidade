@@ -1081,3 +1081,58 @@ def test_inventario_excluir_evento(cliente, dados, monkeypatch, usuarios_exemplo
     assert cliente.get(f"/inventario/{eid}/excluir").status_code == 403
     assert cliente.post(f"/inventario/{eid}/excluir", data={"nome": "Inv"}).status_code == 403
     assert b"Excluir evento" not in cliente.get(f"/inventario/{eid}").data
+
+
+def _xlsx_base():
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Número Bem", "Situação", "Descrição", "Complemento", "Classificação Contábil",
+               "Localização", "Data Entrada", "Valor Compra", "Valor Atual"])
+    ws.append([1002, "ATIVO", "NOTEBOOK", "DELL", "EQUIP", "01 - SALA CCI", "06/12/2012", 3000, 1500])
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf
+
+
+def test_inicio_sem_importacao_fica_em_alerta_e_sem_linha_do_robo(cliente):
+    r = cliente.get("/")
+    assert b"dsgov-kpi-alerta" in r.data and b"Nenhuma" in r.data
+    assert "robô".encode() not in r.data
+
+
+def test_inicio_mostra_robo_ok_sem_alerta(cliente, dados):
+    db.importar_bens(dados, _xlsx_base(), nome_arquivo="SPW automático")
+    db.registrar_execucao_robo(dados, "2026-09-18 04:00:00", "sem_mudanca", hash="h")
+    r = cliente.get("/")
+    assert "robô ok · 18/09".encode() in r.data
+    assert b"dsgov-kpi-alerta" not in r.data
+
+
+def test_inicio_mostra_robo_falhou_em_alerta(cliente, dados):
+    db.importar_bens(dados, _xlsx_base(), nome_arquivo="SPW automático")
+    db.registrar_execucao_robo(dados, "2026-09-18 04:00:00", "erro", mensagem="Timeout 60000ms exceeded")
+    r = cliente.get("/")
+    assert "robô falhou 18/09: Timeout 60000ms exceeded".encode() in r.data
+    assert b"dsgov-kpi-alerta" in r.data and b"dsgov-robo-erro" in r.data
+
+
+def test_inicio_esconde_robo_de_quem_nao_ve_importacao(cliente, dados, usuarios_exemplo):
+    db.registrar_execucao_robo(dados, "2026-09-18 04:00:00", "erro", mensagem="senha")
+    cliente.post("/sair")
+    assert logar(cliente, *usuarios_exemplo["consulta"]).status_code == 302
+    assert "robô".encode() not in cliente.get("/").data
+
+
+def test_upload_lista_execucoes_do_robo(cliente, dados):
+    assert "Execuções do robô".encode() not in cliente.get("/upload").data
+    resumo = db.importar_bens(dados, _xlsx_base(), nome_arquivo="SPW automático")
+    db.registrar_execucao_robo(dados, "2026-09-18 04:00:00", "importado", hash="h", importacao_id=resumo["importacao_id"], mensagem="1 bens")
+    db.registrar_execucao_robo(dados, "2026-09-19 04:00:00", "sem_mudanca", hash="h", mensagem="nada mudou")
+    db.registrar_execucao_robo(dados, "2026-09-20 04:00:00", "erro", mensagem="SPW fora do ar")
+    r = cliente.get("/upload")
+    html = r.data.decode()
+    assert "Execuções do robô" in html
+    assert html.index("SPW fora do ar") < html.index("nada mudou") < html.index("1 bens")   # mais recente primeiro
+    assert f'href="/importacoes/{resumo["importacao_id"]}"' in html.split("Execuções do robô")[1]
+    assert "sem mudança" in html and "bg-danger" in html
