@@ -1,7 +1,7 @@
 # Fase 5A — funções cumulativas e menor privilégio
 
 **Data:** 2026-09-17.
-**Estado:** comportamento definido com o usuário no grill; desenho técnico consolidado para planejamento.
+**Estado:** implementado e verificado em 2026-09-17, no ramo `fase5`; ver §7.
 **Base:** `main`, commit `c0dd564`, após a fase 4.
 **Decisões:** `../notes/2026-09-17-fase5-grill.md`, seções 1–10.
 **Plano:** `../plans/2026-09-17-fase5a-acessos.md`.
@@ -139,3 +139,31 @@ que já tenham sido compartilhadas.
 - Importação, exclusão e renomeação mantêm os limites de autorização e o histórico.
 - Menus e formulários não apresentam ações que as rotas recusariam.
 - CLI de admin, modo local, CSRF, login por e-mail e proteção do último admin continuam.
+
+## 7. Evidências da implementação
+
+Ramo `fase5`, a partir de `main` em `6b4c432`. Data da verificação: 2026-09-17.
+
+Commits de 5A, na ordem: `a0c59b8` (funções cumulativas), `49c7cfa` (migração de
+funções e identidades da comissão), `9db4983` (várias funções por usuário),
+`9f5a1d8` (acesso ao inventário por identidade), `ff5a1aa` (autorização nas rotas
+e telas), `d69af8f` (ações negadas somem do relatório e da sala), `5fe1dc8`
+(testes de menor privilégio e combinações).
+
+- Suíte completa: `.venv/bin/python -m pytest -q` → **2998 passaram** (2996 antes
+  desta tarefa, mais dois testes novos). `git diff --check` sem erro.
+- Matriz × rotas: **81 pares (endpoint, método)** dos dois lados. `tests/test_permissoes.py`
+  passou a conferir os dois sentidos — nenhuma rota sem regra e, agora que `ajuda`,
+  `analise` e `analise_xlsx` existem, nenhuma regra sem rota.
+- Sem resíduo dos quatro perfis: `USUARIO.perfil`, `ROTULO_PERFIL` e `PERFIS` não
+  aparecem em nenhum `.py` ou `.html`. No caminho web a comissão é verificada por
+  `comissoes.pode_conferir` (ID); `g.usuario["nome"]` só marca autoria da leitura e
+  monta a comissão do modo desktop (`_local()` em `app_inventario.py`).
+- Navegador (Chromium/Playwright, base temporária sem tocar `dados/`), 1280 px e 390 px:
+  Inventário sozinho entra em `/inventario`, menu só com *Inventário* e *Ajuda*, sem
+  lupa, e `/analise` responde 403; Inventário sem comissão recebe “Nenhum inventário
+  atribuído a você”, sem nome nem total de evento alheio, e 403 em `/inventario/2` e
+  `/inventario/1/relatorio`; Consulta de inventários vê os dois eventos, abre painel,
+  relatório e `.xlsx`, mas na sala o campo de leitura vem desativado e o POST de leitura
+  responde 403; a combinação Inventário + Consulta de inventários consulta os dois
+  eventos e só escreve no evento aberto da própria comissão (no encerrado, 403).

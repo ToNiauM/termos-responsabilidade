@@ -1,7 +1,7 @@
 # Fase 5B–5C — navegação, Ajuda e Análise
 
 **Data:** 2026-09-17.
-**Estado:** comportamento consolidado após o grill; implementação não iniciada.
+**Estado:** implementado e verificado em 2026-09-17, no ramo `fase5`; ver §6.
 **Depende de:** `2026-09-17-fase5-acessos-design.md`.
 **Substitui:** `2026-09-17-fase5-menu-inicio-analise-ajuda-design.md`.
 **Planos, na ordem de execução:** `../plans/2026-09-17-fase5b-analise.md` e
@@ -167,3 +167,42 @@ recorte vazio, intervalo numérico, situações todas/ATIVO, preservação de fi
 contagens além de 1.000 e Excel coerente. Termo completo claramente identificado.
 Verificação de navegador: desktop e celular, abertura/fechamento e acessibilidade
 do menu após inicialização do core, navegação por teclado e leitura do contexto.
+
+## 6. Evidências da implementação
+
+Ramo `fase5`, a partir de `main` em `6b4c432`. Data da verificação: 2026-09-17.
+Suíte completa `.venv/bin/python -m pytest -q`: **2998 passaram**; `git diff --check` sem erro.
+
+Commits de 5B: `b805c55` (valor ausente × zero), `1ff67c1` (rotas da Análise e
+redirecionamento de `/recorte`), `943289d` (indicadores exatos e refinamento),
+`abc161c` (testes de refinar, casos fixos e saída HTTP), `d93d1c8` (termo completo e
+exportação integral), `cf118ac` (botões de emissão contra processo vigente).
+Commits de 5C: `ef11fba` (navegação acessível e ajuda por escopo), `6b42ad7` (árvore
+do menu por função), `275b1b6` (Início enxuto), `5ee0009` (ajuda da tela pela
+capacidade efetiva), `e25199d` (título de cadastros fora do ramo de pessoa).
+Correção achada nesta validação: `a74e974`.
+
+Validação de navegador com Chromium (Playwright), base temporária semeada — a pasta
+`dados/` de produção não foi usada — em 1280 px e 390 px, **90 verificações, todas
+aprovadas, sem nenhum erro de console**:
+
+| Cenário | Resultado |
+|---|---|
+| Admin, 1280 px | Nove itens/grupos (Início, Termos, Análise, Inventário, Cadastros, Textos, Atualizar base, Usuários, Ajuda); seis atalhos; sem ECharts, sem `<canvas>` e sem busca no conteúdo |
+| Inventário sozinho | Entra em `/inventario`; menu só *Inventário* (Eventos + evento da comissão) e *Ajuda*; sem lupa; `/analise` 403 |
+| Inventário sem comissão | “Nenhum inventário atribuído a você”; nenhum nome ou total de evento alheio, nem no menu; 403 nas URLs diretas |
+| Consulta de inventários | Os dois eventos; painel, relatório e `.xlsx`; nenhuma ação de conferência ou de administração do evento; POST de leitura 403 |
+| Combinação das duas funções | Consulta global; escrita só no evento aberto da comissão; evento encerrado só leitura; menu com Painel e Relatório |
+| Cadastros → Pessoas/edição | Só *Pessoas* marcada; grupo *Cadastros* aberto, inclusive na tela de edição |
+| Relatório de evento encerrado | Grupo *Inventário* aberto; nenhum item marcado — o relatório do evento aberto não vira o atual |
+| Menu após o core inicializar | `aria-expanded=true` só no grupo aberto; um clique fecha (4→0 filhos), outro abre (0→4); foco e Enter seguem o link; Tab permanece no menu |
+| Celular, 390 px | Menu abre pelo hambúrguer `#navigation` e fecha pelo botão de fechar; ajuda contextual visível; sem rolagem horizontal |
+| Análise com NULL/zero/filtro | Seis indicadores; cartão, tabela e Excel concordam (1/1/1 em `valor_status=zero`, 1/1/1 em `nao_informado`, 5/5/5 em `ccusto=CCI`); `analise.xlsx` com célula vazia para NULL e número 0 para zero; “Os filtros desta análise não limitam o termo” visível só com titular |
+| Ajuda por função | Sumário igual às seções renderizadas, sem âncora quebrada (admin 12, Consulta 6, Inventário 3); Consulta não recebe “Copiar para o SEI”, Inventário não recebe “Exporte a planilha”; a Ajuda não aponta para si mesma |
+
+Defeito encontrado e corrigido (`a74e974`): o `BRCard` do core DSGov reescreve o `id`
+de todo `.br-card` ao inicializar, o que apagava as âncoras das seções de `/ajuda` no
+navegador — sumário e botão de ajuda contextual não levavam a lugar nenhum. O HTML do
+servidor sempre esteve correto, então nenhum teste do cliente Flask acusava. `dsgov.js`
+passou a restaurar o `id` do servidor depois de construir o componente, com guarda de
+regressão em `tests/test_ajuda.py`.

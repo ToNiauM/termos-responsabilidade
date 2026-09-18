@@ -32,18 +32,24 @@ def test_permitido_por_funcao():
     assert not usuarios.permitido(somadas, "termo_docx")
 
 
-def test_toda_rota_do_app_esta_na_matriz(dados):
-    """Cada (endpoint, método) do app tem regra própria; não há regra geral por endpoint.
-    A recíproca não vale: a matriz já registra `ajuda`, `analise` e `analise_xlsx`, rotas dos planos 5B/5C."""
+def _pares_de_rota():
+    """(endpoint, método) de todas as rotas do app, exceto `static` e os métodos derivados."""
     from app import app
-    faltam = []
-    for regra in app.url_map.iter_rules():
-        if regra.endpoint == "static":
-            continue
-        for metodo in regra.methods - {"HEAD", "OPTIONS"}:
-            if (regra.endpoint, metodo) not in permissoes.PERMISSOES:
-                faltam.append(f"{regra.endpoint} [{metodo}]")
-    assert not faltam, "Rotas sem regra em permissoes.PERMISSOES: " + ", ".join(sorted(faltam))
+    return {(regra.endpoint, metodo) for regra in app.url_map.iter_rules() if regra.endpoint != "static"
+            for metodo in regra.methods - {"HEAD", "OPTIONS"}}
+
+
+def test_toda_rota_do_app_esta_na_matriz(dados):
+    """Cada (endpoint, método) do app tem regra própria; não há regra geral por endpoint."""
+    faltam = _pares_de_rota() - set(permissoes.PERMISSOES)
+    assert not faltam, "Rotas sem regra em permissoes.PERMISSOES: " + ", ".join(sorted(f"{e} [{m}]" for e, m in faltam))
+
+
+def test_matriz_nao_tem_regra_sem_rota(dados):
+    """Recíproca, válida desde que `ajuda`, `analise` e `analise_xlsx` existem (planos 5B/5C): a matriz e as
+    rotas são exatamente iguais, então regra órfã (rota renomeada ou removida) reprova aqui."""
+    sobram = set(permissoes.PERMISSOES) - _pares_de_rota()
+    assert not sobram, "Regras em permissoes.PERMISSOES sem rota no app: " + ", ".join(sorted(f"{e} [{m}]" for e, m in sobram))
 
 
 def test_rotas_de_escrita_do_inventario_saem_da_matriz(dados):

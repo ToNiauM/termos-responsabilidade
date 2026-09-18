@@ -7,7 +7,7 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
 ## Uso
 
 1. Abra `TermosCFC.exe`. A janela abre em `http://127.0.0.1:12345`.
-   **Pesquisa** (lupa no cabeçalho, em todas as telas): número do bem abre a ficha; texto procura em bens
+   **Pesquisa** (lupa no cabeçalho, para quem tem acesso ao acervo): número do bem abre a ficha; texto procura em bens
    (descrição, complemento, localização, centro, pessoa), pessoas e centros de custo. Várias palavras: todas
    têm que bater (`computador GEX-LIC` = computadores do GEX-LIC; o "e" solto é ignorado). Texto simples
    busca "contém"; com `*` o padrão é literal (`GEX*` começa com GEX, `*ITEC` termina com ITEC). Nos
@@ -19,13 +19,24 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    (termo *desatualizado*). O número do documento SEI pode ser anotado depois, no registro.
    **Atualizar base** guarda o que mudou a cada importação (novos, removidos, movidos, situação) e a
    ficha do bem mostra o histórico dele.
-   **Início** é o painel: cards e gráficos por situação, centro, classificação, localização, idade, ano e
-   faixa de valor, todos clicáveis. **Análise** filtra bens por qualquer combinação, com os mesmos
-   gráficos, os cards de valor não informado × valor zero (contados à parte um do outro), o termo
-   completo do centro/pessoa quando couber (os filtros da tela não limitam o termo) e *Exportar .xlsx*
-   (`analise.xlsx`, com todos os bens do filtro, sem o limite de 1000 linhas da tabela na tela).
-   A antiga tela **Recorte** passou a se chamar **Análise**; `/recorte` e `/recorte/xlsx` continuam
-   funcionando e redirecionam para os novos endereços.
+   **Início** é enxuto: até seis atalhos (termo por centro de custo, termo individual, termo de devolução,
+   termos emitidos, realizar inventário e Análise), os indicadores permitidos (ativos, valor sem imóveis,
+   imóveis, sem centro nem pessoa, termos a emitir, última importação, andamento do inventário) e o card
+   *Sobre o patrimônio*. Não tem mais gráficos nem busca no meio da tela — os gráficos ficam na Análise,
+   e a busca, na lupa do cabeçalho. Cada usuário vê só os atalhos e indicadores cujas telas ele pode abrir.
+   **Análise** filtra bens por qualquer combinação, com gráficos por dimensão, os cards de valor não
+   informado × valor zero (contados à parte um do outro), *Abrir termo completo* do centro/pessoa quando
+   couber — com o aviso *Os filtros desta análise não limitam o termo*, porque o documento sai inteiro —
+   e *Exportar .xlsx* (`analise.xlsx`, com todos os bens do filtro, sem o limite de 1000 linhas da tabela
+   na tela). A antiga tela **Recorte** passou a se chamar **Análise**; `/recorte` e `/recorte/xlsx`
+   continuam funcionando e redirecionam para os novos endereços.
+   **Menu** em árvore, recortado pelas funções de quem entrou: Início, Termos de Responsabilidade (grupo),
+   Análise, Inventário (grupo), Cadastros (grupo), Textos, Atualizar base, Usuários e Ajuda. Grupo sem
+   nenhum item permitido não aparece; o grupo da tela aberta já vem expandido e só o item da tela fica
+   marcado (o relatório de um evento encerrado não acende o relatório do evento aberto).
+   **Ajuda** (`/ajuda`) é o guia do sistema: sumário e seções apenas das funções do usuário, incluindo
+   perguntas frequentes. O ícone de interrogação ao lado do título de cada tela abre o guia direto na
+   seção daquela tela.
    **Inventário** (menu próprio): abra um evento (nome, portaria, comissão; todas as salas com bens
    ativos ou uma amostra), escolha o integrante e leia as plaquetas por sala com leitor de código de
    barras, câmera do celular ou digitação. Bem lido na sala cadastrada = localizado; em outra sala =
@@ -57,6 +68,10 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    os usuários com Administrador ou Inventário, na tela do próprio evento; criar um usuário com a função
    Inventário não o inclui automaticamente em nenhuma comissão — é preciso adicioná-lo depois, evento a
    evento. A leitura grava o nome de quem está logado.
+   A entrada depende do acesso: quem enxerga o acervo cai no **Início**; quem só tem funções de inventário
+   é levado direto a **Inventário** (`/inventario`) e não recebe lupa de pesquisa, Análise, termos nem
+   relatórios — nem por URL digitada (403). Quem tem Inventário e ainda não está em nenhuma comissão vê
+   *Nenhum inventário atribuído a você*, sem nome nem total de evento alheio.
    Usuário não é excluído, só inativado. *Nova senha* gera uma senha temporária mostrada uma vez, com troca
    obrigatória no primeiro acesso. Cinco senhas erradas seguidas bloqueiam o login por 15 minutos. O programa
    Windows não pede senha: entra como "Administrador local". Renomear um usuário mantém o nome atualizado na
