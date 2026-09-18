@@ -14,6 +14,6 @@
   <div class="br-input mb-3"><label for="nova">Nova senha (mínimo 8 caracteres)</label><input id="nova" name="nova" type="password" autocomplete="new-password" minlength="8" required/></div>
   <div class="br-input mb-4"><label for="confirmacao">Repita a nova senha</label><input id="confirmacao" name="confirmacao" type="password" autocomplete="new-password" minlength="8" required/></div>
   <button class="br-button primary" type="submit"><i class="fas fa-save mr-1" aria-hidden="true"></i>Salvar nova senha</button>
-  {% if not obrigatoria %}<a class="br-button ml-2" href="{{ url_for('home') }}">Cancelar</a>{% endif %}
+  {% if not obrigatoria %}<a class="br-button ml-2" href="{{ URL_INICIAL }}">Cancelar</a>{% endif %}
 </form>
 {% endblock %}

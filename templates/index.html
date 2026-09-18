@@ -3,7 +3,7 @@
 {% block titulo %}Início{% endblock %}
 {% block conteudo %}
 <div class="d-flex align-items-center mb-4"><h1 class="mb-0">Início</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}</div>
-{# Atalhos em carrossel (rolagem horizontal com snap), no estilo das homes gov.br #}
+{# Atalhos em grade responsiva (auto-fill, colunas de 220px), um br-card por atalho #}
 <div class="dsgov-atalhos mb-4" role="list" aria-label="Acesso rápido">
 {% for rotulo,icone,descricao,ep,permissao,metodo in [
  ('Termo por centro de custo','fa-building','Bens sob guarda de um setor','centro_custos','centro_custos','GET'),

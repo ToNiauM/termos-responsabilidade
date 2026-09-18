@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from db import ErroDeNegocio, _agora, _obrigatorio, _todos, _um
-from permissoes import FUNCOES, PERMISSOES, ROTULOS, permitido
+from permissoes import FUNCOES, ROTULOS, permitido
 
 SENHA_MINIMA = 8
 MAX_FALHAS = 5
@@ -175,7 +175,7 @@ def elegiveis_comissao(conn) -> list[dict]:
 
 
 # ---------------------------------------------------------------- permissões (nega por padrão)
-# FUNCOES, ROTULOS, PERMISSOES e permitido vêm de permissoes.py (matriz por endpoint Flask).
+# FUNCOES, ROTULOS e permitido vêm de permissoes.py (matriz por endpoint Flask).
 
 
 # ---------------------------------------------------------------- autenticação e senhas

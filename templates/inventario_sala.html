@@ -3,7 +3,7 @@
 {% from "_macros.html" import cabecalho_tabela, th_selecao, td_selecao %}
 {% block titulo %}{{ localizacao }}{% endblock %}
 {% block conteudo %}
-{% set fechado = e.encerrado_em is not none or not pode('inventario.ler', 'POST') %}
+{% set fechado = e.encerrado_em is not none or not na_comissao %}
 <div class="d-flex align-items-center mb-2">
   <div><div class="d-flex align-items-center"><h1 class="mb-0">{{ localizacao }}</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}</div><div class="text-gray-70">{{ e.nome }}{% if sala.ccustos %} · centro {{ sala.ccustos }}{% endif %} ·
     {% if na_comissao %}lendo como <strong>{{ integrante }}</strong>{% else %}<strong>Você não faz parte da comissão deste evento</strong>{% endif %}

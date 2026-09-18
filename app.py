@@ -95,8 +95,9 @@ def _escopo_do_inventario():
 @app.before_request
 def resolver_usuario():
     """Quem está usando: sessão (web, TERMOS_LOGIN=1) ou o administrador local (desktop). Sem sessão válida
-    → /login. Com senha temporária → /senha até trocar. Fora da matriz de permissões das funções → 403.
-    Por último, o escopo do inventário (evento visível; escrita só para a comissão)."""
+    → /login. Com senha temporária → /senha até trocar. usuarios.sair e usuarios.login sempre passam, mesmo
+    para quem ficou sem nenhuma função (senão nem logout seria possível). Fora da matriz de permissões das
+    funções → 403. Por último, o escopo do inventário (evento visível; escrita só para a comissão)."""
     ep = request.endpoint
     if ep is None or ep == "static":
         return None
@@ -120,6 +121,8 @@ def resolver_usuario():
         g.usuario = u
         if u["trocar_senha"] and ep not in ("usuarios.senha", "usuarios.sair", "usuarios.login"):
             return redirect(url_for("usuarios.senha"))
+    if ep in ("usuarios.sair", "usuarios.login"):   # sempre alcançáveis, mesmo sem nenhuma função (ex.: conta esvaziada)
+        return None
     if not _autorizado(g.usuario["funcoes"], ep):
         return _negado()
     return _escopo_do_inventario()

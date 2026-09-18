@@ -32,13 +32,12 @@
     <div class="col-md-6 mb-3"><div class="br-input"><label for="descricao">Descrição (portaria, observações)</label><input id="descricao" name="descricao" type="text"/></div></div>
     <div class="col-md-6 mb-3">
       <div class="text-weight-semi-bold mb-2">Comissão (quem poderá ler)</div>
-      {% set selecionados = [] %}
       {% for u in elegiveis %}
       {% if local %}
       <div class="br-checkbox mb-1"><input id="int-{{ loop.index }}" name="integrantes" type="checkbox" value="{{ u.nome }}"{% if u.id is none %} checked disabled{% endif %}/><label for="int-{{ loop.index }}">{{ u.nome }} <span class="text-gray-70 text-down-01">· {{ u.funcoes|map('rotulo_funcao')|join(', ') }}</span></label></div>
       {% else %}
       <div class="br-checkbox mb-2">
-        <input id="integrante-{{ u.id }}" name="usuarios" type="checkbox" value="{{ u.id }}"{% if u.id in selecionados %} checked{% endif %}/>
+        <input id="integrante-{{ u.id }}" name="usuarios" type="checkbox" value="{{ u.id }}"/>
         <label for="integrante-{{ u.id }}">{{ u.nome }} ({{ u.login }})</label>
       </div>
       {% endif %}

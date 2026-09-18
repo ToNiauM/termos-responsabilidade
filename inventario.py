@@ -89,9 +89,12 @@ def editar_comissao(conn, evento_id: int, integrantes: list, elegiveis: list | N
 
 
 def renomear_integrante(conn, antigo: str, novo: str) -> int:
-    """Usuário renomeado (app_usuarios.editar): atualiza o nome na comissão do evento aberto para que ele não
-    caia em "fora da comissão" por causa da troca. Leituras e sobras já registradas mantêm o nome antigo
-    (spec §5); eventos encerrados também não mudam. Devolve quantas linhas foram atualizadas."""
+    """Usuário renomeado: atualiza o nome na comissão do evento aberto para que ele não caia em "fora da
+    comissão" por causa da troca. Leituras e sobras já registradas mantêm o nome antigo (spec §5); eventos
+    encerrados também não mudam. Devolve quantas linhas foram atualizadas.
+    Não é mais chamada pelo caminho web (app_usuarios.editar usa comissoes.atualizar_nome, que também
+    cobre `inventario_comissao_usuarios`); mantida para o caminho desktop/importação e exercida só por
+    tests/test_inventario.py."""
     cur = conn.execute(
         "UPDATE inventario_integrantes SET nome = ? WHERE nome = ? AND evento_id IN "
         "(SELECT id FROM inventario_eventos WHERE encerrado_em IS NULL)", (novo, antigo))

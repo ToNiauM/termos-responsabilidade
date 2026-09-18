@@ -951,6 +951,42 @@ def test_sala_somente_consulta_para_quem_nao_confere(cliente, dados):
     assert r.status_code == 403 and r.get_json()["erro"] == NEGADO
 
 
+def test_sala_esconde_escrita_de_quem_confere_mas_nao_esta_na_comissao(cliente, monkeypatch):
+    """Admin tem a função de conferir (CONFERENCIA), mas não está na comissão deste evento aberto: a tela
+    precisa se comportar como somente consulta mesmo assim (antes, `fechado` só olhava a função)."""
+    import fotos
+    for v in fotos.VARIAVEIS:
+        monkeypatch.setenv(v, "x")
+    eid = _abrir(cliente, comissao=("Beltrana",))   # Fulano (admin logado) fica de fora da comissão
+    import db, inventario
+    conn = db.conectar()
+    inventario.ler(conn, eid, "01 - SALA CCI", 1001, "Beltrana")
+    inventario.adicionar_foto(conn, eid, 1001, lambda c: "https://x/1.webp")
+    inventario.registrar_sobra(conn, eid, "01 - SALA CCI", "VENTILADOR", "", "achado", "https://x/s.webp", "Beltrana")
+    r = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI")
+    html = r.data
+    assert r.status_code == 200
+    assert b'id="form-sobra"' not in html and b'id="form-lote"' not in html and b'name="numeros" type="checkbox"' not in html
+    assert b'class="foto-input"' not in html
+    assert b'aria-label="Excluir foto 1"' not in html and b'aria-label="Excluir sobra"' not in html
+    assert b"Somente consulta" in html and b"Evento encerrado" not in html
+    # a Beltrana, que está na comissão, continua vendo os controles de escrita
+    cliente.post("/sair"); logar(cliente, "beltrana", SENHA_PADRAO)
+    r = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI")
+    html = r.data
+    assert b'id="form-sobra"' in html and b'id="form-lote"' in html and b'name="numeros" type="checkbox"' in html
+    assert b'class="foto-input"' in html
+    assert b'aria-label="Excluir foto 1"' in html and b'aria-label="Excluir sobra"' in html
+
+
+def test_sair_funciona_mesmo_para_quem_ficou_sem_nenhuma_funcao(cliente):
+    """Não alcançável pela UI (só editando o banco), mas precisa continuar podendo sair: senão a conta trava."""
+    conn = db.conectar()
+    conn.execute("DELETE FROM usuarios_funcoes WHERE usuario_id = (SELECT id FROM usuarios WHERE login = ?)", (ADMIN_LOGIN,))
+    conn.commit()
+    assert cliente.post("/sair").status_code == 302
+
+
 def test_inventario_desktop_admin_local_entra_na_comissao(cliente_local):
     import db, inventario, usuarios
     conn = db.conectar()
