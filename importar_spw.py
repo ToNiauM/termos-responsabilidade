@@ -32,7 +32,7 @@ class RoboErro(Exception):
 
 def ler_env(caminho: Path = ARQUIVO_ENV) -> dict:
     if not Path(caminho).exists():
-        raise RoboErro("spw.env não encontrado ou incompleto")
+        raise RoboErro(f"secrets/spw.env não encontrado ou incompleto ({caminho})")
     env = {}
     for linha in Path(caminho).read_text().splitlines():
         if "=" in linha and not linha.lstrip().startswith("#"):
@@ -40,7 +40,7 @@ def ler_env(caminho: Path = ARQUIVO_ENV) -> dict:
             env[chave.strip()] = valor.strip()
     faltando = [c for c in CHAVES_ENV if not env.get(c)]
     if faltando:
-        raise RoboErro("spw.env não encontrado ou incompleto: falta " + ", ".join(faltando))
+        raise RoboErro(f"secrets/spw.env não encontrado ou incompleto ({caminho}): falta " + ", ".join(faltando))
     return env
 
 
