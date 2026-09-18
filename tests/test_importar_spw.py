@@ -1,4 +1,5 @@
 """Partes do robô do SPW que não precisam de rede: env, hash, conversão e orquestração."""
+import sqlite3
 from datetime import datetime
 
 import pytest
@@ -79,11 +80,37 @@ def test_executar_importa_depois_ve_sem_mudanca(dados):
 
 def test_executar_erro_de_negocio_nao_altera_bens(dados):
     semear(dados)                                                # 1002 atribuído a ANA SILVA
-    r = robo.executar(dados, baixar=lambda: linhas(*[b for b in BASE if b[0] != 1002]))
+    # troca 1002 por um bem novo: 4 linhas (>= 3,6 = 4*0,9) não aciona o piso de C1, mas ainda
+    # deixa 1002 órfão da atribuição, então o erro de negócio dispara normalmente.
+    sem_1002 = [b for b in BASE if b[0] != 1002] + [(2001, "ATIVO", "MONITOR", "01 - SALA CCI")]
+    r = robo.executar(dados, baixar=lambda: linhas(*sem_1002))
     assert r["resultado"] == "erro" and "1002" in r["mensagem"] and "atribuídos" in r["mensagem"]
     assert dados.execute("SELECT count(*) FROM bens").fetchone()[0] == 4
     assert db.importacoes(dados) == [] and db.execucoes_robo(dados)[0]["resultado"] == "erro"
     assert db.ultimo_hash_robo(dados) is None
+
+
+def test_executar_export_curto_nao_apaga_bens(dados):
+    semear(dados)                                                 # 4 bens na base
+    r = robo.executar(dados, baixar=lambda: linhas())             # só cabeçalho
+    assert r["resultado"] == "erro" and r["mensagem"].startswith("export do SPW veio curto")
+    assert dados.execute("SELECT count(*) FROM bens").fetchone()[0] == 4
+    assert db.importacoes(dados) == []
+
+
+def test_executar_export_curto_com_poucos_bens_tambem_e_erro(dados):
+    semear(dados)                                                 # 4 bens na base
+    # cabeçalho + 3 dos 4 bens semeados (some 1001): 3 < 4*0,9
+    r = robo.executar(dados, baixar=lambda: linhas(*[b for b in BASE if b[0] != 1001]))
+    assert r["resultado"] == "erro" and r["mensagem"].startswith("export do SPW veio curto")
+    assert dados.execute("SELECT count(*) FROM bens").fetchone()[0] == 4
+    assert db.importacoes(dados) == []
+
+
+def test_executar_com_base_vazia_ignora_o_piso(dados):
+    r = robo.executar(dados, baixar=lambda: linhas(*BASE))        # bens vazia: sem semear()
+    assert r["resultado"] == "importado"
+    assert dados.execute("SELECT count(*) FROM bens").fetchone()[0] == 4
 
 
 def test_executar_cabecalho_mudou(dados):
@@ -111,3 +138,10 @@ def test_executar_mensagem_de_erro_e_limitada_a_500(dados):
 def test_executar_export_vazio_e_erro(dados):
     r = robo.executar(dados, baixar=lambda: [])
     assert r["resultado"] == "erro" and r["mensagem"].startswith("cabeçalho do SPW mudou")
+
+
+def test_executar_banco_travado_ao_registrar_nao_propaga(dados, monkeypatch):
+    def travado(*a, **k):
+        raise sqlite3.OperationalError("database is locked")
+    monkeypatch.setattr(db, "registrar_execucao_robo", travado)
+    assert robo.executar(dados, baixar=lambda: [])["resultado"] == "erro"

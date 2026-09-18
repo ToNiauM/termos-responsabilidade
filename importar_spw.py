@@ -10,6 +10,7 @@ playwright e xlrd são importados dentro das funções: os testes rodam sem eles
 """
 import hashlib
 import io
+import sqlite3
 import sys
 import time
 from datetime import date, datetime
@@ -35,7 +36,7 @@ def ler_env(caminho: Path = ARQUIVO_ENV) -> dict:
     if not Path(caminho).exists():
         raise RoboErro(f"secrets/spw.env não encontrado ou incompleto ({caminho})")
     env = {}
-    for linha in Path(caminho).read_text().splitlines():
+    for linha in Path(caminho).read_text(encoding="utf-8").splitlines():
         if "=" in linha and not linha.lstrip().startswith("#"):
             chave, valor = linha.split("=", 1)
             env[chave.strip()] = valor.strip()
@@ -45,6 +46,8 @@ def ler_env(caminho: Path = ARQUIVO_ENV) -> dict:
     return env
 
 
+# o ramo numérico (repr(float(v))) é proposital: faz o float do xlrd e o int do openpyxl darem o
+# mesmo hash; não trocar por db._texto (que formataria os dois como texto de forma diferente).
 def _normalizar(v) -> str:
     if v is None:
         return ""
@@ -88,6 +91,10 @@ def executar(conn, baixar=None, agora=None) -> dict:
         faltando = [c for c in db.COLUNAS_EXPORT if c not in cabecalho]
         if faltando:
             raise RoboErro("cabeçalho do SPW mudou: faltam " + ", ".join(faltando))
+        atuais = conn.execute("SELECT count(*) FROM bens").fetchone()[0]
+        if atuais and len(linhas) - 1 < atuais * 0.9:
+            raise RoboErro(f"export do SPW veio curto: {len(linhas) - 1} bens contra {atuais} na base; "
+                           "confira no SPW e use Atualizar base se a queda for real")
         h = hash_linhas(linhas)
         if h == db.ultimo_hash_robo(conn):
             mensagem = f"{len(linhas) - 1} bens no export, nada mudou"
@@ -102,7 +109,7 @@ def executar(conn, baixar=None, agora=None) -> dict:
         mensagem = (str(exc) or type(exc).__name__)[:500]
         try:
             db.registrar_execucao_robo(conn, iniciado, "erro", mensagem=mensagem)
-        except Exception:
+        except sqlite3.Error:
             pass                                    # banco travado: fica só no log do cron
         return {"resultado": "erro", "mensagem": mensagem, "importacao_id": None}
 
@@ -187,8 +194,17 @@ def main() -> int:
     inicio = time.monotonic()
     conn = db.conectar()
     try:
-        db.criar_esquema(conn)               # idempotente; garante robo_execucoes mesmo antes do rebuild
-        r = executar(conn)
+        iniciado = db._agora()
+        try:
+            db.criar_esquema(conn)           # idempotente; garante robo_execucoes mesmo antes do rebuild
+            r = executar(conn)
+        except Exception as exc:
+            mensagem = (str(exc) or type(exc).__name__)[:500]
+            try:
+                db.registrar_execucao_robo(conn, iniciado, "erro", mensagem=mensagem)
+            except sqlite3.Error:
+                pass                          # robo_execucoes pode nem existir ainda: fica só no log do cron
+            r = {"resultado": "erro", "mensagem": mensagem, "importacao_id": None}
     finally:
         conn.close()
     print(f"{db._agora()} {r['resultado']} {r['mensagem']} ({time.monotonic() - inicio:.0f}s)", flush=True)
