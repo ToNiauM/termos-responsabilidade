@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import datetime, timedelta
 
 import pytest
 from openpyxl import Workbook, load_workbook
@@ -695,9 +696,6 @@ def test_exportar_grava_texto_literal_e_numeros_como_numeros(dados, tmp_path):
     assert all(c.data_type != "f" for linha in wb["analise"].iter_rows(min_row=2) for c in linha)
 
 
-from datetime import datetime, timedelta
-
-
 def test_robo_execucoes_registra_lista_e_ultimo_hash(dados):
     assert db.execucoes_robo(dados) == [] and db.ultimo_hash_robo(dados) is None
     db.registrar_execucao_robo(dados, "2026-09-18 04:00:00", "importado", hash="aaa", importacao_id=None, mensagem="10 bens")
@@ -733,6 +731,23 @@ def test_importacao_desatualizada_apos_quatro_dias(dados, tmp_path):
     assert db.importacao_desatualizada(dados, agora=dt) is False
     assert db.importacao_desatualizada(dados, agora=dt + timedelta(days=4)) is False
     assert db.importacao_desatualizada(dados, agora=dt + timedelta(days=4, seconds=1)) is True
+
+
+def test_importacao_desatualizada_considera_execucao_saudavel_do_robo(dados, tmp_path):
+    agora = datetime(2026, 9, 18, 4, 0, 0)
+    db.registrar_execucao_robo(dados, agora.strftime("%Y-%m-%d %H:%M:%S"), "sem_mudanca", hash="h")
+    assert db.importacao_desatualizada(dados, agora=agora) is False            # sem importação, mas robô ok agora
+
+    semear(dados)
+    db.importar_bens(dados, xlsx(tmp_path, [[1002, "ATIVO", "NOTEBOOK", "", "EQUIP", "01 - SALA CCI", "01/01/2020", 1, 1]]))
+    dados.execute("UPDATE importacoes SET importado_em = '2026-01-01 04:00:00'")
+    dados.commit()
+    assert db.importacao_desatualizada(dados, agora=agora) is False            # importação velha, robô sem_mudanca recente
+
+    dados.execute("DELETE FROM robo_execucoes")
+    db.registrar_execucao_robo(dados, agora.strftime("%Y-%m-%d %H:%M:%S"), "erro", mensagem="SPW fora do ar")
+    dados.commit()
+    assert db.importacao_desatualizada(dados, agora=agora) is True             # só erro recente não conta
 
 
 def test_painel_traz_robo_e_desatualizada(dados):

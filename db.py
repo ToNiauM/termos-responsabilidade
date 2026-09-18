@@ -189,7 +189,7 @@ def _agora() -> str:
 
 
 def conectar(caminho: Path | None = None) -> sqlite3.Connection:
-    conn = sqlite3.connect(str(caminho or config.caminho_db()))
+    conn = sqlite3.connect(str(caminho or config.caminho_db()), timeout=30)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
@@ -422,12 +422,21 @@ def ultimo_hash_robo(conn) -> str | None:
 
 
 def importacao_desatualizada(conn, agora: datetime | None = None, dias: int = 4) -> bool:
-    """True se a última importação de bens tem mais de `dias` dias (ou nunca houve)."""
+    """True se nem a última importação de bens nem a última execução saudável do robô (resultado
+    'importado' ou 'sem_mudanca') aconteceram nos últimos `dias` dias — ou se nenhuma das duas nunca
+    aconteceu. Um robô que só confirma 'sem_mudanca' repetidamente não deve, sozinho, virar alerta."""
+    candidatos = []
     ultima = importacoes(conn, 1)
-    if not ultima:
+    if ultima:
+        candidatos.append(ultima[0]["importado_em"])
+    robo = _um(conn, "SELECT iniciado_em FROM robo_execucoes WHERE resultado IN ('importado','sem_mudanca') "
+                     "ORDER BY iniciado_em DESC, id DESC LIMIT 1")
+    if robo:
+        candidatos.append(robo["iniciado_em"])
+    if not candidatos:
         return True
-    em = datetime.strptime(ultima[0]["importado_em"], "%Y-%m-%d %H:%M:%S")
-    return (agora or datetime.now()) - em > timedelta(days=dias)
+    referencia = max(datetime.strptime(c, "%Y-%m-%d %H:%M:%S") for c in candidatos)
+    return (agora or datetime.now()) - referencia > timedelta(days=dias)
 
 
 def historico_do_bem(conn, numero: int) -> dict:
