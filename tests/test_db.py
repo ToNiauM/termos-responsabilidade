@@ -693,3 +693,51 @@ def test_exportar_grava_texto_literal_e_numeros_como_numeros(dados, tmp_path):
     assert linha[0].data_type == "n" and linha[8].data_type == "n"       # número continua número
     wb = load_workbook(db.exportar_recorte(dados, {}, tmp_path / "recorte.xlsx"))
     assert all(c.data_type != "f" for linha in wb["analise"].iter_rows(min_row=2) for c in linha)
+
+
+from datetime import datetime, timedelta
+
+
+def test_robo_execucoes_registra_lista_e_ultimo_hash(dados):
+    assert db.execucoes_robo(dados) == [] and db.ultimo_hash_robo(dados) is None
+    db.registrar_execucao_robo(dados, "2026-09-18 04:00:00", "importado", hash="aaa", importacao_id=None, mensagem="10 bens")
+    db.registrar_execucao_robo(dados, "2026-09-19 04:00:00", "sem_mudanca", hash="aaa")
+    db.registrar_execucao_robo(dados, "2026-09-20 04:00:00", "erro", mensagem="SPW fora do ar")
+    e = db.execucoes_robo(dados)
+    assert [x["resultado"] for x in e] == ["erro", "sem_mudanca", "importado"]
+    assert e[0]["mensagem"] == "SPW fora do ar" and e[0]["terminado_em"]
+    assert db.ultimo_hash_robo(dados) == "aaa"          # o erro não conta
+    assert len(db.execucoes_robo(dados, limite=2)) == 2
+
+
+def test_robo_execucoes_rejeita_resultado_desconhecido(dados):
+    with pytest.raises(sqlite3.IntegrityError):
+        db.registrar_execucao_robo(dados, "2026-09-18 04:00:00", "talvez")
+
+
+def test_robo_execucao_apontando_importacao_apagada_vira_null(dados, tmp_path):
+    semear(dados)
+    resumo = db.importar_bens(dados, xlsx(tmp_path, [[1002, "ATIVO", "NOTEBOOK", "", "EQUIP", "01 - SALA CCI", "01/01/2020", 1, 1]]))
+    db.registrar_execucao_robo(dados, "2026-09-18 04:00:00", "importado", hash="h", importacao_id=resumo["importacao_id"])
+    dados.execute("DELETE FROM importacoes WHERE id = ?", (resumo["importacao_id"],))
+    dados.commit()
+    assert db.execucoes_robo(dados)[0]["importacao_id"] is None
+
+
+def test_importacao_desatualizada_apos_quatro_dias(dados, tmp_path):
+    assert db.importacao_desatualizada(dados) is True                       # nunca importou
+    semear(dados)
+    db.importar_bens(dados, xlsx(tmp_path, [[1002, "ATIVO", "NOTEBOOK", "", "EQUIP", "01 - SALA CCI", "01/01/2020", 1, 1]]))
+    em = dados.execute("SELECT importado_em FROM importacoes").fetchone()[0]
+    dt = datetime.strptime(em, "%Y-%m-%d %H:%M:%S")
+    assert db.importacao_desatualizada(dados, agora=dt) is False
+    assert db.importacao_desatualizada(dados, agora=dt + timedelta(days=4)) is False
+    assert db.importacao_desatualizada(dados, agora=dt + timedelta(days=4, seconds=1)) is True
+
+
+def test_painel_traz_robo_e_desatualizada(dados):
+    semear(dados)
+    p = db.painel(dados)
+    assert p["robo"] is None and p["importacao_desatualizada"] is True
+    db.registrar_execucao_robo(dados, "2026-09-18 04:00:00", "erro", mensagem="senha")
+    assert db.painel(dados)["robo"]["mensagem"] == "senha"

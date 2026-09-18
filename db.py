@@ -4,7 +4,7 @@ Todas as funções recebem a conexão como primeiro argumento; quem abre e fecha
 (o Flask, por request; os testes, por fixture). Nenhuma função aqui usa Flask.
 """
 import sqlite3
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
@@ -89,6 +89,15 @@ CREATE TABLE IF NOT EXISTS importacoes_mudancas (
   tipo          TEXT NOT NULL CHECK (tipo IN ('novo','removido','movido','situacao')),
   de            TEXT, para TEXT,
   descricao     TEXT
+);
+CREATE TABLE IF NOT EXISTS robo_execucoes (
+  id            INTEGER PRIMARY KEY,
+  iniciado_em   TEXT NOT NULL,
+  terminado_em  TEXT NOT NULL,
+  resultado     TEXT NOT NULL CHECK (resultado IN ('importado','sem_mudanca','erro')),
+  hash          TEXT,
+  importacao_id INTEGER REFERENCES importacoes(id) ON DELETE SET NULL,
+  mensagem      TEXT
 );
 CREATE TABLE IF NOT EXISTS inventario_eventos (
   id           INTEGER PRIMARY KEY,
@@ -388,6 +397,37 @@ def importacao(conn, id: int) -> dict | None:
     if i:
         i["mudancas"] = _todos(conn, "SELECT * FROM importacoes_mudancas WHERE importacao_id = ? ORDER BY tipo, numero", id)
     return i
+
+
+# ---------------------------------------------------------------- robô do SPW (importar_spw.py)
+
+def registrar_execucao_robo(conn, iniciado_em: str, resultado: str, hash: str | None = None,
+                            importacao_id: int | None = None, mensagem: str | None = None) -> int:
+    """Uma linha por execução do robô. resultado: importado | sem_mudanca | erro."""
+    cur = conn.execute(
+        "INSERT INTO robo_execucoes (iniciado_em, terminado_em, resultado, hash, importacao_id, mensagem) VALUES (?,?,?,?,?,?)",
+        (iniciado_em, _agora(), resultado, hash, importacao_id, mensagem))
+    conn.commit()
+    return cur.lastrowid
+
+
+def execucoes_robo(conn, limite: int = 10) -> list[dict]:
+    return _todos(conn, "SELECT * FROM robo_execucoes ORDER BY iniciado_em DESC, id DESC LIMIT ?", limite)
+
+
+def ultimo_hash_robo(conn) -> str | None:
+    """Hash das linhas da última execução que chegou ao fim (importou ou viu que nada mudou)."""
+    r = _um(conn, "SELECT hash FROM robo_execucoes WHERE resultado IN ('importado','sem_mudanca') ORDER BY iniciado_em DESC, id DESC LIMIT 1")
+    return r["hash"] if r else None
+
+
+def importacao_desatualizada(conn, agora: datetime | None = None, dias: int = 4) -> bool:
+    """True se a última importação de bens tem mais de `dias` dias (ou nunca houve)."""
+    ultima = importacoes(conn, 1)
+    if not ultima:
+        return True
+    em = datetime.strptime(ultima[0]["importado_em"], "%Y-%m-%d %H:%M:%S")
+    return (agora or datetime.now()) - em > timedelta(days=dias)
 
 
 def historico_do_bem(conn, numero: int) -> dict:
@@ -1194,6 +1234,8 @@ def painel(conn) -> dict:
         "valor_imoveis": um(f"SELECT coalesce(sum(b.valor_atual), 0) {_DE} WHERE {ativo} AND {_IMOVEIS_SQL}"),
         "sem_centro": um(f"SELECT count(*) {_DE} WHERE {ativo} AND l.ccustos IS NULL AND a.nome IS NULL"),
         "ultima_importacao": (importacoes(conn, 1) or [None])[0],
+        "robo": (execucoes_robo(conn, 1) or [None])[0],
+        "importacao_desatualizada": importacao_desatualizada(conn),
         "centros": situacoes_centros(conn),
         "pessoas": situacoes_pessoas(conn),
     }
