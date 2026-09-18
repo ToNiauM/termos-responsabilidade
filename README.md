@@ -186,6 +186,10 @@ Crontab (`crontab -e`, usuário dono de `dados/termos.db`):
 
     0 4 * * 1-5 cd /opt/web/termos-responsabilidade && .venv-robo/bin/python importar_spw.py >> dados/robo_spw.log 2>&1
 
+O robô não importa se o export vier com menos de 90% dos bens da base (protege contra export vazio ou truncado);
+nesse caso registra erro e a baixa em massa, se for real, passa por Atualizar base. Um upload manual entre
+execuções fica valendo até o SPW mudar: o robô compara o export com a própria execução anterior, não com a base.
+
 Diagnóstico: `dados/robo_spw.log` (uma linha por execução) e `dados/spw/erro.png` (tela do SPW no momento do erro).
 Se o SPW mudar o layout, os seletores ficam todos em `baixar_export`.
 

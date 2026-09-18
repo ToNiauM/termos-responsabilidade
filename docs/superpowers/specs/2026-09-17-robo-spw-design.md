@@ -73,7 +73,10 @@ Funções: `registrar_execucao_robo(conn, iniciado_em, resultado, hash=None, imp
 (hash da última execução com resultado `importado` ou `sem_mudanca`).
 
 `painel()` devolve também `"robo": (execucoes_robo(conn, 1) or [None])[0]` e
-`"importacao_desatualizada": bool` (última importação há mais de 4 dias, ou nenhuma).
+`"importacao_desatualizada": bool`: verdadeiro quando o mais recente entre a última importação e a última
+execução do robô que terminou bem (`importado` ou `sem_mudanca`) tem mais de 4 dias, ou quando não há nenhum
+dos dois. Uma execução `sem_mudanca` conta como "base conferida", senão feriados deixariam o card em alerta
+com a base correta.
 
 ### 3.3 Início (`templates/index.html`)
 
@@ -84,7 +87,8 @@ O card "última importação" ganha uma segunda linha com o estado do robô:
 - nada quando o robô nunca rodou.
 
 O card fica em alerta (borda e ícone de aviso DSGov, classe `dsgov-kpi-alerta`) quando
-a última execução do robô foi `erro` ou quando `importacao_desatualizada` é verdadeiro.
+a última execução do robô foi `erro` ou quando `importacao_desatualizada` é verdadeiro. No segundo caso,
+sem erro do robô, o card mostra a linha `base desatualizada` com o ícone, para que o alerta nunca seja só cor.
 O link continua indo para a tela da importação.
 
 ### 3.4 Atualizar base (`templates/upload.html`)
@@ -98,7 +102,10 @@ Visível para quem já vê a tela (`pode('upload')`), sem permissão nova.
 1. `iniciado_em = agora()`. Cria `dados/spw/` se não existir.
 2. `baixar_export` salva `dados/spw/ultimo.xls` (sobrescreve).
 3. `ler_xls` → linhas; valida que o cabeçalho contém as chaves de `db.COLUNAS_EXPORT`
-   (senão erro "cabeçalho do SPW mudou: faltam ...").
+   (senão erro "cabeçalho do SPW mudou: faltam ...") e que o export não veio curto: com menos de 90% dos bens
+   que a base tem hoje, erro "export do SPW veio curto: N bens contra M na base; confira no SPW e use
+   Atualizar base se a queda for real". Sem isso um export vazio ou truncado apagaria a tabela `bens` e seria
+   registrado como sucesso. Uma baixa em massa real passa a exigir o upload manual, de propósito.
 4. `hash_linhas` → se igual a `ultimo_hash_robo`, registra `sem_mudanca` e encerra.
 5. `linhas_para_xlsx` → `db.importar_bens(conn, buffer, nome_arquivo="SPW automático")`.
 6. Registra `importado` com `importacao_id` e o hash.
@@ -117,11 +124,17 @@ código de saída 1. Casos previstos:
 |---|---|---|
 | SPW fora do ar, senha errada, tela mudou | texto do Playwright (timeout, seletor não achado) + `erro.png` | card em alerta; `dados/spw/erro.png` para diagnóstico |
 | Cabeçalho do export mudou | "cabeçalho do SPW mudou: faltam Valor Atual" | card em alerta |
+| Export vazio ou truncado (menos de 90% da base) | "export do SPW veio curto: 12 bens contra 7429 na base; ..." | card em alerta; `bens` intacta |
+| Falha ao criar/migrar o esquema em `main()` | texto da exceção; registrado em `robo_execucoes` se a tabela existir | card em alerta ou só o log |
 | Bem atribuído sumiu do export | texto de `ImportacaoInvalida`, o mesmo do upload manual | card em alerta com a instrução de remover a atribuição |
 | Segredo ausente | "secrets/spw.env não encontrado ou incompleto" | card em alerta |
 
 Se `registrar_execucao_robo` falhar (banco travado), a mensagem vai só para o log. O card
-"desatualizada" cobre esse caso depois de 4 dias.
+"desatualizada" cobre esse caso depois de 4 dias. Como o site e o robô passam a escrever no mesmo SQLite,
+`db.conectar` espera até 30 s por trava em vez dos 5 s padrão.
+
+Upload manual entre execuções: o hash é comparado com a última execução do robô, não com a tabela. Se alguém
+corrigir a base à mão e o SPW não mudar, o robô registra `sem_mudanca` e a correção manual fica. É o esperado.
 
 ## 6. Instalação
 
