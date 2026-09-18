@@ -1,6 +1,7 @@
 # Ambientes virtuais
 .venv/
 venv/
+.venv-robo/
 
 # Cache do Python
 __pycache__/

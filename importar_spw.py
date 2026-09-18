@@ -17,6 +17,7 @@ from pathlib import Path
 
 from openpyxl import Workbook
 
+import config
 import db
 
 RAIZ = Path(__file__).resolve().parent
@@ -107,12 +108,92 @@ def executar(conn, baixar=None, agora=None) -> dict:
 
 
 def baixar_export(env: dict, destino: Path) -> Path:
-    raise NotImplementedError        # Tarefa 4
+    """Login no SPW, abre a consulta de bens e exporta Excel/Detalhado em `destino`.
+    Seletores provados em 2026-09-17 (docs/superpowers/notes/2026-09-17-robo-spw). Em erro salva erro.png ao lado."""
+    from playwright.sync_api import sync_playwright
+    P = "#ContentPlaceHolder1_ASPxRoundPanel1_"
+    destino = Path(destino)
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    with sync_playwright() as p:
+        navegador = p.chromium.launch()
+        pagina = navegador.new_page(viewport={"width": 1280, "height": 900}, accept_downloads=True)
+        try:
+            pagina.goto(env["SPW_LOGIN_URL"], wait_until="networkidle", timeout=60000)
+            pagina.fill(P + "txtUsuario_I", env["SPW_USUARIO"])
+            pagina.click(P + "txtSenha_I_CLND")
+            pagina.wait_for_timeout(300)
+            pagina.fill(P + "txtSenha_I", env["SPW_SENHA"], force=True)
+            with pagina.expect_navigation(wait_until="networkidle", timeout=60000):
+                pagina.click(P + "btnEntrar")
+            if "MenuChamador" not in pagina.url:
+                raise RoboErro("login no SPW não chegou ao menu (usuário/senha?): " + pagina.url)
+            pagina.goto(env["SPW_CONSULTA_URL"], wait_until="networkidle", timeout=60000)
+            pagina.click("#ContentPlaceHolder1_ASPxButton1")
+            pagina.wait_for_selector("#ContentPlaceHolder1_PCExportacao_cboArquivo", state="visible", timeout=30000)
+            # o painel reinicializa os combos ~1,5s depois de ficar visível, sobrescrevendo qualquer seleção
+            # feita antes disso (volta para "PDF"); esperar aqui e depois conferir que "Excel" pegou.
+            pagina.wait_for_timeout(2500)
+            pagina.select_option("#ContentPlaceHolder1_PCExportacao_cboArquivo", label="Excel")
+            pagina.select_option("#ContentPlaceHolder1_PCExportacao_cboModeloExportacao", label="Detalhado")
+            pagina.wait_for_timeout(500)
+            if pagina.eval_on_selector("#ContentPlaceHolder1_PCExportacao_cboArquivo", "e => e.value") != "0":
+                raise RoboErro("painel de exportação do SPW não aceitou 'Excel' (voltou para PDF)")
+            with pagina.expect_download(timeout=300000) as dl:
+                pagina.click("#ContentPlaceHolder1_PCExportacao_imgExportar")
+            dl.value.save_as(destino)
+        except Exception:
+            try:
+                pagina.screenshot(path=str(destino.parent / "erro.png"), full_page=True)
+            except Exception:
+                pass
+            raise
+        finally:
+            navegador.close()
+    if destino.stat().st_size < 1000:
+        raise RoboErro(f"export do SPW veio vazio ({destino.stat().st_size} bytes)")
+    return destino
 
 
 def ler_xls(caminho: Path) -> list[list]:
-    raise NotImplementedError        # Tarefa 4
+    """Lê o .xls (BIFF) do SPW e devolve as linhas a partir do cabeçalho 'Número Bem'."""
+    import xlrd
+    wb = xlrd.open_workbook(str(caminho))
+    ws = wb.sheet_by_index(0)
+    linhas = []
+    for i in range(ws.nrows):
+        linha = []
+        for c in ws.row(i):
+            if c.ctype in (xlrd.XL_CELL_EMPTY, xlrd.XL_CELL_BLANK):
+                linha.append(None)
+            elif c.ctype == xlrd.XL_CELL_DATE:
+                linha.append(xlrd.xldate_as_datetime(c.value, wb.datemode))
+            elif c.ctype == xlrd.XL_CELL_NUMBER:
+                linha.append(c.value)
+            else:
+                linha.append(str(c.value))
+        linhas.append(linha)
+    for i, linha in enumerate(linhas):
+        if linha and db._texto(linha[0]) == "Número Bem":
+            return linhas[i:]
+    raise RoboErro("export do SPW sem a linha de cabeçalho 'Número Bem'")
 
 
 def baixar_e_ler() -> list[list]:
-    raise NotImplementedError        # Tarefa 4
+    pasta = config.pasta_dados() / PASTA_SPW
+    return ler_xls(baixar_export(ler_env(), pasta / "ultimo.xls"))
+
+
+def main() -> int:
+    inicio = time.monotonic()
+    conn = db.conectar()
+    try:
+        db.criar_esquema(conn)               # idempotente; garante robo_execucoes mesmo antes do rebuild
+        r = executar(conn)
+    finally:
+        conn.close()
+    print(f"{db._agora()} {r['resultado']} {r['mensagem']} ({time.monotonic() - inicio:.0f}s)", flush=True)
+    return 0 if r["resultado"] != "erro" else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

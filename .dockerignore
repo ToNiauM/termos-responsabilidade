@@ -1,5 +1,6 @@
 .git
 .venv
+.venv-robo
 .pytest_cache
 .superpowers
 __pycache__
