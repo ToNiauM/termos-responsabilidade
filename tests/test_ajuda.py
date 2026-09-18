@@ -1,5 +1,6 @@
 """Ajuda: seções conforme as funções do usuário, sumário coerente e âncora contextual de cada tela."""
 import pathlib
+import re
 from html.parser import HTMLParser
 
 from flask import g
@@ -114,14 +115,22 @@ def test_contexto_sem_usuario_nao_oferece_ajuda(dados):
 def test_dsgov_devolve_o_id_do_servidor_depois_do_brcard():
     """Guarda de regressão do navegador (invisível ao cliente de teste, que não roda JS): o BRCard do core
     reescreve o id de TODO .br-card, o que apagaria as âncoras das seções de /ajuda depois de a página
-    carregar. O bridge `dsgov.js` precisa guardar o id do servidor e devolvê-lo após construir o BRCard."""
+    carregar. O bridge `dsgov.js` precisa guardar o id do servidor e devolvê-lo após construir o BRCard.
+
+    A primeira asserção lê o texto minificado do core 3.7.0. **Se ela falhar depois de atualizar o
+    `core.min.js`, não remende o texto procurado**: confira antes, no core novo, se o BRCard ainda
+    reescreve o id. Se não reescrever mais, o remendo do bridge virou desnecessário e este teste deve
+    ser reescrito ou apagado junto com ele; se reescrever de outro jeito, ajuste o trecho procurado.
+    A verificação de verdade é o roteiro de navegador da fase 5 (âncoras do sumário de /ajuda).
+    """
     raiz = pathlib.Path(__file__).resolve().parent.parent
     core = (raiz / 'static/dsgov/vendor/govbr-ds/core.min.js').read_text(encoding='utf-8')
-    assert 'setAttribute("id",`card${n}`)' in core                      # o core de fato sobrescreve
+    assert 'setAttribute("id",`card${n}`)' in core, 'core atualizado: o BRCard ainda reescreve o id?'
     bloco = (raiz / 'static/dsgov/js/dsgov.js').read_text(encoding='utf-8')
     bloco = bloco.split('querySelectorAll(".br-card")')[1].split('});')[0]
-    assert 'getAttribute("id")' in bloco
-    assert bloco.index('new window.core.BRCard') < bloco.index('setAttribute("id", idDoServidor)')
+    codigo = re.sub(r'/\*.*?\*/', '', bloco, flags=re.S)              # só o código: comentário não vale
+    assert 'var idDoServidor = el.getAttribute("id");' in codigo
+    assert codigo.index('new window.core.BRCard') < codigo.index('el.setAttribute("id", idDoServidor);')
 
 
 def test_macro_de_ajuda_da_tela(dados):

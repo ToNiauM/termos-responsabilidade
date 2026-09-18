@@ -142,7 +142,9 @@ que já tenham sido compartilhadas.
 
 ## 7. Evidências da implementação
 
-Ramo `fase5`, a partir de `main` em `6b4c432`. Data da verificação: 2026-09-17.
+Ramo `fase5`, que sai de `main` em `6b4c432` e começa em `80d8bc3` (commit do
+usuário sobre `SYSTEM_IMPROVEMENT_PLAN.md`, alheio à fase). Os commits da fase
+começam em `a0c59b8`. Data da verificação: 2026-09-17.
 
 Commits de 5A, na ordem: `a0c59b8` (funções cumulativas), `49c7cfa` (migração de
 funções e identidades da comissão), `9db4983` (várias funções por usuário),

@@ -35,8 +35,8 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    nenhum item permitido não aparece; o grupo da tela aberta já vem expandido e só o item da tela fica
    marcado (o relatório de um evento encerrado não acende o relatório do evento aberto).
    **Ajuda** (`/ajuda`) é o guia do sistema: sumário e seções apenas das funções do usuário, incluindo
-   perguntas frequentes. O ícone de interrogação ao lado do título de cada tela abre o guia direto na
-   seção daquela tela.
+   perguntas frequentes. O ícone de interrogação ao lado do título das telas de trabalho abre o guia direto
+   na seção correspondente; a própria Ajuda, o login, as telas de erro e os documentos não têm esse botão.
    **Inventário** (menu próprio): abra um evento (nome, portaria, comissão; todas as salas com bens
    ativos ou uma amostra), escolha o integrante e leia as plaquetas por sala com leitor de código de
    barras, câmera do celular ou digitação. Bem lido na sala cadastrada = localizado; em outra sala =
@@ -68,10 +68,13 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    os usuários com Administrador ou Inventário, na tela do próprio evento; criar um usuário com a função
    Inventário não o inclui automaticamente em nenhuma comissão — é preciso adicioná-lo depois, evento a
    evento. A leitura grava o nome de quem está logado.
-   A entrada depende do acesso: quem enxerga o acervo cai no **Início**; quem só tem funções de inventário
-   é levado direto a **Inventário** (`/inventario`) e não recebe lupa de pesquisa, Análise, termos nem
-   relatórios — nem por URL digitada (403). Quem tem Inventário e ainda não está em nenhuma comissão vê
-   *Nenhum inventário atribuído a você*, sem nome nem total de evento alheio.
+   A entrada depende do acesso: quem enxerga o acervo cai no **Início**; quem só tem função de inventário é
+   levado direto a **Inventário** (`/inventario`), sem lupa de pesquisa, Análise nem termos — nem por URL
+   digitada (403). Dentro do módulo as duas funções se separam: quem tem só *Inventário* também não alcança
+   painel, relatório nem exportação (403), e enxerga apenas os eventos de cujas comissões participa; quem tem
+   *Consulta de inventários* alcança painel, relatório e `.xlsx` de todos os eventos, mas nenhuma ação de
+   conferência. Quem tem Inventário e ainda não está em nenhuma comissão vê *Nenhum inventário atribuído a
+   você*, sem nome nem total de evento alheio.
    Usuário não é excluído, só inativado. *Nova senha* gera uma senha temporária mostrada uma vez, com troca
    obrigatória no primeiro acesso. Cinco senhas erradas seguidas bloqueiam o login por 15 minutos. O programa
    Windows não pede senha: entra como "Administrador local". Renomear um usuário mantém o nome atualizado na

@@ -170,8 +170,10 @@ do menu após inicialização do core, navegação por teclado e leitura do cont
 
 ## 6. Evidências da implementação
 
-Ramo `fase5`, a partir de `main` em `6b4c432`. Data da verificação: 2026-09-17.
-Suíte completa `.venv/bin/python -m pytest -q`: **2998 passaram**; `git diff --check` sem erro.
+Ramo `fase5`, que sai de `main` em `6b4c432` e começa em `80d8bc3` (commit do usuário
+sobre `SYSTEM_IMPROVEMENT_PLAN.md`, alheio à fase); os commits da fase começam em
+`a0c59b8`. Data da verificação: 2026-09-17. Suíte completa
+`.venv/bin/python -m pytest -q`: **2998 passaram**; `git diff --check` sem erro.
 
 Commits de 5B: `b805c55` (valor ausente × zero), `1ff67c1` (rotas da Análise e
 redirecionamento de `/recorte`), `943289d` (indicadores exatos e refinamento),

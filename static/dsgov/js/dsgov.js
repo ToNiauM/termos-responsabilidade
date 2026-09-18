@@ -9,7 +9,11 @@
  * rotaciona o token no login/logout), redirecionamento correto quando a sessão expira, e
  * fechamento automático das mensagens de sucesso.
  *
- * Não edite este arquivo no projeto; ele é padrão da skill dsgov.
+ * Origem: arquivo padrão da skill dsgov — mas NÃO é intocável aqui. Este projeto mantém blocos
+ * próprios neste arquivo, cada um com o motivo no comentário: marcação do item do menu pela URL,
+ * atalho de busca Alt+Shift+P, popover do calendário e a devolução do id do servidor nos cards
+ * (o BRCard do core reescreve o id de todo .br-card). Ao atualizar a skill, reaplique esses
+ * blocos em vez de sobrescrever o arquivo inteiro.
  */
 (function () {
   "use strict";
