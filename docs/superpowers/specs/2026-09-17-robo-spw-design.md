@@ -1,7 +1,7 @@
 # Robô de importação do SPW
 
 **Data:** 2026-09-17.
-**Estado:** desenho aprovado; ainda não implementado.
+**Estado:** implementado, publicado e rodando em produção desde 2026-09-17; ver §9.
 **Base:** `main`, commit `33e975f`, após a fase 5.
 **Plano:** `../plans/2026-09-17-robo-spw.md`.
 **Prova de acesso:** `../notes/2026-09-17-robo-spw/README.md` (login, exportação e conversão provados com Playwright).
@@ -184,5 +184,22 @@ Início mostra "robô falhou" e a classe de alerta; `/upload` lista as execuçõ
 
 ## 9. Evidências
 
-Preenchido na implementação: data da primeira execução real, total de bens, tempo, e a saída do
-`pytest`.
+- **Prova na cópia (2026-09-17, Tarefa 4):** `TERMOS_DADOS=<cópia> .venv-robo/bin/python importar_spw.py` →
+  `importado 7429 bens (3520 ativos): 0 novo(s), 0 removido(s), 11 movido(s), 1 com situação alterada` em ~15 s;
+  segunda execução `sem_mudanca 7429 bens no export, nada mudou` em ~13 s; `ultimo.xls` com 1.384.448 bytes.
+  Repetida com `./atualizar_base.sh --teste` às 23:46: mesmo resultado em 18 s.
+- **Primeira execução real (2026-09-17 23:52, pelo usuário, `./atualizar_base.sh`):**
+  `2026-09-17 23:52:20 importado 7429 bens (3520 ativos): 0 novo(s), 0 removido(s), 11 movido(s), 1 com situação alterada (13s)`.
+  Registro em `robo_execucoes` (iniciado 23:52:07, terminado 23:52:20) e em `importacoes` (id 1, "SPW automático").
+  Tempo real bem abaixo da estimativa da §4: cerca de 13 a 18 s por execução.
+- **Achado em produção:** `importacoes_mudancas` tinha 8.708 linhas órfãs de importações apagadas sem FK; a
+  importação id 1 "adotou" 7.003 delas. Backup em `/opt/backups/termos/termos-2026-09-17-2355-antes-limpeza-mudancas.db`,
+  linhas apagadas à mão, e `criar_esquema` passou a remover órfãs (commit `2e8cc2a`).
+- **Testes:** `.venv/bin/pytest -q` → 3027 passed (3001 antes desta fase).
+- **Revisão:** cinco tarefas com revisão por tarefa; revisão final apontou o export curto (C1) e mais três
+  itens importantes, todos corrigidos e re-revisados antes do merge (commits `62ac945`, `5272869`, `91da5b8`).
+- **Publicação (2026-09-18):** merge ff na `main` (`2e8cc2a`), push, `docker compose up -d --build` (tabela
+  `robo_execucoes` presente no container), crontab instalado:
+  `0 4 * * 1-5 /opt/web/termos-responsabilidade/atualizar_base.sh >/dev/null 2>>/opt/web/termos-responsabilidade/dados/robo_spw.log`.
+- **Ficou de fora, de propósito (revisão final, risco baixo):** `erro.png` é sobrescrito a cada falha;
+  `requirements-robo.txt` sem versões fixas; `launch()` fora do `try` em `baixar_export`.
