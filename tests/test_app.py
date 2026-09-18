@@ -1134,5 +1134,5 @@ def test_upload_lista_execucoes_do_robo(cliente, dados):
     html = r.data.decode()
     assert "Execuções do robô" in html
     assert html.index("SPW fora do ar") < html.index("nada mudou") < html.index("1 bens")   # mais recente primeiro
-    assert f'href="/importacoes/{resumo["importacao_id"]}"' in html.split("Execuções do robô")[1]
+    assert f'href="/importacoes/{resumo["importacao_id"]}"' in html.split("Execuções do robô")[-1]
     assert "sem mudança" in html and "bg-danger" in html
