@@ -3,6 +3,7 @@
 **Data:** 2026-09-17.
 **Estado:** desenho aprovado; ainda não implementado.
 **Base:** `main`, commit `33e975f`, após a fase 5.
+**Plano:** `../plans/2026-09-17-robo-spw.md`.
 **Prova de acesso:** `../notes/2026-09-17-robo-spw/README.md` (login, exportação e conversão provados com Playwright).
 
 ## 1. Resultado e limites
@@ -42,8 +43,8 @@ Funções:
   `baixar_export.py` das notas. Em exceção, salva `dados/spw/erro.png` antes de relançar.
 - `ler_xls(caminho) -> list[list]`: xlrd; acha a linha cujo primeiro texto é "Número Bem" e devolve
   dessa linha em diante. Células vazias → `None`; datas → `datetime`.
-- `hash_linhas(linhas) -> str`: SHA-256 de `repr` das linhas com valores normalizados
-  (`None`, `str` sem espaços duplicados, `datetime` como ISO, números como `float`).
+- `hash_linhas(linhas) -> str`: SHA-256 das linhas com valores normalizados como `db._texto` faz
+  (`None` → vazio, `str` sem espaços duplicados, `datetime` como dd/mm/aaaa, números como `float`).
 - `linhas_para_xlsx(linhas) -> BytesIO`: openpyxl, cabeçalho na linha 1, uma aba.
 - `executar(conn, baixar=baixar_export, agora=db._agora) -> dict`: orquestra o fluxo da §4 e devolve
   `{"resultado", "mensagem", "importacao_id"}`. `baixar` é parâmetro para os testes injetarem linhas falsas.
