@@ -1099,6 +1099,15 @@ def test_inicio_sem_importacao_fica_em_alerta_e_sem_linha_do_robo(cliente):
     r = cliente.get("/")
     assert b"dsgov-kpi-alerta" in r.data and b"Nenhuma" in r.data
     assert "robô".encode() not in r.data
+    assert "base desatualizada".encode() in r.data
+
+
+def test_inicio_mostra_base_desatualizada_quando_alerta_nao_e_erro(cliente, dados):
+    db.importar_bens(dados, _xlsx_base(), nome_arquivo="SPW automático")
+    dados.execute("UPDATE importacoes SET importado_em = '2026-01-01 04:00:00'")
+    dados.commit()
+    r = cliente.get("/")
+    assert "base desatualizada".encode() in r.data and b"dsgov-kpi-alerta" in r.data
 
 
 def test_inicio_mostra_robo_ok_sem_alerta(cliente, dados):
