@@ -3,7 +3,7 @@
 **Data:** 2026-09-18.
 **Estado:** desenho aprovado; ainda não implementado.
 **Base:** `main`, commit `724bee1`, depois do robô do SPW.
-**Plano:** a escrever em `../plans/2026-09-18-administracao-inventarios.md`.
+**Plano:** `../plans/2026-09-18-administracao-inventarios.md`.
 
 ## 1. Resultado e limites
 
@@ -47,12 +47,13 @@ Transições, todas do administrador, cada uma numa transação:
 - **Excluir**: como hoje, em qualquer estado, com a confirmação pelo nome e apagando as fotos.
 
 `_evento_aberto_ou_erro` passa a recusar também o fechado, com "Evento fechado: não aceita leituras até ser
-reaberto." Todas as rotas de leitura, foto, sobra e edição de comissão já passam por ela.
+reaberto." Todas as rotas de leitura, foto e sobra já passam por ela. A edição de comissão usa uma checagem mais
+branda, `_evento_nao_finalizado_ou_erro`, porque a comissão pode mudar com o evento fechado.
 
 `evento_aberto(conn)` continua devolvendo só o aberto (nenhum ou um). Função nova `evento_corrente(conn)`:
 o aberto ou, se não houver, o fechado mais recente por `aberto_em`; é o que o card do Início e o menu mostram.
 
-## 4. Tela Administração (`/administracao?aba=inventarios|usuarios`)
+## 4. Tela Administração (`/administracao` e `/usuarios`, com abas)
 
 Item de menu "Administração" (ícone `fa-cogs`), no lugar de "Usuários", visível só ao admin e só com login ativo
 (no desktop o item aparece sem a aba Usuários). Abas no padrão de `cadastros.html`.
@@ -71,8 +72,8 @@ Item de menu "Administração" (ícone `fa-cogs`), no lugar de "Usuários", vis�
 - **Comissão** abre a tela `inventario_comissao.html` atual, agora sob Administração, e funciona também com o
   evento fechado (só finalizado recusa).
 
-**Aba Usuários**: o conteúdo de `usuarios/lista.html` como está, com o botão "Novo usuário". As rotas
-`usuarios.*` não mudam; `GET /usuarios` redireciona para `/administracao?aba=usuarios`.
+**Aba Usuários**: a própria tela `/usuarios` de hoje, com a barra de abas no topo e o botão "Novo usuário". As rotas
+`usuarios.*` não mudam de nome nem de URL; a aba Inventários é `/administracao`.
 
 ## 5. Tela Inventário, Início e menu
 
@@ -82,8 +83,7 @@ Item de menu "Administração" (ícone `fa-cogs`), no lugar de "Usuários", vis�
   "Inventário fechado: leitura suspensa" no topo, sem os controles de leitura.
 - Card do Início: usa `evento_corrente`; título "Inventário em andamento" (aberto) ou "Inventário fechado".
 - Menu lateral: o grupo Inventário mostra o evento corrente (aberto ou fechado) como hoje mostra o aberto.
-- Ajuda: seção "Administração" (só admin) descrevendo a chave, finalizar e comissão; a seção Usuários passa a
-  apontar para a aba.
+- Ajuda: a seção Usuários vira "Administração" (mesmo id) e descreve a chave, finalizar e comissão.
 
 ## 6. Comissão e funções
 
@@ -102,15 +102,18 @@ tira a função. Usuário inativo nunca entra. No desktop nada muda (nomes, sem 
 - `comissoes.py`: `abrir` vira `criar(conn, nome, descricao, ids, salas, abrir_agora)`; `definir` e `criar` chamam
   `usuarios.conceder_funcao(conn, ids, "inventariante")` novo, que devolve os nomes que ganharam a função;
   `_usuarios_selecionados` aceita qualquer ativo.
-- `app_admin.py` novo, blueprint `admin` em `/administracao`: `tela` (GET, abas), `criar` (POST), `abrir` (POST),
-  `fechar` (POST), `finalizar` (POST, com confirmação), `comissao` (GET/POST), `excluir` (GET/POST). As rotas
-  `inventario.abrir/encerrar/comissao/excluir` saem de `app_inventario.py`; os templates `inventario_comissao.html`
-  e `inventario_excluir.html` passam a ser renderizados pelo blueprint novo, com trilha "Administração › ...".
-- `app_usuarios.py`: `lista` redireciona para a aba; o conteúdo vai para `templates/usuarios/_lista.html`, incluído
-  por `administracao.html`.
-- `permissoes.py`: tudo de `admin.*` em ADMIN; remove as quatro linhas antigas de `inventario.*` administrativas.
-- `menu.py`: item "Administração" → `admin.tela`; `destino_atual` mapeia `admin.*` e `usuarios.novo/editar/...`
-  para `admin.tela` com a aba certa; `SECOES`/`AJUDA` ganham `administracao` e apontam `usuarios` para a aba.
+- `app_admin.py` novo, blueprint `admin`: só `tela` (GET `/administracao`, aba Inventários). As rotas administrativas
+  existentes ficam em `app_inventario.py` com nome e URL de hoje (`inventario.abrir` = criar, com o campo
+  `abrir_agora`; `inventario.encerrar` = finalizar; `inventario.comissao`; `inventario.excluir`) e ganham
+  `inventario.abrir_chave` (POST `/inventario/<id>/abrir`) e `inventario.fechar` (POST `/inventario/<id>/fechar`);
+  todas redirecionam para `admin.tela`, e `inventario_comissao.html`/`inventario_excluir.html` ganham trilha
+  "Administração › ..." e Cancelar voltando à Administração. Isso evita reescrever os testes que usam essas URLs.
+- `app_usuarios.py`: `lista` continua renderizando `usuarios/lista.html`, que ganha a barra de abas
+  (`_abas_admin.html`) e a trilha "Administração › Usuários".
+- `permissoes.py`: `admin.tela`, `inventario.abrir_chave` e `inventario.fechar` em ADMIN; as linhas antigas ficam.
+- `menu.py`: item "Administração" → `admin.tela` (nos dois modos); `destino_atual` mapeia `usuarios.*`,
+  `inventario.comissao` e `inventario.excluir` para `admin.tela`; a seção da Ajuda mantém o id `usuarios` com o
+  título "Administração" e passa a existir também no desktop.
 - Exportar/importar cadastros (`inventario.exportar_abas`/`validar_abas`/`substituir_tabelas`): a aba `inv_eventos`
   ganha a coluna `suspenso_em` (opcional; planilhas antigas sem a coluna importam com `NULL`). A validação "mais
   de um evento aberto" passa a contar só os sem `encerrado_em` e sem `suspenso_em`.
