@@ -180,11 +180,12 @@ e Atualizar base lista as últimas execuções. Segredos em `secrets/spw.env` (`
 
     python3 -m venv .venv-robo && .venv-robo/bin/pip install -r requirements-robo.txt
     .venv-robo/bin/playwright install --with-deps chromium
-    .venv-robo/bin/python importar_spw.py          # uma execução à mão; sai 0 (importado/sem mudança) ou 1 (erro)
+    ./atualizar_base.sh            # atualiza agora, fora do cron; sai 0 (importado/sem mudança) ou 1 (erro)
+    ./atualizar_base.sh --teste    # mesma coisa numa cópia em /tmp/robo-teste, sem tocar na base real
 
-Crontab (`crontab -e`, usuário dono de `dados/termos.db`):
+Crontab (`crontab -e`, usuário dono de `dados/termos.db`); o script já grava em `dados/robo_spw.log`:
 
-    0 4 * * 1-5 cd /opt/web/termos-responsabilidade && .venv-robo/bin/python importar_spw.py >> dados/robo_spw.log 2>&1
+    0 4 * * 1-5 /opt/web/termos-responsabilidade/atualizar_base.sh >/dev/null 2>>/opt/web/termos-responsabilidade/dados/robo_spw.log
 
 O robô não importa se o export vier com menos de 90% dos bens da base (protege contra export vazio ou truncado);
 nesse caso registra erro e a baixa em massa, se for real, passa por Atualizar base. Um upload manual entre
@@ -210,5 +211,6 @@ Se o SPW mudar o layout, os seletores ficam todos em `baixar_export`.
 | `painel.py`, `graficos.py` | cards de gráfico (ECharts embutido, tema DSGov) |
 | `inventario.py`, `fotos.py`, `app_inventario.py` | módulo de inventário (dados, fotos no R2, rotas) |
 | `usuarios.py`, `app_usuarios.py` | usuários, senhas, matriz de permissões e telas de login/usuários |
+| `atualizar_base.sh` | Roda o robô do SPW na hora (`--teste` usa uma cópia da base); o cron chama o mesmo script |
 | `importar_spw.py` | Robô do SPW: exporta, converte e importa os bens (roda no host, por cron) |
 | `requirements-robo.txt` | Dependências só do robô (Playwright, xlrd) |

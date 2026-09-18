@@ -148,10 +148,13 @@ python3 -m venv .venv-robo
 .venv-robo/bin/playwright install --with-deps chromium
 ```
 
-- Crontab do usuário `ToNiauM` (dono de `dados/termos.db`, o mesmo do `backup.sh`):
+- `atualizar_base.sh` (raiz): ponto de entrada único. Sem argumento roda o robô contra `dados/termos.db` e
+  grava a linha em `dados/robo_spw.log`; com `--teste` roda numa cópia em `/tmp/robo-teste`. O usuário pediu
+  esse script para atualizar quando quiser, fora do cron.
+- Crontab do usuário `ToNiauM` (dono de `dados/termos.db`, o mesmo do `backup.sh`), chamando o mesmo script:
 
 ```
-0 4 * * 1-5 cd /opt/web/termos-responsabilidade && .venv-robo/bin/python importar_spw.py >> dados/robo_spw.log 2>&1
+0 4 * * 1-5 /opt/web/termos-responsabilidade/atualizar_base.sh >/dev/null 2>>/opt/web/termos-responsabilidade/dados/robo_spw.log
 ```
 
 - Rebuild da imagem uma vez, porque `db.py` e os templates mudam. O robô em si não precisa do container.
