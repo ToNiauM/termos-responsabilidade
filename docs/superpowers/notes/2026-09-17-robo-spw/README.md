@@ -1,5 +1,7 @@
 # Robô de importação do SPW — handoff para a próxima sessão
 
+**Implementado em 2026-09-17:** spec em ../../specs/2026-09-17-robo-spw-design.md, plano em ../../plans/2026-09-17-robo-spw.md, código em importar_spw.py. Este handoff fica como registro da prova.
+
 **Data:** 2026-09-17. **Estado:** acesso e download PROVADOS; robô ainda não desenhado nem implementado.
 **Próximo passo:** `superpowers:brainstorming` curto → spec → plano pequeno → implementação. Não há decisão tomada
 sobre agendamento, nomes ou tratamento de erro além do que está em "Ideia acordada".

@@ -170,6 +170,25 @@ Enquanto o `auth_basic` ficar, o site pede as duas senhas, sem prejuízo.
 `Dockerfile`, `compose.yml` e `.dockerignore` são só do site; o programa de desktop não os usa. O vhost fica em
 `/etc/nginx/conf.d/patrimonio.sistemascfc.org.conf`. Backup continua sendo copiar a pasta `dados/`.
 
+### Robô do SPW
+
+`importar_spw.py` entra no SPW, exporta a relação de bens (Excel/Detalhado), compara com a última execução e,
+se mudou, importa como o upload de Atualizar base faria. Roda no host (fora do container), em dias úteis às 4h,
+e registra cada execução em `robo_execucoes`: o card "última importação" do Início mostra `robô ok`/`robô falhou`
+e Atualizar base lista as últimas execuções. Segredos em `secrets/spw.env` (`SPW_USUARIO`, `SPW_SENHA`,
+`SPW_LOGIN_URL`, `SPW_CONSULTA_URL`, chmod 600).
+
+    python3 -m venv .venv-robo && .venv-robo/bin/pip install -r requirements-robo.txt
+    .venv-robo/bin/playwright install --with-deps chromium
+    .venv-robo/bin/python importar_spw.py          # uma execução à mão; sai 0 (importado/sem mudança) ou 1 (erro)
+
+Crontab (`crontab -e`, usuário dono de `dados/termos.db`):
+
+    0 4 * * 1-5 cd /opt/web/termos-responsabilidade && .venv-robo/bin/python importar_spw.py >> dados/robo_spw.log 2>&1
+
+Diagnóstico: `dados/robo_spw.log` (uma linha por execução) e `dados/spw/erro.png` (tela do SPW no momento do erro).
+Se o SPW mudar o layout, os seletores ficam todos em `baixar_export`.
+
 ## Arquivos
 
 | Arquivo | Função |
@@ -187,3 +206,5 @@ Enquanto o `auth_basic` ficar, o site pede as duas senhas, sem prejuízo.
 | `painel.py`, `graficos.py` | cards de gráfico (ECharts embutido, tema DSGov) |
 | `inventario.py`, `fotos.py`, `app_inventario.py` | módulo de inventário (dados, fotos no R2, rotas) |
 | `usuarios.py`, `app_usuarios.py` | usuários, senhas, matriz de permissões e telas de login/usuários |
+| `importar_spw.py` | Robô do SPW: exporta, converte e importa os bens (roda no host, por cron) |
+| `requirements-robo.txt` | Dependências só do robô (Playwright, xlrd) |
