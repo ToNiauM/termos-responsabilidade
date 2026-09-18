@@ -168,9 +168,16 @@ def test_criar_admin_cria_ou_redefine(dados):
     usuarios.editar(dados, uid, "Antônio", ["consulta"], ativo=False)
     assert usuarios.criar_admin(dados, "antonio", "Antônio R.", "OutraSenha9") == uid   # mesmo id
     u = usuarios.por_id(dados, uid)
-    assert u["funcoes"] == ("admin",) and u["ativo"] == 1 and u["falhas"] == 0 and u["bloqueado_ate"] is None
+    assert u["funcoes"] == ("admin", "consulta") and u["ativo"] == 1 and u["falhas"] == 0 and u["bloqueado_ate"] is None   # soma, não substitui
     assert u["nome"] == "Antônio"                      # nome não muda na redefinição
     assert usuarios.autenticar(dados, "antonio", "OutraSenha9")["id"] == uid
+
+
+def test_criar_admin_soma_funcao_sem_derrubar_as_que_ja_tinha(dados):
+    """socorro em conta de inventariante: vira admin+inventariante, não perde a função de inventário."""
+    uid = usuarios.criar(dados, "xis", "Xis", "Senha!234", ["inventariante"], trocar_senha=False)
+    usuarios.criar_admin(dados, "xis", "Xis", "Senha!234")
+    assert usuarios.por_id(dados, uid)["funcoes"] == ("admin", "inventariante")
 
 
 def test_main_criar_admin(dados, capsys):

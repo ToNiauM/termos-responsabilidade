@@ -233,8 +233,9 @@ def trocar_senha(conn, id, atual, nova, confirmacao) -> None:
 
 
 def criar_admin(conn, login, nome, senha, email=None) -> int:
-    """Primeiro administrador e socorro: se o login já existe, redefine a senha, volta a admin, reativa e
-    desbloqueia (o nome não muda; o e-mail só muda se informado)."""
+    """Primeiro administrador e socorro: se o login já existe, redefine a senha, garante a função admin
+    (somada às que a conta já tinha, ex.: inventariante — não perde nenhuma), reativa e desbloqueia
+    (o nome não muda; o e-mail só muda se informado)."""
     u = por_login(conn, login)
     if not u:
         return criar(conn, login, nome, senha, ["admin"], trocar_senha=False, email=email)
@@ -244,7 +245,7 @@ def criar_admin(conn, login, nome, senha, email=None) -> int:
     with conn:
         conn.execute("""UPDATE usuarios SET senha_hash = ?, ativo = 1, trocar_senha = 0, falhas = 0,
                         bloqueado_ate = NULL, email = ? WHERE id = ?""", (generate_password_hash(senha), email, u["id"]))
-        _gravar_funcoes(conn, u["id"], ["admin"])
+        _gravar_funcoes(conn, u["id"], set(u["funcoes"]) | {"admin"})
     return u["id"]
 
 
