@@ -224,6 +224,9 @@ def criar_esquema(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS usuarios_email ON usuarios(email) WHERE email IS NOT NULL")
     # Evento com encerrado_em vazio ("" em vez de NULL, visto em produção em 2026-09-17) não é aberto nem encerrado.
     conn.execute("UPDATE inventario_eventos SET encerrado_em = NULL WHERE encerrado_em = ''")
+    # Mudanças órfãs de importações apagadas com FK desligada (visto em produção em 2026-09-17, 8.708 linhas):
+    # sem isso a próxima importação reaproveita o id e "adota" as linhas antigas no seu detalhe.
+    conn.execute("DELETE FROM importacoes_mudancas WHERE importacao_id NOT IN (SELECT id FROM importacoes)")
     conn.commit()
     # Fase 5A: perfil único de usuários.perfil vira funções (usuarios_funcoes); a comissão de
     # inventário ganha identidade de usuário quando o nome não é ambíguo. Reserva a própria transação.

@@ -756,3 +756,12 @@ def test_painel_traz_robo_e_desatualizada(dados):
     assert p["robo"] is None and p["importacao_desatualizada"] is True
     db.registrar_execucao_robo(dados, "2026-09-18 04:00:00", "erro", mensagem="senha")
     assert db.painel(dados)["robo"]["mensagem"] == "senha"
+
+
+def test_esquema_apaga_mudancas_orfas_de_importacoes_apagadas(dados):
+    dados.execute("PRAGMA foreign_keys = OFF")
+    dados.execute("INSERT INTO importacoes_mudancas VALUES (1, 52, 'novo', NULL, 'CFC', 'CADEIRA')")
+    dados.commit()
+    dados.execute("PRAGMA foreign_keys = ON")
+    db.criar_esquema(dados)
+    assert dados.execute("SELECT count(*) FROM importacoes_mudancas").fetchone()[0] == 0
