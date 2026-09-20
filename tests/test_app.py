@@ -1158,6 +1158,9 @@ def test_atualizar_com_spw_enfileira_e_mostra_andamento(cliente, dados):
     assert b"Atualizando com o SPW" in r.data and b'http-equiv="refresh" content="5"' in r.data and b"disabled" in r.data
     r = cliente.post("/atualizar-base/spw", follow_redirects=True)
     assert "A atualização com o SPW já está em andamento.".encode() in r.data
+    db.marcar_passo(dados, p["id"], "rodando")
+    r = cliente.get("/upload")
+    assert "(atualizando com o SPW)".encode() not in r.data
     db.marcar_passo(dados, p["id"], "erro", "SPW fora do ar")
     r = cliente.get("/upload")
     assert b'http-equiv="refresh"' not in r.data and b"SPW fora do ar" in r.data
