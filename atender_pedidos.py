@@ -19,13 +19,22 @@ import importar_spw
 import robo_sei
 
 INTERVALO_S = 3.0
-ARQUIVO_LOG = None  # None = usa config.pasta_dados() no momento do registro (respeita TERMOS_DADOS nos testes);
-                    # os testes podem sobrescrever com monkeypatch.setattr(ap, "ARQUIVO_LOG", caminho)
-ARQUIVO_LOCK = config.pasta_dados() / "robo.lock"
+# None = usa config.pasta_dados() no momento do uso (respeita TERMOS_DADOS nos testes); os testes
+# podem sobrescrever com monkeypatch.setattr(ap, "ARQUIVO_LOG"/"ARQUIVO_LOCK", caminho)
+ARQUIVO_LOG = None
+ARQUIVO_LOCK = None
+
+
+def _caminho_lock() -> Path:
+    return ARQUIVO_LOCK or (config.pasta_dados() / "robo.lock")
+
+
+def _caminho_log() -> Path:
+    return ARQUIVO_LOG or (config.pasta_dados() / "robo_pedidos.log")
 
 
 @contextmanager
-def travar(caminho: Path = ARQUIVO_LOCK):
+def travar(caminho: Path):
     """flock exclusivo (bloqueante) enquanto um pedido é atendido; o cron do SPW espera por ele."""
     Path(caminho).parent.mkdir(parents=True, exist_ok=True)
     with open(caminho, "w") as f:
@@ -37,7 +46,7 @@ def travar(caminho: Path = ARQUIVO_LOCK):
 
 
 def _registrar(texto: str) -> None:
-    caminho = ARQUIVO_LOG or (config.pasta_dados() / "robo_pedidos.log")
+    caminho = _caminho_log()
     try:
         Path(caminho).parent.mkdir(parents=True, exist_ok=True)
         with open(caminho, "a", encoding="utf-8") as f:
@@ -93,7 +102,7 @@ def main() -> int:
     db.criar_esquema(conn)
     _registrar("trabalhador iniciado")
     try:
-        laco(conn, lock=ARQUIVO_LOCK)
+        laco(conn, lock=_caminho_lock())
     finally:
         conn.close()
     return 0
