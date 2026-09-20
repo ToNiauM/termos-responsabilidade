@@ -20,8 +20,8 @@
   <p>O termo por centro de custo reúne os bens ativos sob a guarda do setor, excluindo os atribuídos individualmente. O termo individual reúne os bens da pessoa. O termo de devolução registra os bens que retornam ao patrimônio.</p>
   <p>Abra as telas de termos para consultar os documentos e o histórico. Um termo pode estar vigente, desatualizado ou ainda não ter sido emitido.</p>
   {% if pode('termo_docx') %}
-  <p>Para emitir, é necessário um processo SEI vigente do tipo correspondente. Confira o documento e use <strong>Copiar para o SEI</strong> ou <strong>Baixar .docx</strong>. As duas ações registram a emissão; abrir a prévia não registra.</p>
-  <p>Em Termos emitidos, registre o documento SEI, o bloco de assinatura e o envio do pedido de assinatura. O botão de e-mail abre seu programa de e-mail com o texto pronto. A emissão anterior permanece no histórico.</p>
+  <p>Para emitir, é necessário um processo SEI vigente do tipo correspondente. Confira o documento e use <strong>Emitir Termo no SEI</strong>: o sistema cria o documento no processo, inclui no bloco de assinatura "Termos {unidade}" e registra documento e bloco. <strong>Copiar para o SEI</strong> e <strong>Baixar .docx</strong> continuam disponíveis para fazer à mão. As três ações registram a emissão; abrir a prévia não registra.</p>
+  <p>Em Termos emitidos, acompanhe a emissão e, quando concluída, use <strong>Enviar email</strong>: abre seu programa de e-mail com o pedido de assinatura pronto. Termo individual e de devolução exigem a unidade SEI da pessoa (Cadastros → Pessoas). A emissão anterior permanece no histórico.</p>
   {% endif %}
 {% elif s.id == 'analise' %}
   <p>Filtre por situação, centro, pessoa, localização, classificação, idade, data de entrada, faixa de valor e situação do valor. Os indicadores representam o conjunto filtrado inteiro.</p>

@@ -18,6 +18,13 @@ if [ "${1:-}" = "--teste" ]; then
   exit $?
 fi
 
+# Mesmo lock do trabalhador (atender_pedidos.py): nunca dois processos no banco e no navegador ao mesmo tempo.
+exec 9>dados/robo.lock
+if ! flock -w 900 9; then
+  echo "Outra atualização ou emissão está em andamento há mais de 15 min; tente de novo." >&2
+  exit 1
+fi
+
 echo "Atualizando a base a partir do SPW..."
 .venv-robo/bin/python importar_spw.py | tee -a dados/robo_spw.log
 codigo=${PIPESTATUS[0]}

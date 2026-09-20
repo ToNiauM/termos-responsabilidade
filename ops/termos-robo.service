@@ -1,0 +1,14 @@
+[Unit]
+Description=Termos de Responsabilidade - fila de emissão no SEI e atualização com o SPW
+After=network-online.target
+
+[Service]
+Type=simple
+User=ToNiauM
+WorkingDirectory=/opt/web/termos-responsabilidade
+ExecStart=/opt/web/termos-responsabilidade/.venv-robo/bin/python atender_pedidos.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

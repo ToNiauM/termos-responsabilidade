@@ -173,7 +173,7 @@ Enquanto o `auth_basic` ficar, o site pede as duas senhas, sem prejuízo.
 ### Robô do SPW
 
 `importar_spw.py` entra no SPW, exporta a relação de bens (Excel/Detalhado), compara com a última execução e,
-se mudou, importa como o upload de Atualizar base faria. Roda no host (fora do container), em dias úteis às 4h,
+se mudou, importa como o upload de Atualizar base faria. Roda no host (fora do container), em dias úteis às 3h,
 e registra cada execução em `robo_execucoes`: o card "última importação" do Início mostra `robô ok`/`robô falhou`
 e Atualizar base lista as últimas execuções. Segredos em `secrets/spw.env` (`SPW_USUARIO`, `SPW_SENHA`,
 `SPW_LOGIN_URL`, `SPW_CONSULTA_URL`, chmod 600).
@@ -185,7 +185,7 @@ e Atualizar base lista as últimas execuções. Segredos em `secrets/spw.env` (`
 
 Crontab (`crontab -e`, usuário dono de `dados/termos.db`); o script já grava em `dados/robo_spw.log`:
 
-    0 4 * * 1-5 /opt/web/termos-responsabilidade/atualizar_base.sh >/dev/null 2>>/opt/web/termos-responsabilidade/dados/robo_spw.log
+    0 3 * * 1-5 /opt/web/termos-responsabilidade/atualizar_base.sh >/dev/null 2>>/opt/web/termos-responsabilidade/dados/robo_spw.log
 
 O robô não importa se o export vier com menos de 90% dos bens da base (protege contra export vazio ou truncado);
 nesse caso registra erro e a baixa em massa, se for real, passa por Atualizar base. Um upload manual entre
@@ -193,6 +193,23 @@ execuções fica valendo até o SPW mudar: o robô compara o export com a própr
 
 Diagnóstico: `dados/robo_spw.log` (uma linha por execução) e `dados/spw/erro.png` (tela do SPW no momento do erro).
 Se o SPW mudar o layout, os seletores ficam todos em `baixar_export`.
+
+### Emissão no SEI
+
+O botão **Emitir Termo no SEI** (página do termo) e **Atualizar com SPW** (Atualizar base) enfileiram pedidos em
+`robo_pedidos`; quem atende é `atender_pedidos.py`, no host, no mesmo `.venv-robo` do SPW:
+
+    cp ops/termos-robo.service /etc/systemd/system/ && sudo systemctl enable --now termos-robo
+    sudo systemctl status termos-robo            # deve estar "active (running)"
+
+Segredos em `secrets/sei.env` (`SEI_USUARIO`, `SEI_SENHA`, `SEI_LOGIN_URL`, `SEI_ORGAO`; chmod 600). No SEI, crie à mão
+um bloco de assinatura por unidade, com o nome exato `Termos {UNIDADE}` (ex.: `Termos GECONT`); o sistema só inclui o
+documento — disponibilizar o bloco continua sendo feito por vocês. Em Cadastros, informe a "Unidade no SEI" das pessoas
+que recebem termo individual (e a exceção no centro de custo cuja sigla difere da unidade do SEI). Em Textos, o nome do
+tipo de documento por tipo de termo.
+
+Diagnóstico: `dados/robo_pedidos.log` (exceções), `dados/sei/erro.png` (tela do SEI no erro), tabela `robo_pedidos`.
+Sem o serviço, o site funciona: o pedido fica "aguardando a vez" e a tela avisa depois de 2 minutos.
 
 ## Arquivos
 
@@ -214,3 +231,7 @@ Se o SPW mudar o layout, os seletores ficam todos em `baixar_export`.
 | `atualizar_base.sh` | Roda o robô do SPW na hora (`--teste` usa uma cópia da base); o cron chama o mesmo script |
 | `importar_spw.py` | Robô do SPW: exporta, converte e importa os bens (roda no host, por cron) |
 | `requirements-robo.txt` | Dependências só do robô (Playwright, xlrd) |
+| `robo_sei.py` | Robô do SEI: login, cria o documento no processo e inclui no bloco de assinatura |
+| `atender_pedidos.py` | Trabalhador do host: atende a fila `robo_pedidos` (emissão no SEI e atualização com o SPW) |
+| `segredos.py` | Lê os arquivos `secrets/*.env` (SPW, SEI) |
+| `ops/termos-robo.service` | Serviço systemd do trabalhador (`atender_pedidos.py`) |
