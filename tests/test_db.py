@@ -340,7 +340,7 @@ def test_importar_cadastros_substitui_e_normaliza(dados, tmp_path):
     f = db.ficha_do_bem(dados, 1001)
     assert f["ccustos"] == "GESERV" and f["pessoa"] == "BRUNO LIMA"
     assert db.pessoas(dados) == ["BRUNO LIMA"]
-    assert dict(db.pessoa(dados, "BRUNO LIMA")) == {"nome": "BRUNO LIMA", "email": "b@cfc", "matricula": "12"}
+    assert dict(db.pessoa(dados, "BRUNO LIMA")) == {"nome": "BRUNO LIMA", "email": "b@cfc", "matricula": "12", "unidade_sei": None}
 
 
 @pytest.mark.parametrize("abas, trecho", [
@@ -643,18 +643,18 @@ def test_migracao_de_banco_antigo(tmp_path):
     conn = db.conectar(caminho)
     db.criar_esquema(conn)
     db.criar_esquema(conn)   # idempotente
-    assert dict(db.responsavel(conn, "CCI")) == {"ccustos": "CCI", "responsavel": "JAQUELINE", "email": "j@cfc", "matricula": "46", "funcao": "coordenadora"}
-    assert dict(db.pessoa(conn, "ANA SILVA")) == {"nome": "ANA SILVA", "email": None, "matricula": None}
+    assert dict(db.responsavel(conn, "CCI")) == {"ccustos": "CCI", "responsavel": "JAQUELINE", "email": "j@cfc", "matricula": "46", "funcao": "coordenadora", "unidade_sei": None}
+    assert dict(db.pessoa(conn, "ANA SILVA")) == {"nome": "ANA SILVA", "email": None, "matricula": None, "unidade_sei": None}
     assert "bloco_sei" in db._colunas(conn, "termos_emitidos") and "email_enviado_em" in db._colunas(conn, "termos_emitidos")
 
 
 def test_pessoa_email_matricula_e_salvar(dados):
     semear(dados)
     assert db.incluir_pessoa(dados, " bruno lima ", " b@cfc ", "0012") == "BRUNO LIMA"
-    assert dict(db.pessoa(dados, "BRUNO LIMA")) == {"nome": "BRUNO LIMA", "email": "b@cfc", "matricula": "0012"}
+    assert dict(db.pessoa(dados, "BRUNO LIMA")) == {"nome": "BRUNO LIMA", "email": "b@cfc", "matricula": "0012", "unidade_sei": None}
     novo = db.salvar_pessoa(dados, "BRUNO LIMA", {"nome": "bruno souza", "email": "", "matricula": "7"})
     assert novo == "BRUNO SOUZA" and db.pessoa(dados, "BRUNO LIMA") is None
-    assert dict(db.pessoa(dados, "BRUNO SOUZA")) == {"nome": "BRUNO SOUZA", "email": None, "matricula": "7"}
+    assert dict(db.pessoa(dados, "BRUNO SOUZA")) == {"nome": "BRUNO SOUZA", "email": None, "matricula": "7", "unidade_sei": None}
     with pytest.raises(db.ErroDeNegocio):
         db.salvar_pessoa(dados, "BRUNO SOUZA", {"nome": "ana silva"})
 
@@ -765,3 +765,113 @@ def test_esquema_apaga_mudancas_orfas_de_importacoes_apagadas(dados):
     dados.execute("PRAGMA foreign_keys = ON")
     db.criar_esquema(dados)
     assert dados.execute("SELECT count(*) FROM importacoes_mudancas").fetchone()[0] == 0
+
+
+# ---------------------------------------------------------------- envio ao SEI (fila e numeração)
+
+def _processo_e_termo(conn, tipo="ccusto", chave="CCI"):
+    db.incluir_processo(conn, tipo, "T", "1111")
+    bens = db.bens_do_centro(conn, chave) if tipo == "ccusto" else db.bens_da_pessoa(conn, chave)
+    return db.registrar_emissao(conn, tipo, chave, bens)
+
+
+def test_colunas_unidade_sei_e_numero_termo_existem(dados):
+    assert "unidade_sei" in db._colunas(dados, "responsaveis") and "unidade_sei" in db._colunas(dados, "pessoas")
+    assert {"numero_termo", "unidade_sei"} <= set(db._colunas(dados, "termos_emitidos"))
+    assert "robo_pedidos" in {r["name"] for r in dados.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+
+
+def test_unidade_sei_do_centro_e_da_pessoa(dados):
+    semear(dados)
+    assert db.unidade_sei(dados, "ccusto", "CCI") == "CCI"                       # sigla = unidade
+    dados.execute("UPDATE responsaveis SET unidade_sei = 'GAB' WHERE ccustos = 'CCI'"); dados.commit()
+    assert db.unidade_sei(dados, "ccusto", "CCI") == "GAB"                       # exceção cadastrada
+    with pytest.raises(db.ErroDeNegocio, match="Cadastre a unidade SEI de ANA SILVA"):
+        db.unidade_sei(dados, "individual", "ANA SILVA")
+    dados.execute("UPDATE pessoas SET unidade_sei = ' GECONT ' WHERE nome = 'ANA SILVA'"); dados.commit()
+    assert db.unidade_sei(dados, "individual", "ANA SILVA") == "GECONT"
+    assert db.unidade_sei(dados, "devolucao", "ANA SILVA") == "GECONT"
+
+
+def test_proximo_numero_por_unidade_e_ano(dados):
+    semear(dados)
+    assert db.proximo_numero_termo(dados, "CCI", 2026) == "01/2026"
+    t = _processo_e_termo(dados)
+    dados.execute("UPDATE termos_emitidos SET unidade_sei = 'CCI', numero_termo = '09/2026' WHERE id = ?", (t["id"],)); dados.commit()
+    assert db.proximo_numero_termo(dados, "CCI", 2026) == "10/2026"
+    assert db.proximo_numero_termo(dados, "CCI", 2027) == "01/2027"              # outro ano recomeça
+    assert db.proximo_numero_termo(dados, "GECONT", 2026) == "01/2026"           # outra unidade recomeça
+    dados.execute("UPDATE termos_emitidos SET numero_termo = '99/2026' WHERE id = ?", (t["id"],)); dados.commit()
+    assert db.proximo_numero_termo(dados, "CCI", 2026) == "100/2026"
+
+
+def test_preparar_envio_atribui_e_mantem_numero(dados):
+    semear(dados)
+    t = _processo_e_termo(dados)
+    t = db.preparar_envio_sei(dados, t["id"], agora="2026-09-20 10:00:00")
+    assert t["unidade_sei"] == "CCI" and t["numero_termo"] == "01/2026"
+    t2 = db.preparar_envio_sei(dados, t["id"], agora="2027-01-01 10:00:00")     # já numerado: não muda
+    assert t2["numero_termo"] == "01/2026"
+    with pytest.raises(db.ErroDeNegocio, match="Cadastre a unidade SEI"):
+        db.preparar_envio_sei(dados, _processo_e_termo(dados, "individual", "ANA SILVA")["id"])
+
+
+def test_salvar_numero_termo_valida_e_congela_apos_documento(dados):
+    semear(dados)
+    t = _processo_e_termo(dados)
+    with pytest.raises(db.ErroDeNegocio, match="NN/AAAA"):
+        db.salvar_numero_termo(dados, t["id"], "3/26")
+    db.salvar_numero_termo(dados, t["id"], "03/2026")
+    assert db.termo_emitido(dados, t["id"])["numero_termo"] == "03/2026"
+    db.salvar_documento_sei(dados, t["id"], "1557089", "")
+    with pytest.raises(db.ErroDeNegocio, match="não muda depois"):
+        db.salvar_numero_termo(dados, t["id"], "04/2026")
+
+
+def test_fila_um_pedido_ativo_por_termo_e_um_spw(dados):
+    semear(dados)
+    t = _processo_e_termo(dados)
+    pid = db.enfileirar_pedido(dados, "sei", termo_id=t["id"], html="<p>x</p>", criado_por="admin")
+    p = db.pedido(dados, pid)
+    assert p["passo"] == "aguardando" and p["html"] == "<p>x</p>" and p["criado_por"] == "admin" and p["iniciado_em"] is None
+    with pytest.raises(db.ErroDeNegocio, match="emissão deste termo em andamento"):
+        db.enfileirar_pedido(dados, "sei", termo_id=t["id"], html="<p>x</p>")
+    assert db.pedido_do_termo(dados, t["id"])["id"] == pid and db.termos_com_pedido_ativo(dados) == {t["id"]}
+    s = db.enfileirar_pedido(dados, "spw")
+    assert db.pedido_spw_ativo(dados)["id"] == s
+    with pytest.raises(db.ErroDeNegocio, match="atualização com o SPW já está em andamento"):
+        db.enfileirar_pedido(dados, "spw")
+    assert db.proximo_pedido(dados)["id"] == pid                                  # FIFO
+    db.marcar_passo(dados, pid, "concluido", "ok")
+    assert db.proximo_pedido(dados)["id"] == s and db.termos_com_pedido_ativo(dados) == set()
+    db.enfileirar_pedido(dados, "sei", termo_id=t["id"], html="<p>y</p>")         # concluído libera o termo
+
+
+def test_marcar_passo_grava_datas(dados):
+    semear(dados)
+    pid = db.enfileirar_pedido(dados, "spw")
+    db.marcar_passo(dados, pid, "rodando")
+    p = db.pedido(dados, pid)
+    assert p["iniciado_em"] and p["terminado_em"] is None
+    db.marcar_passo(dados, pid, "erro", "SPW fora do ar")
+    p = db.pedido(dados, pid)
+    assert p["terminado_em"] and p["mensagem"] == "SPW fora do ar" and db.pedido_spw_ativo(dados) is None
+    with pytest.raises(ValueError):
+        db.marcar_passo(dados, pid, "inventado")
+
+
+def test_pedidos_orfaos_voltam_a_aguardar_e_pedido_parado(dados):
+    semear(dados)
+    a = db.enfileirar_pedido(dados, "spw")
+    db.marcar_passo(dados, a, "rodando")
+    dados.execute("UPDATE robo_pedidos SET iniciado_em = '2026-09-20 09:00:00' WHERE id = ?", (a,)); dados.commit()
+    assert db.pedidos_orfaos_para_aguardando(dados, agora=datetime(2026, 9, 20, 9, 5)) == 0      # 5 min: ainda vivo
+    assert db.pedidos_orfaos_para_aguardando(dados, agora=datetime(2026, 9, 20, 9, 11)) == 1
+    p = db.pedido(dados, a)
+    assert p["passo"] == "aguardando" and p["iniciado_em"] is None
+    dados.execute("UPDATE robo_pedidos SET criado_em = '2026-09-20 09:00:00' WHERE id = ?", (a,)); dados.commit()
+    p = db.pedido(dados, a)
+    assert not db.pedido_parado(p, agora=datetime(2026, 9, 20, 9, 1))
+    assert db.pedido_parado(p, agora=datetime(2026, 9, 20, 9, 3))
+    db.marcar_passo(dados, a, "rodando")
+    assert not db.pedido_parado(db.pedido(dados, a), agora=datetime(2026, 9, 20, 9, 30))       # só conta aguardando

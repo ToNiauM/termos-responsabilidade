@@ -3,6 +3,7 @@
 Todas as funções recebem a conexão como primeiro argumento; quem abre e fecha é o chamador
 (o Flask, por request; os testes, por fixture). Nenhuma função aqui usa Flask.
 """
+import re
 import sqlite3
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -99,6 +100,23 @@ CREATE TABLE IF NOT EXISTS robo_execucoes (
   importacao_id INTEGER REFERENCES importacoes(id) ON DELETE SET NULL,
   mensagem      TEXT
 );
+CREATE TABLE IF NOT EXISTS robo_pedidos (
+  id           INTEGER PRIMARY KEY,
+  tipo         TEXT NOT NULL CHECK (tipo IN ('sei','spw')),
+  termo_id     INTEGER REFERENCES termos_emitidos(id) ON DELETE CASCADE,
+  html         TEXT,
+  criado_em    TEXT NOT NULL,
+  criado_por   TEXT,
+  iniciado_em  TEXT,
+  terminado_em TEXT,
+  passo        TEXT NOT NULL DEFAULT 'aguardando'
+               CHECK (passo IN ('aguardando','login','documento','bloco','rodando','concluido','erro')),
+  mensagem     TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS robo_pedidos_ativo_termo ON robo_pedidos(termo_id)
+  WHERE tipo = 'sei' AND passo NOT IN ('concluido','erro');
+CREATE UNIQUE INDEX IF NOT EXISTS robo_pedidos_ativo_spw ON robo_pedidos(tipo)
+  WHERE tipo = 'spw' AND passo NOT IN ('concluido','erro');
 CREATE TABLE IF NOT EXISTS inventario_eventos (
   id           INTEGER PRIMARY KEY,
   nome         TEXT NOT NULL,
@@ -227,6 +245,12 @@ def criar_esquema(conn: sqlite3.Connection) -> None:
     # Mudanças órfãs de importações apagadas com FK desligada (visto em produção em 2026-09-17, 8.708 linhas):
     # sem isso a próxima importação reaproveita o id e "adota" as linhas antigas no seu detalhe.
     conn.execute("DELETE FROM importacoes_mudancas WHERE importacao_id NOT IN (SELECT id FROM importacoes)")
+    # Envio ao SEI (2026-09-20): unidade SEI no cadastro e número/unidade congelados no termo emitido.
+    for tabela in ("responsaveis", "pessoas", "termos_emitidos"):
+        if "unidade_sei" not in _colunas(conn, tabela):
+            conn.execute(f"ALTER TABLE {tabela} ADD COLUMN unidade_sei TEXT")
+    if "numero_termo" not in _colunas(conn, "termos_emitidos"):
+        conn.execute("ALTER TABLE termos_emitidos ADD COLUMN numero_termo TEXT")
     conn.commit()
     # Fase 5A: perfil único de usuários.perfil vira funções (usuarios_funcoes); a comissão de
     # inventário ganha identidade de usuário quando o nome não é ambíguo. Reserva a própria transação.
@@ -917,6 +941,130 @@ def registrar_email(conn, id: int) -> str:
     conn.execute("UPDATE termos_emitidos SET email_enviado_em = ? WHERE id = ?", (agora, id))
     conn.commit()
     return agora
+
+
+# ---------------------------------------------------------------- envio ao SEI
+RE_NUMERO_TERMO = re.compile(r"^\d{2,}/\d{4}$")
+PASSOS = ("aguardando", "login", "documento", "bloco", "rodando", "concluido", "erro")
+PASSOS_ATIVOS = ("aguardando", "login", "documento", "bloco", "rodando")
+DESCRICAO_PASSO = {"aguardando": "aguardando a vez", "login": "entrando no SEI", "documento": "criando o documento",
+                   "bloco": "incluindo no bloco de assinatura", "rodando": "atualizando com o SPW",
+                   "concluido": "concluído", "erro": "erro"}
+
+
+def unidade_sei(conn, tipo: str, chave: str) -> str:
+    """Unidade do SEI que recebe o bloco: a sigla do centro (ou a exceção cadastrada) ou a unidade da pessoa."""
+    if tipo == "ccusto":
+        r = responsavel(conn, chave) or _erro(f"Centro de custo {chave} não encontrado.")
+        return (r["unidade_sei"] or "").strip() or chave
+    p = pessoa(conn, chave) or _erro(f"Pessoa {chave} não encontrada.")
+    u = (p["unidade_sei"] or "").strip()
+    if not u:
+        raise ErroDeNegocio(f"Cadastre a unidade SEI de {chave} em Cadastros → Pessoas.")
+    return u
+
+
+def proximo_numero_termo(conn, unidade: str, ano: int) -> str:
+    """1 + maior sequencial já gravado para a mesma unidade e ano; dois dígitos no mínimo."""
+    maior = 0
+    for (n,) in conn.execute("SELECT numero_termo FROM termos_emitidos WHERE unidade_sei = ? AND numero_termo LIKE ?",
+                             (unidade, f"%/{ano}")):
+        try:
+            maior = max(maior, int(str(n).split("/")[0]))
+        except ValueError:
+            continue
+    return f"{maior + 1:02d}/{ano}"
+
+
+def preparar_envio_sei(conn, termo_id: int, agora: str | None = None) -> dict:
+    """Antes de enfileirar: garante unidade e número no registro (nunca reaproveitados depois)."""
+    t = termo_emitido(conn, termo_id) or _erro("Termo emitido não encontrado.")
+    unidade = t["unidade_sei"] or unidade_sei(conn, t["tipo"], t["chave"])
+    numero = t["numero_termo"] or proximo_numero_termo(conn, unidade, int((agora or _agora())[:4]))
+    conn.execute("UPDATE termos_emitidos SET unidade_sei = ?, numero_termo = ? WHERE id = ?", (unidade, numero, termo_id))
+    conn.commit()
+    return termo_emitido(conn, termo_id)
+
+
+def salvar_numero_termo(conn, id: int, numero: str) -> None:
+    """Acerto manual do número (ex.: unidade que já tem termos numerados à mão); só antes do documento existir."""
+    t = termo_emitido(conn, id) or _erro("Termo emitido não encontrado.")
+    if t["documento_sei"]:
+        raise ErroDeNegocio("O número do termo não muda depois de emitido no SEI.")
+    numero = _texto(numero)
+    if numero and not RE_NUMERO_TERMO.match(numero):
+        raise ErroDeNegocio("Número do termo no formato NN/AAAA (ex.: 03/2026).")
+    conn.execute("UPDATE termos_emitidos SET numero_termo = ? WHERE id = ?", (numero or None, id))
+    conn.commit()
+
+
+def enfileirar_pedido(conn, tipo: str, termo_id: int | None = None, html: str | None = None,
+                      criado_por: str | None = None) -> int:
+    try:
+        cur = conn.execute("INSERT INTO robo_pedidos (tipo, termo_id, html, criado_em, criado_por) VALUES (?,?,?,?,?)",
+                           (tipo, termo_id, html, _agora(), criado_por))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        raise ErroDeNegocio("Já há uma emissão deste termo em andamento." if tipo == "sei"
+                            else "A atualização com o SPW já está em andamento.")
+    return cur.lastrowid
+
+
+def pedido(conn, id: int) -> dict | None:
+    return _um(conn, "SELECT * FROM robo_pedidos WHERE id = ?", id)
+
+
+def pedido_do_termo(conn, termo_id: int) -> dict | None:
+    return _um(conn, "SELECT * FROM robo_pedidos WHERE termo_id = ? ORDER BY id DESC LIMIT 1", termo_id)
+
+
+def pedido_spw_ativo(conn) -> dict | None:
+    return _um(conn, "SELECT * FROM robo_pedidos WHERE tipo = 'spw' AND passo NOT IN ('concluido','erro') ORDER BY id DESC LIMIT 1")
+
+
+def proximo_pedido(conn) -> dict | None:
+    return _um(conn, "SELECT * FROM robo_pedidos WHERE passo = 'aguardando' ORDER BY id LIMIT 1")
+
+
+def termos_com_pedido_ativo(conn) -> set[int]:
+    return {r[0] for r in conn.execute("SELECT termo_id FROM robo_pedidos WHERE tipo = 'sei' AND passo NOT IN ('concluido','erro')")}
+
+
+def marcar_passo(conn, id: int, passo: str, mensagem: str | None = None) -> None:
+    """Commit imediato: o site lê enquanto o trabalhador anda."""
+    if passo not in PASSOS:
+        raise ValueError(f"passo inválido: {passo}")
+    agora = _agora()
+    sets, params = ["passo = ?", "mensagem = ?"], [passo, mensagem]
+    if passo == "aguardando":
+        sets.append("iniciado_em = NULL")
+    elif passo not in ("concluido", "erro"):
+        sets.append("iniciado_em = coalesce(iniciado_em, ?)")
+        params.append(agora)
+    if passo in ("concluido", "erro"):
+        sets.append("terminado_em = ?")
+        params.append(agora)
+    conn.execute(f"UPDATE robo_pedidos SET {', '.join(sets)} WHERE id = ?", (*params, id))
+    conn.commit()
+
+
+def pedidos_orfaos_para_aguardando(conn, minutos: int = 10, agora: datetime | None = None) -> int:
+    """Trabalhador reiniciado no meio de um pedido: o que ficou em passo intermediário há mais de `minutos`
+    volta à fila (a retomada em robo_sei não duplica documento)."""
+    limite = ((agora or datetime.now()) - timedelta(minutes=minutos)).strftime("%Y-%m-%d %H:%M:%S")
+    cur = conn.execute("""UPDATE robo_pedidos SET passo = 'aguardando', iniciado_em = NULL, mensagem = NULL
+                          WHERE passo IN ('login','documento','bloco','rodando') AND iniciado_em < ?""", (limite,))
+    conn.commit()
+    return cur.rowcount
+
+
+def pedido_parado(pedido: dict | None, agora: datetime | None = None, minutos: int = 2) -> bool:
+    """Aguardando há mais de `minutos`: ninguém está atendendo a fila."""
+    if not pedido or pedido["passo"] != "aguardando":
+        return False
+    criado = datetime.strptime(pedido["criado_em"], "%Y-%m-%d %H:%M:%S")
+    return (agora or datetime.now()) - criado > timedelta(minutes=minutos)
 
 
 def situacao_termo(conn, tipo: str, chave: str, bens_atuais: list) -> dict:
