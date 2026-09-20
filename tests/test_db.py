@@ -299,8 +299,8 @@ def test_exportar_cadastros_quatro_abas(dados, tmp_path):
     arq = db.exportar_cadastros(dados, tmp_path / "c.xlsx")
     wb = load_workbook(arq)
     assert wb.sheetnames == ["responsaveis", "localizacoes", "pessoas", "atribuicoes"]
-    assert [c.value for c in wb["responsaveis"][1]] == ["ccustos", "responsavel", "email", "matricula", "funcao"]
-    assert [c.value for c in wb["pessoas"][1]] == ["nome", "email", "matricula"]
+    assert [c.value for c in wb["responsaveis"][1]] == ["ccustos", "responsavel", "email", "matricula", "funcao", "unidade_sei"]
+    assert [c.value for c in wb["pessoas"][1]] == ["nome", "email", "matricula", "unidade_sei"]
     assert [c.value for c in wb["atribuicoes"][2]] == ["ANA SILVA", 1002]
     assert wb["localizacoes"].max_row == 2 and wb["pessoas"].max_row == 2
 
@@ -875,3 +875,33 @@ def test_pedidos_orfaos_voltam_a_aguardar_e_pedido_parado(dados):
     assert db.pedido_parado(p, agora=datetime(2026, 9, 20, 9, 3))
     db.marcar_passo(dados, a, "rodando")
     assert not db.pedido_parado(db.pedido(dados, a), agora=datetime(2026, 9, 20, 9, 30))       # só conta aguardando
+
+
+def test_unidade_sei_no_cadastro_e_na_planilha(dados, tmp_path):
+    semear(dados)
+    db.incluir_responsavel(dados, {"ccustos": "GAB", "responsavel": "X", "unidade_sei": " gab-pres "})
+    assert db.responsavel(dados, "GAB")["unidade_sei"] == "gab-pres"
+    db.atualizar_responsavel(dados, "GAB", {"responsavel": "X", "unidade_sei": "GABPRES"})
+    assert db.responsavel(dados, "GAB")["unidade_sei"] == "GABPRES"
+    db.salvar_centro(dados, "GAB", {"ccustos": "GAB", "responsavel": "X", "unidade_sei": ""})
+    assert db.responsavel(dados, "GAB")["unidade_sei"] is None
+    db.incluir_pessoa(dados, "BEA", unidade_sei="GECONT")
+    assert db.pessoa(dados, "BEA")["unidade_sei"] == "GECONT"
+    db.salvar_pessoa(dados, "BEA", {"nome": "BEA", "unidade_sei": "GELIC"})
+    assert db.pessoa(dados, "BEA")["unidade_sei"] == "GELIC"
+    arq = db.exportar_cadastros(dados, tmp_path / "c.xlsx")
+    wb = load_workbook(arq)
+    assert [c.value for c in wb["responsaveis"][1]][-1] == "unidade_sei" and [c.value for c in wb["pessoas"][1]][-1] == "unidade_sei"
+    r = db.importar_cadastros(dados, arq)                                       # ida e volta preserva
+    assert r["responsaveis"] == 2 and db.pessoa(dados, "BEA")["unidade_sei"] == "GELIC"
+
+
+def test_importar_cadastros_aceita_planilha_sem_unidade_sei(dados, tmp_path):
+    semear(dados)
+    arq = db.exportar_cadastros(dados, tmp_path / "c.xlsx")
+    wb = load_workbook(arq)
+    for aba in ("responsaveis", "pessoas"):
+        wb[aba].delete_cols(wb[aba].max_column)                                 # planilha antiga, sem a coluna
+    wb.save(arq)
+    db.importar_cadastros(dados, arq)
+    assert db.responsavel(dados, "CCI")["unidade_sei"] is None

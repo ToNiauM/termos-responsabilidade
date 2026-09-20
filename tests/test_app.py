@@ -1145,3 +1145,12 @@ def test_upload_lista_execucoes_do_robo(cliente, dados):
     assert html.index("SPW fora do ar") < html.index("nada mudou") < html.index("1 bens")   # mais recente primeiro
     assert f'href="/importacoes/{resumo["importacao_id"]}"' in html.split("Execuções do robô")[-1]
     assert "sem mudança" in html and "bg-danger" in html
+
+
+def test_formularios_de_cadastro_tem_unidade_sei(cliente):
+    assert b'name="unidade_sei"' in cliente.get("/cadastros/responsaveis/CCI/editar").data
+    assert b'name="unidade_sei"' in cliente.get("/cadastros/pessoas/ANA%20SILVA/editar").data
+    cliente.post("/cadastros/pessoas/incluir", data={"nome": "BEA", "unidade_sei": "GECONT"})
+    assert db.pessoa(db.conectar(), "BEA")["unidade_sei"] == "GECONT"
+    cliente.post("/cadastros/responsaveis/CCI/editar", data={"ccustos": "CCI", "responsavel": "J", "unidade_sei": "GAB"})
+    assert db.responsavel(db.conectar(), "CCI")["unidade_sei"] == "GAB"

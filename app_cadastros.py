@@ -214,7 +214,8 @@ def registrar_cadastros(app, obter_conn):
         erros = validar("pessoas", valores)
         if erros:
             return formulario("pessoas", valores, erros)
-        nome = db.incluir_pessoa(obter_conn(), valores["nome"], valores.get("email"), valores.get("matricula"))
+        nome = db.incluir_pessoa(obter_conn(), valores["nome"], valores.get("email"), valores.get("matricula"),
+                                 valores.get("unidade_sei"))
         flash(f"{nome} cadastrada. Consulte um patrimônio para atribuir bens a esta pessoa.", "success")
         return voltar("pessoas", nome, pessoa=True)
 

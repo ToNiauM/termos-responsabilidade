@@ -16,6 +16,7 @@
     {{ campo('funcao', 'Função', valores, erros) }}
     {{ campo('matricula', 'Matrícula', valores, erros, ajuda='Informe como consta no cadastro funcional, incluindo zeros à esquerda.') }}
     {{ campo('email', 'E-mail', valores, erros, tipo='email', ajuda='Usado no e-mail de assinatura do termo no SEI.') }}
+    {{ campo('unidade_sei', 'Unidade no SEI', valores, erros, ajuda='Sigla da unidade que assina no SEI. Vazio = a própria sigla do centro de custo.') }}
     {% if chave %}
     <div class="br-card mb-4"><div class="card-content">
       <h2 class="text-up-01">Localizações vinculadas ({{ locais|length }})</h2>
@@ -27,6 +28,7 @@
     {{ campo('nome', 'Nome completo', valores, erros, True, ajuda='Os bens atribuídos e as referências dos termos acompanham a alteração do nome.') }}
     {{ campo('matricula', 'Matrícula', valores, erros, ajuda='Informe como consta no cadastro funcional, incluindo zeros à esquerda.') }}
     {{ campo('email', 'E-mail', valores, erros, tipo='email', ajuda='Usado no e-mail de assinatura do termo no SEI.') }}
+    {{ campo('unidade_sei', 'Unidade no SEI', valores, erros, ajuda='Sigla da unidade da pessoa no SEI; necessária para emitir o termo no SEI.') }}
   {% elif aba == 'localizacoes' %}
     {% if not centros %}<p>Cadastre um centro de custo antes de vincular uma localização. <a href="{{ url_for('cadastro_novo', aba='responsaveis') }}">Cadastrar centro de custo</a></p>{% endif %}
     {% if not pendentes %}<p>Não há localizações com bens ativos sem centro de custo.</p>{% endif %}

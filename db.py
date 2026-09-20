@@ -563,9 +563,10 @@ def salvar_centro(conn, antigo, dados):
             raise ErroDeNegocio("Centro de custo não encontrado.")
         if sigla != antigo and responsavel(conn, sigla):
             raise ErroDeNegocio(f"O centro de custo {sigla} já existe.")
-        conn.execute("""UPDATE responsaveis SET ccustos=?, responsavel=?, funcao=?, matricula=?, email=?
+        conn.execute("""UPDATE responsaveis SET ccustos=?, responsavel=?, funcao=?, matricula=?, email=?, unidade_sei=?
                         WHERE ccustos=?""", (sigla, nome, _texto(dados.get("funcao")),
-                        _texto(dados.get("matricula")), _texto(dados.get("email")), antigo))
+                        _texto(dados.get("matricula")), _texto(dados.get("email")),
+                        _texto(dados.get("unidade_sei")) or None, antigo))
         conn.execute("UPDATE termos_emitidos SET chave=? WHERE tipo='ccusto' AND chave=?", (sigla, antigo))
     return sigla
 
@@ -682,8 +683,9 @@ def incluir_responsavel(conn, dados: dict) -> None:
     nome = _obrigatorio(dados.get("responsavel"), "Responsável")
     if responsavel(conn, sigla):
         raise ErroDeNegocio(f"O centro de custo {sigla} já existe.")
-    conn.execute("INSERT INTO responsaveis (ccustos, responsavel, email, matricula, funcao) VALUES (?,?,?,?,?)", (
-        sigla, nome, _texto(dados.get("email")), _texto(dados.get("matricula")), _texto(dados.get("funcao"))))
+    conn.execute("INSERT INTO responsaveis (ccustos, responsavel, email, matricula, funcao, unidade_sei) VALUES (?,?,?,?,?,?)", (
+        sigla, nome, _texto(dados.get("email")), _texto(dados.get("matricula")), _texto(dados.get("funcao")),
+        _texto(dados.get("unidade_sei")) or None))
     conn.commit()
 
 
@@ -710,8 +712,9 @@ def atualizar_responsavel(conn, ccustos: str, dados: dict) -> None:
     if not responsavel(conn, ccustos):
         raise ErroDeNegocio(f"Centro de custo {ccustos} não encontrado.")
     nome = _obrigatorio(dados.get("responsavel"), "Responsável")
-    conn.execute("UPDATE responsaveis SET responsavel=?, email=?, matricula=?, funcao=? WHERE ccustos=?", (
-        nome, _texto(dados.get("email")), _texto(dados.get("matricula")), _texto(dados.get("funcao")), ccustos))
+    conn.execute("UPDATE responsaveis SET responsavel=?, email=?, matricula=?, funcao=?, unidade_sei=? WHERE ccustos=?", (
+        nome, _texto(dados.get("email")), _texto(dados.get("matricula")), _texto(dados.get("funcao")),
+        _texto(dados.get("unidade_sei")) or None, ccustos))
     conn.commit()
 
 
@@ -755,10 +758,11 @@ def pessoa(conn, nome: str) -> dict | None:
     return _um(conn, "SELECT * FROM pessoas WHERE nome = ?", nome)
 
 
-def incluir_pessoa(conn, nome: str, email: str | None = None, matricula: str | None = None) -> str:
+def incluir_pessoa(conn, nome: str, email: str | None = None, matricula: str | None = None,
+                    unidade_sei: str | None = None) -> str:
     nome = _obrigatorio(nome, "Nome").upper()
-    conn.execute("INSERT OR IGNORE INTO pessoas (nome, email, matricula) VALUES (?,?,?)",
-                 (nome, _texto(email) or None, _texto(matricula) or None))
+    conn.execute("INSERT OR IGNORE INTO pessoas (nome, email, matricula, unidade_sei) VALUES (?,?,?,?)",
+                 (nome, _texto(email) or None, _texto(matricula) or None, _texto(unidade_sei) or None))
     conn.commit()
     return nome
 
@@ -767,8 +771,9 @@ def salvar_pessoa(conn, antigo: str, dados: dict) -> str:
     """Renomeia (mantendo atribuições e histórico) e atualiza e-mail e matrícula. Tudo ou nada."""
     try:
         novo = _renomear_pessoa(conn, antigo, dados.get("nome"))
-        conn.execute("UPDATE pessoas SET email = ?, matricula = ? WHERE nome = ?",
-                     (_texto(dados.get("email")) or None, _texto(dados.get("matricula")) or None, novo))
+        conn.execute("UPDATE pessoas SET email = ?, matricula = ?, unidade_sei = ? WHERE nome = ?",
+                     (_texto(dados.get("email")) or None, _texto(dados.get("matricula")) or None,
+                      _texto(dados.get("unidade_sei")) or None, novo))
         conn.commit()
     except Exception:
         conn.rollback()
@@ -1109,9 +1114,9 @@ def situacoes_pessoas(conn) -> list[dict]:
 
 
 CADASTROS = {
-    "responsaveis": ["ccustos", "responsavel", "email", "matricula", "funcao"],
+    "responsaveis": ["ccustos", "responsavel", "email", "matricula", "funcao", "unidade_sei"],
     "localizacoes": ["localizacao", "ccustos"],
-    "pessoas": ["nome", "email", "matricula"],
+    "pessoas": ["nome", "email", "matricula", "unidade_sei"],
     "atribuicoes": ["nome", "numero"],
 }
 
@@ -1173,7 +1178,7 @@ def importar_cadastros(conn, arquivo) -> dict:
     import inventario
     problemas: list[str] = []
     try:
-        brutos = {t: _ler_aba_cadastro(wb, t, problemas) for t in CADASTROS}
+        brutos = {t: _ler_aba_cadastro(wb, t, problemas, opcionais=("unidade_sei",)) for t in CADASTROS}
         inv_brutos = {aba: _ler_aba_cadastro(wb, aba, problemas, colunas=cols + (["foto_url"] if aba == "inv_leituras" else []),
                                              opcional=True, opcionais=("foto_url", "fotos_seq") if aba == "inv_leituras" else ())
                      for aba, cols in inventario.ABAS.items()}
@@ -1202,7 +1207,8 @@ def importar_cadastros(conn, arquivo) -> dict:
             problemas.append(f"responsaveis linha {r['_linha']}: responsável vazio")
         else:
             siglas.add(sigla)
-            responsaveis.append((sigla, nome, _texto(r["email"]), _texto(r["matricula"]), _texto(r["funcao"])))
+            responsaveis.append((sigla, nome, _texto(r["email"]), _texto(r["matricula"]), _texto(r["funcao"]),
+                                 _texto(r["unidade_sei"]) or None))
 
     localizacoes, locs = [], set()
     for r in brutos["localizacoes"]:
@@ -1226,7 +1232,7 @@ def importar_cadastros(conn, arquivo) -> dict:
             problemas.append(f"pessoas linha {r['_linha']}: nome {nome} repetido")
         else:
             nomes.add(nome)
-            pessoas_linhas.append((nome, _texto(r["email"]), _texto(r["matricula"])))
+            pessoas_linhas.append((nome, _texto(r["email"]), _texto(r["matricula"]), _texto(r["unidade_sei"]) or None))
 
     atribuicoes, numeros = [], set()
     for r in brutos["atribuicoes"]:
@@ -1257,9 +1263,9 @@ def importar_cadastros(conn, arquivo) -> dict:
     try:
         for t in ("atribuicoes", "pessoas", "localizacoes", "responsaveis"):
             conn.execute(f"DELETE FROM {t}")
-        conn.executemany("INSERT INTO responsaveis (ccustos, responsavel, email, matricula, funcao) VALUES (?,?,?,?,?)", responsaveis)
+        conn.executemany("INSERT INTO responsaveis (ccustos, responsavel, email, matricula, funcao, unidade_sei) VALUES (?,?,?,?,?,?)", responsaveis)
         conn.executemany("INSERT INTO localizacoes VALUES (?,?)", localizacoes)
-        conn.executemany("INSERT INTO pessoas (nome, email, matricula) VALUES (?,?,?)", sorted(pessoas_linhas))
+        conn.executemany("INSERT INTO pessoas (nome, email, matricula, unidade_sei) VALUES (?,?,?,?)", sorted(pessoas_linhas))
         conn.executemany("INSERT INTO atribuicoes VALUES (?,?)", atribuicoes)
         if tem_inventario:
             inventario.substituir_tabelas(conn, inv_linhas)
