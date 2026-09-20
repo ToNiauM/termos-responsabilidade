@@ -1,0 +1,159 @@
+"""Orquestração do envio ao SEI sem navegador: um SEI falso registra as chamadas."""
+from contextlib import contextmanager
+
+import pytest
+
+import db
+import robo_sei
+from tests.conftest import semear
+
+ENV = {"SEI_USUARIO": "u", "SEI_SENHA": "s", "SEI_LOGIN_URL": "https://sei.cfc.org.br/sei/", "SEI_ORGAO": "CFC"}
+
+
+class SEIFalso:
+    def __init__(self, arvore=None, falhar_em=None, autenticado=True, titulo_ok=True, bloco_existe=True, tipo_existe=True):
+        self.chamadas, self.arvore = [], dict(arvore or {})
+        self.falhar_em, self.autenticado, self.titulo_ok = falhar_em, autenticado, titulo_ok
+        self.bloco_existe, self.tipo_existe, self.saiu = bloco_existe, tipo_existe, False
+
+    def _falha(self, passo):
+        if self.falhar_em == passo:
+            raise TimeoutError(f"Timeout 30000ms exceeded em {passo}")
+
+    def login(self, env):
+        self.chamadas.append(("login", env["SEI_USUARIO"]))
+        return {"autenticado": self.autenticado, "unidade": "GELIC"}
+
+    def logout(self):
+        self.saiu = True
+
+    def abrir_processo(self, numero):
+        self.chamadas.append(("abrir_processo", numero))
+        if not self.titulo_ok:
+            raise robo_sei.RoboErro(f"Processo {numero} não abriu no SEI; nada foi criado.")
+        return {"titulo_confere": True}
+
+    def documento_na_arvore(self, rotulo):
+        self.chamadas.append(("documento_na_arvore", rotulo))
+        return self.arvore.get(rotulo)
+
+    def incluir_documento(self, tipo_nome, nome_arvore, html, rotulo):
+        self._falha("documento")
+        if not self.tipo_existe:
+            raise robo_sei.RoboErro(f"Tipo de documento '{tipo_nome}' não existe no SEI; corrija em Textos.")
+        self.chamadas.append(("incluir_documento", tipo_nome, nome_arvore, len(html)))
+        self.arvore[rotulo] = "1557099"
+        return "1557099"
+
+    def incluir_em_bloco(self, numero, nome_bloco):
+        self._falha("bloco")
+        if not self.bloco_existe:
+            raise robo_sei.RoboErro(f"Bloco '{nome_bloco}' não existe no SEI; crie o bloco e clique em Incluir no bloco.")
+        self.chamadas.append(("incluir_em_bloco", numero, nome_bloco))
+        return "69766"
+
+
+def _abrir(falso):
+    @contextmanager
+    def abrir(env):
+        yield falso
+    return abrir
+
+
+def _pedido(conn):
+    semear(conn)
+    db.incluir_processo(conn, "ccusto", "T", "90796110000022.000059/2026-88")
+    t = db.registrar_emissao(conn, "ccusto", "CCI", db.bens_do_centro(conn, "CCI"))
+    t = db.preparar_envio_sei(conn, t["id"], agora="2026-09-20 10:00:00")
+    pid = db.enfileirar_pedido(conn, "sei", termo_id=t["id"], html="<p>termo</p>", criado_por="admin")
+    return db.pedido(conn, pid), t
+
+
+def test_fluxo_completo_grava_documento_e_bloco(dados):
+    p, t = _pedido(dados)
+    falso = SEIFalso()
+    r = robo_sei.enviar_termo(dados, p, abrir=_abrir(falso), env=ENV)
+    assert r == {"passo": "concluido", "mensagem": "documento 1557099 no bloco 69766", "documento_sei": "1557099", "bloco_sei": "69766"}
+    assert [c[0] for c in falso.chamadas] == ["login", "abrir_processo", "documento_na_arvore", "incluir_documento", "incluir_em_bloco"]
+    assert falso.chamadas[1] == ("abrir_processo", "90796110000022.000059/2026-88")
+    assert falso.chamadas[2] == ("documento_na_arvore", "Termo de Responsabilidade 01/2026 - CCI")
+    assert falso.chamadas[3] == ("incluir_documento", "Termo de Responsabilidade", "01/2026 - CCI", len("<p>termo</p>"))
+    assert falso.chamadas[4] == ("incluir_em_bloco", "1557099", "Termos CCI")
+    assert falso.saiu
+    t = db.termo_emitido(dados, t["id"])
+    assert t["documento_sei"] == "1557099" and t["bloco_sei"] == "69766"
+    assert db.pedido(dados, p["id"])["passo"] == "concluido"
+
+
+def test_falha_no_bloco_deixa_documento_gravado(dados):
+    p, t = _pedido(dados)
+    falso = SEIFalso(bloco_existe=False)
+    r = robo_sei.enviar_termo(dados, p, abrir=_abrir(falso), env=ENV)
+    assert r["passo"] == "erro" and "Bloco 'Termos CCI' não existe" in r["mensagem"]
+    t = db.termo_emitido(dados, t["id"])
+    assert t["documento_sei"] == "1557099" and t["bloco_sei"] is None
+    assert db.pedido(dados, p["id"])["passo"] == "erro" and falso.saiu
+
+
+def test_retomada_com_documento_pula_a_criacao(dados):
+    p, t = _pedido(dados)
+    db.salvar_documento_sei(dados, t["id"], "1557099", "")
+    falso = SEIFalso()
+    r = robo_sei.enviar_termo(dados, p, abrir=_abrir(falso), env=ENV)
+    assert r["passo"] == "concluido"
+    assert [c[0] for c in falso.chamadas] == ["login", "abrir_processo", "incluir_em_bloco"]
+
+
+def test_retomada_sem_documento_acha_na_arvore_e_nao_duplica(dados):
+    p, t = _pedido(dados)
+    falso = SEIFalso(arvore={"Termo de Responsabilidade 01/2026 - CCI": "1557088"})
+    r = robo_sei.enviar_termo(dados, p, abrir=_abrir(falso), env=ENV)
+    assert r["documento_sei"] == "1557088" and "incluir_documento" not in [c[0] for c in falso.chamadas]
+    assert db.termo_emitido(dados, t["id"])["documento_sei"] == "1557088"
+
+
+def test_processo_que_nao_abre_nao_cria_nada(dados):
+    p, t = _pedido(dados)
+    falso = SEIFalso(titulo_ok=False)
+    r = robo_sei.enviar_termo(dados, p, abrir=_abrir(falso), env=ENV)
+    assert r["passo"] == "erro" and "não abriu no SEI; nada foi criado" in r["mensagem"]
+    assert "incluir_documento" not in [c[0] for c in falso.chamadas] and falso.saiu
+    assert db.termo_emitido(dados, t["id"])["documento_sei"] is None
+
+
+def test_login_recusado_tipo_inexistente_e_timeout(dados):
+    p, _ = _pedido(dados)
+    r = robo_sei.enviar_termo(dados, p, abrir=_abrir(SEIFalso(autenticado=False)), env=ENV)
+    assert r["passo"] == "erro" and r["mensagem"] == "O SEI recusou usuário ou senha."
+    db.marcar_passo(dados, p["id"], "aguardando")
+    r = robo_sei.enviar_termo(dados, p, abrir=_abrir(SEIFalso(tipo_existe=False)), env=ENV)
+    assert "Tipo de documento 'Termo de Responsabilidade' não existe no SEI; corrija em Textos." == r["mensagem"]
+    db.marcar_passo(dados, p["id"], "aguardando")
+    r = robo_sei.enviar_termo(dados, p, abrir=_abrir(SEIFalso(falhar_em="bloco")), env=ENV)
+    assert r["mensagem"] == "O SEI não respondeu a tempo ao incluir no bloco de assinatura."
+    assert db.termo_emitido(dados, p["termo_id"])["documento_sei"] == "1557099"          # criado antes do timeout
+
+
+def test_env_ausente_vira_erro_legivel(dados, tmp_path, monkeypatch):
+    p, _ = _pedido(dados)
+    monkeypatch.setattr(robo_sei, "ARQUIVO_ENV", tmp_path / "sei.env")
+    r = robo_sei.enviar_termo(dados, p, abrir=_abrir(SEIFalso()))
+    assert r["passo"] == "erro" and r["mensagem"].startswith("secrets/sei.env não encontrado ou incompleto")
+
+
+def test_tipo_de_documento_vem_dos_textos_e_devolucao_usa_a_pessoa(dados):
+    semear(dados)
+    dados.execute("UPDATE pessoas SET unidade_sei = 'GECONT' WHERE nome = 'ANA SILVA'"); dados.commit()
+    db.incluir_processo(dados, "devolucao", "D", "3333")
+    t = db.registrar_emissao(dados, "devolucao", "ANA SILVA", db.bens_da_pessoa(dados, "ANA SILVA"))
+    t = db.preparar_envio_sei(dados, t["id"], agora="2026-09-20 10:00:00")
+    pid = db.enfileirar_pedido(dados, "sei", termo_id=t["id"], html="<p>d</p>")
+    falso = SEIFalso()
+    robo_sei.enviar_termo(dados, db.pedido(dados, pid), abrir=_abrir(falso), env=ENV)
+    assert ("documento_na_arvore", "Termo de Devolução 01/2026 - GECONT") in falso.chamadas
+    assert ("incluir_em_bloco", "1557099", "Termos GECONT") in falso.chamadas
+
+
+def test_modulo_importa_sem_playwright():
+    import importlib
+    importlib.reload(robo_sei)          # playwright é importado só dentro de abrir_sei
