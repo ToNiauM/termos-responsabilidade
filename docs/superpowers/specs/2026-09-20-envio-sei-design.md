@@ -1,7 +1,7 @@
 # Envio ao SEI — documento no processo, bloco de assinatura e "Atualizar agora"
 
 **Data:** 2026-09-20.
-**Estado:** desenho aprovado em conversa; spike da §10 concluído em 2026-09-20 (PASS) — pronto para o plano.
+**Estado:** desenho aprovado; spike da §10 concluído em 2026-09-20 (PASS); prioridade máxima do usuário — pronto para o plano.
 **Base:** `main`, commit `20fac60`, depois da spec da administração de inventários (ainda não implementada).
 **Plano:** `../plans/2026-09-20-envio-sei.md` (a escrever).
 **Spike:** `../notes/2026-09-20-spike-sei-escrita/README.md` (21 termos reais criados e incluídos em bloco no processo de rascunho).
@@ -10,14 +10,15 @@
 
 Hoje, depois de *Copiar para o SEI*, o operador ainda faz à mão: incluir o documento no processo, colar o
 termo no editor, incluir o documento no bloco de assinatura do setor e anotar no sistema o número do
-documento e do bloco. Esta entrega troca isso por um botão **Enviar ao SEI** na página do termo: o sistema
+documento e do bloco. Esta entrega troca isso por um botão **Emitir Termo no SEI** na página do termo: o sistema
 registra a emissão (como o *Copiar* já faz), numera o termo (`NN/AAAA` por unidade e ano) e enfileira um
 pedido; um robô no host abre o SEI com Playwright, cria o documento no processo vigente do tipo, cola o
 termo, inclui o documento no bloco **"Termos {UNIDADE}"** (criado à mão por vocês) e grava `documento_sei`
 e `bloco_sei` no registro. A partir daí o pedido de assinatura por e-mail (`mailto:`) aparece como hoje.
 
-O mesmo mecanismo de fila atende um botão **Atualizar agora** na tela *Atualizar base*, que roda o robô do
-SPW sob demanda sem terminal.
+O mesmo mecanismo de fila atende um botão **Atualizar com SPW** na tela *Atualizar base*, que roda a importação do
+SPW sob demanda sem terminal. Nas telas, nada de "robô": os textos falam do que acontece ("Emitindo no SEI…",
+"Atualizando com o SPW…"); o nome só existe no código, nos logs e neste documento.
 
 Não entra: criar ou disponibilizar bloco no SEI; assinar; enviar e-mail pelo SEI ou por SMTP; assistente
 com LLM (decidido explicitamente: o fluxo é fixo, um modelo probabilístico só acrescentaria custo e falhas);
@@ -49,6 +50,10 @@ robô lá.
 | Conteúdo no editor | Substitui **todo** o modelo do tipo (o SEI já traz um texto padrão) pelo termo gerado | Decisão do usuário durante o spike |
 | Formatação | Parágrafos justificados (recuo 1,25 cm; abertura/centro/direita sem recuo) e tabela com **90%** de largura, tudo em `style=` inline no gerador | O editor do SEI descarta CSS e classes; decisão do usuário (2026-09-20) |
 | Bloco: estado e unidade | Irrelevantes; o robô casa só o nome na lista `#selBloco` | Decisão do usuário |
+| Nomes dos botões | **"Atualizar com SPW"**, **"Emitir Termo no SEI"**, **"Enviar email"**; a interface **nunca usa a palavra "robô"** nem explica como faz | Decisão do usuário (2026-09-20) |
+| Título do termo | Menor e centralizado (`h1` inline: 14pt, `text-align:center`), no HTML gerado | Decisão do usuário (2026-09-20) |
+| Tipo do termo de devolução | "Termo de Devolução" existe, mas só na lista completa: clicar `#ancExibirSeries` ("Exibir todos os tipos") antes de procurar | Provado no spike |
+| Prioridade | Este fluxo antes da Administração de inventários | Decisão do usuário (2026-09-20) |
 
 ## 3. Dados (`db.py`, migrações em `criar_esquema`)
 
@@ -106,7 +111,8 @@ Textos como os demais.
 
 Gerador (`termos_html.py`): `_p`, `_abertura` e as tabelas passam a emitir estilo inline — parágrafo comum
 `text-align:justify;text-indent:1.25cm;margin:0 0 7pt`, `semrecuo` idem sem recuo, `centro`/`direita`/`assinatura`
-como no CSS de hoje — e as três tabelas ficam com `width:90%`. O `termo_base.html` continua com o CSS (o `.docx`
+como no CSS de hoje — o `h1` sai com `text-align:center;font-size:14pt;margin:10pt 0 12pt` (menor e centralizado,
+como o usuário pediu ao ver o resultado no SEI) e as três tabelas ficam com `width:90%`. O `termo_base.html` continua com o CSS (o `.docx`
 e a tela não mudam de aparência); só deixa de ser a única fonte do alinhamento.
 
 Cadastros: `unidade_sei` entra no formulário de Responsáveis e de Pessoas e como coluna opcional na
@@ -117,7 +123,7 @@ comum (o de `importar_spw.py` vira função compartilhada que recebe o caminho e
 
 ## 4. Fluxo no site
 
-### 4.1 Enviar ao SEI
+### 4.1 Emitir Termo no SEI
 
 `POST /termo/<tipo>/<chave>/enviar-sei` (novo, ao lado de `termo_registrar`):
 
@@ -126,7 +132,7 @@ comum (o de `importar_spw.py` vira função compartilhada que recebe o caminho e
 3. Atribui `numero_termo` e `unidade_sei` ao registro; enfileira o pedido `sei` com o HTML.
 4. Redireciona para `/termos-emitidos/<id>`.
 
-Na página do termo o botão fica ao lado de *Copiar para o SEI*, como `form method="post"` (CSRF como as
+Na página do termo o botão **Emitir Termo no SEI** fica ao lado de *Copiar para o SEI*, como `form method="post"` (CSRF como as
 demais rotas POST). O *Copiar* continua existindo, para quem quiser colar à mão.
 
 ### 4.2 Página do termo emitido (`/termos-emitidos/<id>`)
@@ -135,11 +141,11 @@ Estados, decididos pelo pedido mais recente do termo e pelos campos do registro:
 
 | Situação | Mostra |
 |---|---|
-| Sem pedido e sem `documento_sei` | campos de hoje (documento/bloco à mão) **e** botão **Enviar ao SEI** (`POST /termos-emitidos/<id>/enviar-sei`, que enfileira sem registrar de novo) |
-| Pedido `aguardando` / `login` / `documento` / `bloco` | "Enviando ao SEI: <passo>…" e `<meta http-equiv="refresh" content="5">`; campos e botões escondidos. Se `aguardando` há mais de 2 min: aviso "O robô não está atendendo pedidos; avise o administrador." |
-| Pedido `concluido` | "Enviado ao SEI em dd/mm/aaaa hh:mm: documento X, bloco Y" e o botão de e-mail de hoje |
+| Sem pedido e sem `documento_sei` | campos de hoje (documento/bloco à mão) **e** botão **Emitir Termo no SEI** (`POST /termos-emitidos/<id>/enviar-sei`, que enfileira sem registrar de novo) |
+| Pedido `aguardando` / `login` / `documento` / `bloco` | "Emitindo no SEI: <passo>…" ("entrando no SEI", "criando o documento", "incluindo no bloco") e `<meta http-equiv="refresh" content="5">`; campos e botões escondidos. Se `aguardando` há mais de 2 min: aviso "A emissão ainda não começou; avise o administrador." |
+| Pedido `concluido` | "Emitido no SEI em dd/mm/aaaa hh:mm: documento X, bloco Y" e o botão **Enviar email** (o `mailto:` de hoje, renomeado) |
 | Pedido `erro` com `documento_sei` gravado | mensagem do erro, documento X, botão **Incluir no bloco** (enfileira de novo; o robô pula o passo `documento`) |
-| Pedido `erro` sem documento | mensagem do erro e botão **Enviar ao SEI** de novo |
+| Pedido `erro` sem documento | mensagem do erro e botão **Emitir Termo no SEI** de novo |
 
 O número do termo aparece no cabeçalho do registro ("Termo 03/2026 - GESERV") e é editável no formulário
 existente enquanto `documento_sei` está vazio — serve para acertar o ponto de partida quando a unidade já
@@ -147,11 +153,11 @@ tem termos numerados à mão em 2026.
 
 Enquanto houver pedido ativo, a lista *Termos emitidos* marca a linha com "enviando…".
 
-### 4.3 Atualizar agora
+### 4.3 Atualizar com SPW
 
-Na tela *Atualizar base*, acima da tabela de execuções do robô: botão **Atualizar agora**
-(`POST /atualizar-base/agora`, só admin). Enfileira um pedido `spw`. Enquanto houver pedido `spw` ativo, a
-tela mostra "Robô do SPW rodando (<passo>)…", recarrega a cada 5 s e o botão fica desabilitado. Ao terminar,
+Na tela *Atualizar base*, acima da tabela de execuções: botão **Atualizar com SPW**
+(`POST /atualizar-base/spw`, só admin). Enfileira um pedido `spw`. Enquanto houver pedido `spw` ativo, a
+tela mostra "Atualizando com o SPW…", recarrega a cada 5 s e o botão fica desabilitado. Ao terminar,
 o resultado já está na tabela de execuções (`robo_execucoes`, gravada pelo próprio `importar_spw.executar`) e
 o card do Início reflete como hoje. O cron das 3h continua.
 
@@ -171,7 +177,7 @@ confiável: localizar frames **pelo conteúdo** (`frame_com(seletor)`), não pel
   contagem de nós estabilizar. Toda busca por rótulo passa por isso.
 - `documento_na_arvore(rotulo) -> (id, numero) | None`: casa `^<rotulo>\s*\((\d{6,8})\)$` nos nós da árvore.
 - `incluir_documento(tipo_nome, nome_arvore, html) -> numero`: raiz selecionada → `a:has(img[title='Incluir Documento'])`
-  → lista de tipos `a[onclick^='escolher']` com texto exato (`RoboErro` se não houver) → formulário: `#optNenhum` já
+  → clica `#ancExibirSeries` ("Exibir todos os tipos": 77 → 226 tipos) → lista `a[onclick^='escolher']` com texto exato (`RoboErro` se não houver) → formulário: `#optNenhum` já
   marcado, **`#txtNomeArvore` = "NN/AAAA - UNIDADE"** (o tipo não tem campo Número), Público via
   `label[for=optPublico]` + espera de `#optPublico.checked` → `#btnSalvar` abre popup (`expect_page`) → espera
   `CKEDITOR` e `iframe[title="Corpo do Texto"]` → instância `txaEditor_NNNN` do container desse iframe →
@@ -234,13 +240,13 @@ Sempre uma frase em `mensagem`, mostrada na página do termo ou em Atualizar bas
 | Processo não abre / título diferente | "Processo <nº> não abriu no SEI; nada foi criado." |
 | Tipo de documento inexistente | "Tipo de documento '<x>' não existe no SEI; corrija em Textos." |
 | Bloco inexistente | "Bloco 'Termos <UNIDADE>' não existe no SEI; crie o bloco e clique em Incluir no bloco." |
-| Timeout | "O SEI não respondeu a tempo no passo <passo>." |
+| Timeout | "O SEI não respondeu a tempo ao <passo em palavras>." |
 | Pessoa sem unidade | (antes de enfileirar) "Cadastre a unidade SEI de <nome> em Cadastros → Pessoas." |
 
 ## 8. Permissões e menu
 
-`permissoes.py`: `termo_enviar_sei` (POST nas duas rotas de envio e em "Incluir no bloco") = admin e operador,
-igual a `termo_docx`; `base_atualizar_agora` = admin. `pode('termo_enviar_sei')` esconde os botões; com
+`permissoes.py`: `termo_enviar_sei` (POST nas duas rotas de emissão e em "Incluir no bloco") = admin e operador,
+igual a `termo_docx`; `base_atualizar_spw` = admin. `pode('termo_enviar_sei')` esconde os botões; com
 `TERMOS_LOGIN` desligado (desktop) os botões não aparecem. Nenhum item de menu novo.
 
 ## 9. Testes
@@ -268,10 +274,9 @@ usuário no processo de rascunho `90796110000022.000059/2026-88` e no bloco "Ter
 repetições após erro. As seis perguntas estão respondidas na §5.1; os incidentes (árvore em pastas, documento
 grande, confirmação por estado, recuperação após erro) viraram regras da §5.1 e §5.3.
 
-**Em aberto para o usuário:** a lista de tipos vista no spike (77 tipos, `evidencias/tipos-de-documento.json`) não
-tem "Termo de Devolução". Ou existe na lista completa (botão "+" da tela "Gerar Documento"), ou o termo de devolução
-usa outro tipo ("Termo"? o próprio "Termo de Responsabilidade"?). O padrão de `sei_tipo_devolucao` em Textos segue
-a decisão dele.
+Complemento (mesmo dia): a lista inicial mostra só 77 tipos; `#ancExibirSeries` ("Exibir todos os tipos") expande
+para 226 e **"Termo de Devolução" existe** (`evidencias/tipos-de-documento-todos.json`). O robô sempre expande antes
+de procurar.
 
 ## 11. Publicação
 
@@ -280,7 +285,7 @@ a decisão dele.
 3. `sudo systemctl enable --now termos-robo` (unidade em `ops/termos-robo.service`).
 4. No SEI: criar os blocos "Termos {UNIDADE}" das unidades que recebem termo.
 5. Em Cadastros: `unidade_sei` das pessoas que recebem termo individual; exceções em Responsáveis.
-6. Em Textos: conferir os nomes dos tipos de documento (o de devolução depende da decisão da §10).
+6. Em Textos: conferir os nomes dos tipos de documento.
 7. Evidência: um termo real enviado, com print da árvore do SEI e do bloco, anexados nesta spec (§12).
 
 ## 12. Evidências
