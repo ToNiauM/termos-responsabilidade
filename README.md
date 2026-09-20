@@ -250,6 +250,16 @@ Se o SPW mudar o layout, os seletores ficam todos em `baixar_export`.
 `requirements-robo.txt` (Playwright, xlrd) continua no repositório: a imagem `robo` não o usa (as dependências
 estão fixas no `Dockerfile`), mas os scripts de spike em `docs/superpowers/notes/` ainda dependem dele.
 
+### Limpar o banco antes de entrar em produção
+
+    ./apagar_termos_emitidos.sh   # só termos emitidos, seus bens e a fila de emissão (numeração recomeça do 01)
+    ./zerar_banco.sh              # cargas, importações, emissões, inventários — mantém pessoas, centros de custo,
+                                  # localizações, processos do SEI, textos e usuários
+
+Os dois listam o que vai apagar, pedem confirmação (ou `--sim`) e deixam uma cópia em `dados/termos-antes-de-*.db`.
+Documentos já criados no SEI não são tocados. A numeração dos termos é automática: por unidade do SEI, por tipo de
+termo (centro de custo, individual, devolução) e por ano.
+
 ## Arquivos
 
 | Arquivo | Função |
@@ -268,6 +278,7 @@ estão fixas no `Dockerfile`), mas os scripts de spike em `docs/superpowers/note
 | `painel.py`, `graficos.py` | cards de gráfico (ECharts embutido, tema DSGov) |
 | `inventario.py`, `fotos.py`, `app_inventario.py` | módulo de inventário (dados, fotos no R2, rotas) |
 | `usuarios.py`, `app_usuarios.py` | usuários, senhas, matriz de permissões e telas de login/usuários |
+| `apagar_termos_emitidos.sh`, `zerar_banco.sh` | limpeza do banco antes da produção (ver acima) |
 | `cofre.py` | cifra (Fernet) das senhas do SEI e do SPW guardadas por usuário; chave em `secrets/chaves.env` |
 | `atualizar_base.sh` | Chama o robô do SPW dentro do container `robo` via `docker compose exec` (`--teste` usa uma cópia da base); o cron chama o mesmo script |
 | `importar_spw.py` | Robô do SPW: exporta, converte e importa os bens (roda no container `robo`, por cron) |

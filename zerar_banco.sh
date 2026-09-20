@@ -1,0 +1,51 @@
+#!/bin/bash
+# Zera dados/termos.db para começar a produção do zero, preservando só os CADASTROS (registros "hard"):
+#   mantém: pessoas, responsaveis (centros de custo), localizacoes, processos_sei, textos,
+#           usuarios / usuarios_funcoes (e seus acessos ao SEI/SPW), migracoes_acesso
+#   apaga:  bens e atribuicoes (cargas), importacoes / importacoes_mudancas / robo_execucoes (histórico de
+#           atualização da base), termos_emitidos / termos_emitidos_bens / robo_pedidos (emissões e fila),
+#           inventario_* (eventos, leituras, fotos, sobras, comissão — as fotos no bucket R2 ficam lá)
+# Depois de zerar, a próxima "Atualizar base" (upload ou robô do SPW) recarrega todos os bens como novos.
+#
+#   ./zerar_banco.sh          # mostra os totais e pede confirmação
+#   ./zerar_banco.sh --sim    # zera sem perguntar
+set -euo pipefail
+cd "$(dirname "$0")"
+DB=dados/termos.db
+SQLITE=/usr/bin/sqlite3
+
+[ -f "$DB" ] || { echo "banco $DB não encontrado"; exit 1; }
+
+ATIVOS=$($SQLITE "$DB" "SELECT count(*) FROM robo_pedidos WHERE passo NOT IN ('concluido','erro')")
+if [ "$ATIVOS" != "0" ]; then
+    echo "há $ATIVOS pedido(s) do robô em andamento; espere terminar (ou docker compose stop robo) e rode de novo"
+    exit 1
+fi
+
+APAGAR="atribuicoes bens importacoes_mudancas robo_execucoes importacoes termos_emitidos_bens robo_pedidos termos_emitidos
+inventario_fotos inventario_leituras inventario_sobras inventario_salas inventario_integrantes inventario_comissao_usuarios
+inventario_bens_encerrados inventario_eventos"
+MANTER="pessoas responsaveis localizacoes processos_sei textos usuarios usuarios_funcoes migracoes_acesso"
+
+echo "Vai APAGAR:"
+for t in $APAGAR; do printf "  %-30s %s\n" "$t" "$($SQLITE "$DB" "SELECT count(*) FROM $t")"; done
+echo "Vai MANTER:"
+for t in $MANTER; do printf "  %-30s %s\n" "$t" "$($SQLITE "$DB" "SELECT count(*) FROM $t")"; done
+echo
+
+if [ "${1:-}" != "--sim" ]; then
+    read -r -p "Confirma? (digite ZERAR) " resposta
+    [ "$resposta" = "ZERAR" ] || { echo "cancelado"; exit 1; }
+fi
+
+COPIA=dados/termos-antes-de-zerar-$(date +%F-%H%M).db
+$SQLITE "$DB" ".backup '$COPIA'"
+echo "cópia do banco em $COPIA"
+
+{
+    echo "BEGIN;"
+    for t in $APAGAR; do echo "DELETE FROM $t;"; done      # a ordem acima respeita as chaves estrangeiras
+    echo "COMMIT;"
+    echo "VACUUM;"
+} | $SQLITE "$DB"
+echo "zerado. bens: $($SQLITE "$DB" 'SELECT count(*) FROM bens'); termos emitidos: $($SQLITE "$DB" 'SELECT count(*) FROM termos_emitidos'); pessoas: $($SQLITE "$DB" 'SELECT count(*) FROM pessoas')"

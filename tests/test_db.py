@@ -793,16 +793,18 @@ def test_unidade_sei_do_centro_e_da_pessoa(dados):
     assert db.unidade_sei(dados, "devolucao", "ANA SILVA") == "GECONT"
 
 
-def test_proximo_numero_por_unidade_e_ano(dados):
+def test_proximo_numero_por_unidade_tipo_e_ano(dados):
     semear(dados)
-    assert db.proximo_numero_termo(dados, "CCI", 2026) == "01/2026"
-    t = _processo_e_termo(dados)
+    assert db.proximo_numero_termo(dados, "CCI", "ccusto", 2026) == "01/2026"
+    t = _processo_e_termo(dados)                                               # tipo ccusto
     dados.execute("UPDATE termos_emitidos SET unidade_sei = 'CCI', numero_termo = '09/2026' WHERE id = ?", (t["id"],)); dados.commit()
-    assert db.proximo_numero_termo(dados, "CCI", 2026) == "10/2026"
-    assert db.proximo_numero_termo(dados, "CCI", 2027) == "01/2027"              # outro ano recomeça
-    assert db.proximo_numero_termo(dados, "GECONT", 2026) == "01/2026"           # outra unidade recomeça
+    assert db.proximo_numero_termo(dados, "CCI", "ccusto", 2026) == "10/2026"
+    assert db.proximo_numero_termo(dados, "CCI", "ccusto", 2027) == "01/2027"       # outro ano recomeça
+    assert db.proximo_numero_termo(dados, "GECONT", "ccusto", 2026) == "01/2026"    # outra unidade recomeça
+    assert db.proximo_numero_termo(dados, "CCI", "individual", 2026) == "01/2026"   # outro tipo tem sequência própria
+    assert db.proximo_numero_termo(dados, "CCI", "devolucao", 2026) == "01/2026"
     dados.execute("UPDATE termos_emitidos SET numero_termo = '99/2026' WHERE id = ?", (t["id"],)); dados.commit()
-    assert db.proximo_numero_termo(dados, "CCI", 2026) == "100/2026"
+    assert db.proximo_numero_termo(dados, "CCI", "ccusto", 2026) == "100/2026"
 
 
 def test_preparar_envio_atribui_e_mantem_numero(dados):

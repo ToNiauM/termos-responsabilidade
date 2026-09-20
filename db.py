@@ -977,11 +977,13 @@ def unidade_sei(conn, tipo: str, chave: str) -> str:
     return u
 
 
-def proximo_numero_termo(conn, unidade: str, ano: int) -> str:
-    """1 + maior sequencial já gravado para a mesma unidade e ano; dois dígitos no mínimo."""
+def proximo_numero_termo(conn, unidade: str, tipo: str, ano: int) -> str:
+    """1 + maior sequencial já gravado para a mesma unidade, tipo de termo e ano; dois dígitos no mínimo.
+    Cada tipo (centro de custo, individual, devolução) tem a própria sequência: o individual 01/2026 e a
+    devolução 01/2026 da mesma pessoa convivem."""
     maior = 0
-    for (n,) in conn.execute("SELECT numero_termo FROM termos_emitidos WHERE unidade_sei = ? AND numero_termo LIKE ?",
-                             (unidade, f"%/{ano}")):
+    for (n,) in conn.execute("SELECT numero_termo FROM termos_emitidos WHERE unidade_sei = ? AND tipo = ? AND numero_termo LIKE ?",
+                             (unidade, tipo, f"%/{ano}")):
         try:
             maior = max(maior, int(str(n).split("/")[0]))
         except ValueError:
@@ -993,7 +995,7 @@ def preparar_envio_sei(conn, termo_id: int, agora: str | None = None) -> dict:
     """Antes de enfileirar: garante unidade e número no registro (nunca reaproveitados depois)."""
     t = termo_emitido(conn, termo_id) or _erro("Termo emitido não encontrado.")
     unidade = t["unidade_sei"] or unidade_sei(conn, t["tipo"], t["chave"])
-    numero = t["numero_termo"] or proximo_numero_termo(conn, unidade, int((agora or _agora())[:4]))
+    numero = t["numero_termo"] or proximo_numero_termo(conn, unidade, t["tipo"], int((agora or _agora())[:4]))
     conn.execute("UPDATE termos_emitidos SET unidade_sei = ?, numero_termo = ? WHERE id = ?", (unidade, numero, termo_id))
     conn.commit()
     return termo_emitido(conn, termo_id)
