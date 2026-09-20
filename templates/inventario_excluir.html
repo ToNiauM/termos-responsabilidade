@@ -8,7 +8,7 @@
     {{ c.leituras }} leitura(s), {{ c.fotos }} foto(s) de bens{% if c.sobras_com_foto %} e {{ c.sobras_com_foto }} de sobras{% endif %} (também no bucket), {{ c.sobras }} sobra(s), {{ c.integrantes }} integrante(s) da comissão, {{ c.salas }} sala(s) do escopo{% if c.bens_encerrados %} e o retrato de {{ c.bens_encerrados }} bem(ns) congelado(s) no encerramento{% endif %}. O caminho de volta é o backup diário.</span></div></div>
 <form method="post" action="{{ url_for('inventario.excluir', id=e.id) }}" class="col-md-6">{{ csrf_campo() }}
   <div class="br-input mb-3"><label for="nome">Digite o nome do evento para confirmar: <strong>{{ e.nome }}</strong></label><input id="nome" name="nome" type="text" autocomplete="off" required/></div>
-  <a class="br-button" href="{{ url_for('inventario.evento_tela', id=e.id) }}">Cancelar</a>
+  <a class="br-button" href="{{ url_for('admin.tela') }}">Cancelar</a>
   <button class="br-button danger ml-2" type="submit"><i class="fas fa-trash mr-1" aria-hidden="true"></i>Excluir definitivamente</button>
 </form>
 {% endblock %}

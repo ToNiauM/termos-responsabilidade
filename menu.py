@@ -36,10 +36,13 @@ def destino_atual(endpoint, args):
         return 'termos_emitidos_tela', {}
     if endpoint in {'gerar', 'gerar_individual'}:
         return ('centro_custos' if endpoint == 'gerar' else 'termos_individuais'), {}
-    if endpoint in {'usuarios.novo', 'usuarios.incluir', 'usuarios.editar', 'usuarios.nova_senha', 'usuarios.apagar_acessos'}:
-        return 'usuarios.lista', {}
-    if endpoint in {'inventario.sala_tela', 'inventario.comissao', 'inventario.excluir'}:
+    if endpoint in {'usuarios.lista', 'usuarios.novo', 'usuarios.incluir', 'usuarios.editar', 'usuarios.nova_senha',
+                    'usuarios.apagar_acessos'}:
+        return 'admin.tela', {}
+    if endpoint == 'inventario.sala_tela':
         return 'inventario.evento_tela', {'id': args.get('id')}
+    if endpoint in {'inventario.comissao', 'inventario.excluir'}:
+        return 'admin.tela', {}
     if endpoint == 'importacao_tela':
         return 'upload', {}
     return endpoint, args
@@ -83,8 +86,8 @@ def montar(funcoes, evento_aberto, endpoint_atual, argumentos=None, login_ativo=
     if g['filhos']:
         itens.append(g)
     for r, i, e in [('Textos', 'fa-pen-nib', 'textos_tela'), ('Atualizar base', 'fa-upload', 'upload'),
-                    ('Usuários', 'fa-users', 'usuarios.lista'), ('Ajuda', 'fa-question-circle', 'ajuda')]:
-        if permitido(funcoes, e) and (e != 'usuarios.lista' or login_ativo):
+                    ('Administração', 'fa-cogs', 'admin.tela'), ('Ajuda', 'fa-question-circle', 'ajuda')]:
+        if permitido(funcoes, e):
             itens.append(item(r, i, e))
     return itens
 
@@ -96,7 +99,7 @@ SECOES = [
     ('inventario', 'Conferência do inventário', 'inventario.ler', 'POST'),
     ('consulta-inventarios', 'Consulta de inventários', 'inventario.relatorio_tela', 'GET'),
     ('cadastros', 'Cadastros', 'cadastros', 'GET'), ('textos', 'Textos', 'textos_tela', 'GET'),
-    ('atualizar-base', 'Atualizar base', 'upload', 'GET'), ('usuarios', 'Usuários', 'usuarios.lista', 'GET'),
+    ('atualizar-base', 'Atualizar base', 'upload', 'GET'), ('usuarios', 'Administração', 'admin.tela', 'GET'),
     ('conta', 'Sua conta', 'usuarios.senha', 'GET'), ('perguntas', 'Perguntas frequentes', 'ajuda', 'GET'),
 ]
 # Tela → seção do guia (telas fora daqui não ganham atalho contextual)
@@ -105,7 +108,8 @@ AJUDA = {
     'centro_custos': 'termos', 'termos_individuais': 'termos', 'termo_devolucao': 'termos',
     'termos_emitidos_tela': 'termos',
     'cadastros': 'cadastros', 'textos_tela': 'textos', 'textos_salvar': 'textos', 'upload': 'atualizar-base',
-    'usuarios.lista': 'usuarios', 'usuarios.senha': 'conta', 'usuarios.acessos': 'conta',
+    'usuarios.lista': 'usuarios', 'inventario.comissao': 'usuarios', 'inventario.excluir': 'usuarios',
+    'usuarios.senha': 'conta', 'usuarios.acessos': 'conta', 'admin.tela': 'usuarios',
     'inventario.painel_tela': 'consulta-inventarios', 'inventario.relatorio_tela': 'consulta-inventarios',
 }
 
@@ -113,7 +117,7 @@ AJUDA = {
 def secoes_ajuda(funcoes, login_ativo):
     """Seções do guia que este usuário pode ver, na ordem de SECOES."""
     return [dict(id=id, titulo=titulo) for id, titulo, ep, m in SECOES
-            if permitido(funcoes, ep, m) and (id not in {'conta', 'usuarios'} or login_ativo)]
+            if permitido(funcoes, ep, m) and (id != 'conta' or login_ativo)]
 
 
 def ancora_ajuda(funcoes, endpoint, argumentos, login_ativo):

@@ -59,7 +59,7 @@
 {{ cabecalho_tabela('Eventos encerrados', 'eventos') }}
   <thead><tr><th scope="col">Evento</th><th scope="col">Aberto em</th><th scope="col">Encerrado em</th>{% if pode_relatorios %}<th scope="col" class="dsgov-acoes">Relatório</th>{% endif %}</tr></thead>
   <tbody>{% for e in eventos %}
-  <tr><td><a href="{{ url_for('inventario.evento_tela', id=e.id) }}">{{ e.nome }}</a></td><td>{{ e.aberto_em[8:10] }}/{{ e.aberto_em[5:7] }}/{{ e.aberto_em[:4] }}</td><td>{{ e.encerrado_em[8:10] }}/{{ e.encerrado_em[5:7] }}/{{ e.encerrado_em[:4] }}</td>
+  <tr><td><a href="{{ url_for('inventario.evento_tela', id=e.id) }}">{{ e.nome }}</a></td><td>{{ e.aberto_em[8:10] }}/{{ e.aberto_em[5:7] }}/{{ e.aberto_em[:4] }}</td><td>{% if e.encerrado_em %}{{ e.encerrado_em[8:10] }}/{{ e.encerrado_em[5:7] }}/{{ e.encerrado_em[:4] }}{% else %}—{% endif %}</td>
     {% if pode_relatorios %}<td class="dsgov-acoes"><a class="br-button circle small" href="{{ url_for('inventario.relatorio_tela', id=e.id) }}" aria-label="Relatório de {{ e.nome }}"><i class="fas fa-table" aria-hidden="true"></i></a></td>{% endif %}</tr>
   {% endfor %}</tbody>
 </table></div>

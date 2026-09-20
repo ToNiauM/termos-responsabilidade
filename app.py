@@ -8,6 +8,7 @@ from datetime import timedelta
 from flask import Flask, abort, flash, g, redirect, render_template, request, send_file, session, url_for
 from markupsafe import Markup
 
+from app_admin import admin_bp
 from app_inventario import inventario_bp
 from app_cadastros import registrar_cadastros
 from app_usuarios import destino_inicial, usuarios_bp
@@ -34,6 +35,7 @@ app.config.update(PERMANENT_SESSION_LIFETIME=timedelta(hours=12), SESSION_COOKIE
 app.register_blueprint(usuarios_bp)
 ROTAS_JSON = {"inventario.ler", "inventario.atualizar_leitura", "inventario.foto_leitura", "termo_registrar"}
 app.register_blueprint(inventario_bp)
+app.register_blueprint(admin_bp)
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024   # mesmo limite do nginx (client_max_body_size 20m)
 app.template_filter("moeda")(painel.moeda)   # R$ 1.234,56 em todas as telas
 app.add_template_filter(permissoes.ROTULOS.__getitem__, "rotulo_funcao")
@@ -149,15 +151,19 @@ def contexto_dsgov():
     contexto["AJUDA_ANCORA"] = menu.ancora_ajuda(funcoes, request.endpoint, request.view_args,
                                                  config.exigir_login())
     visiveis = comissoes.eventos_visiveis(obter_conn(), usuario) if pode("inventario.eventos_tela") else []
-    aberto = next((e for e in visiveis if not e["encerrado_em"]), None)
+    aberto = next((e for e in visiveis if not e["encerrado_em"] and not e["suspenso_em"]), None) \
+        or next((e for e in visiveis if not e["encerrado_em"]), None)      # aberto; senão o fechado mais recente
     contexto["MENU"] = menu.montar(usuario["funcoes"], aberto, request.endpoint, request.view_args,
                                     config.exigir_login())
     return contexto
 
 
-def _evento_aberto_visivel(usuario):
-    """Evento aberto que este usuário pode ver (inventariante só vê os eventos de que participa)."""
-    return next((e for e in comissoes.eventos_visiveis(obter_conn(), usuario) if not e["encerrado_em"]), None)
+def _evento_corrente_visivel(usuario):
+    """Evento aberto (ou, sem aberto, o fechado mais recente) que este usuário pode ver (inventariante só vê
+    os eventos de que participa)."""
+    visiveis = comissoes.eventos_visiveis(obter_conn(), usuario)
+    return next((e for e in visiveis if not e["encerrado_em"] and not e["suspenso_em"]), None) \
+        or next((e for e in visiveis if not e["encerrado_em"]), None)
 
 
 def obter_conn():
@@ -202,7 +208,7 @@ def home():
         return redirect(destino)      # quem não tem o acervo não passa pelo Início (nem paga o painel geral)
     p = db.painel(obter_conn())
     f = {"situacao": "ATIVO"}
-    a = _evento_aberto_visivel(g.usuario) if usuarios.permitido(g.usuario["funcoes"], "inventario.eventos_tela") else None
+    a = _evento_corrente_visivel(g.usuario) if usuarios.permitido(g.usuario["funcoes"], "inventario.eventos_tela") else None
     inventario_aberto = inventario.evento(obter_conn(), a["id"]) if a else None
     return render_template("index.html", p=p, f=f,
                            moeda=painel.moeda, url_recorte=painel.url_recorte, trilha=[], inventario_aberto=inventario_aberto)

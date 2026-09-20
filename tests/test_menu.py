@@ -55,11 +55,11 @@ def test_relatorio_do_evento_aberto_acende_o_item_do_evento(requisicao):
     assert [f['rotulo'] for f in grupo['filhos'] if f['ativo']] == ['Relatório']
 
 
-def test_modo_local_nao_mostra_usuarios(requisicao):
+def test_modo_local_tambem_tem_administracao(requisicao):
     local = menu.montar({'admin'}, None, 'home', {}, False)
     web = menu.montar({'admin'}, None, 'home', {}, True)
-    assert 'Usuários' in [i['rotulo'] for i in web]
-    assert [i['rotulo'] for i in local] == [r['rotulo'] for r in web if r['rotulo'] != 'Usuários']
+    assert 'Administração' in [i['rotulo'] for i in web]
+    assert [i['rotulo'] for i in local] == [r['rotulo'] for r in web]
 
 
 def test_uniao_de_funcoes_nao_duplica_itens(requisicao):
@@ -68,7 +68,7 @@ def test_uniao_de_funcoes_nao_duplica_itens(requisicao):
     arvore = menu.montar(todas, {'id': 3, 'nome': 'Inventário 2026'}, 'home', {}, True)
     rotulos = [i['rotulo'] for i in arvore]
     assert rotulos == ['Início', 'Termos de Responsabilidade', 'Análise', 'Inventário', 'Cadastros',
-                       'Textos', 'Atualizar base', 'Usuários', 'Ajuda']
+                       'Textos', 'Atualizar base', 'Administração', 'Ajuda']
     tudo = rotulos + [f['rotulo'] for i in arvore for f in i['filhos']]
     assert len(tudo) == len(set(tudo))
     assert [i['rotulo'] for i in arvore if i['ativo']] == ['Início']

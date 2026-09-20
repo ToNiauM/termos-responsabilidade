@@ -39,11 +39,9 @@ def _local() -> bool:
 
 
 def _elegiveis(conn) -> list[dict]:
-    """Usuários que podem compor a comissão. No desktop o administrador local entra sempre."""
-    lista = usuarios.elegiveis_comissao(conn)
-    if _local():
-        lista = [dict(g.usuario)] + lista
-    return lista
+    """Usuários que podem compor a comissão. No desktop o administrador local entra sempre; no web, qualquer
+    usuário ativo (a função Inventário é concedida na hora a quem entra sem ter)."""
+    return [dict(g.usuario)] + usuarios.elegiveis_comissao(conn) if _local() else usuarios.ativos_para_comissao(conn)
 
 
 def _nomes_para_comissao(marcados: list) -> list[str]:
@@ -73,31 +71,64 @@ def _pode(endpoint, metodo="GET") -> bool:
 
 @inventario_bp.route("")
 def eventos_tela():
-    """Só os eventos visíveis a quem pediu: o inventariante vê apenas aqueles de que participa."""
+    """Só os eventos visíveis a quem pediu: o inventariante vê apenas aqueles de que participa. Administração fica em /administracao."""
     conn = _conn()
-    visiveis = comissoes.eventos_visiveis(conn, g.usuario)
-    aberto = next((e for e in visiveis if not e["encerrado_em"]), None)
-    pode_abrir = _pode("inventario.abrir", "POST")
-    return render_template("inventario_eventos.html", aberto=inventario.evento(conn, aberto["id"]) if aberto else None,
-                           eventos=[e for e in visiveis if e["encerrado_em"]],
-                           salas_ativas=db.localizacoes_ativas(conn) if pode_abrir else [],
-                           elegiveis=_elegiveis(conn) if pode_abrir else [], local=_local(),
-                           pode_abrir=pode_abrir, pode_relatorios=_pode("inventario.relatorio_tela"),
+    visiveis = [inventario.evento(conn, e["id"]) for e in comissoes.eventos_visiveis(conn, g.usuario)]
+    corrente = next((e for e in visiveis if e["estado"] == "aberto"), None) or next((e for e in visiveis if e["estado"] == "fechado"), None)
+    return render_template("inventario_eventos.html", corrente=corrente,
+                           eventos=[e for e in visiveis if corrente is None or e["id"] != corrente["id"]],
+                           pode_administrar=_pode("admin.tela"), pode_relatorios=_pode("inventario.relatorio_tela"),
                            trilha=_trilha())
+
+
+def _abrir_agora(f) -> bool:
+    """Campo abrir_agora: "1" liga a chave, "0" cria fechado; ausente (chamadas antigas) = liga só se não há aberto."""
+    valor = f.get("abrir_agora")
+    if valor in ("1", "0"):
+        return valor == "1"
+    return inventario.evento_aberto(_conn()) is None
 
 
 @inventario_bp.route("/abrir", methods=["POST"])
 def abrir():
+    """Cria o inventário (fechado, ou já aberto com abrir_agora=1)."""
     conn = _conn()
     f = request.form
     salas = None if f.get("escopo", "todas") == "todas" else f.getlist("salas")
+    abrir_agora = _abrir_agora(f)
+    concedidos: list = []
     if _local():
-        eid = inventario.abrir_evento(conn, f.get("nome", ""), f.get("descricao", ""), _nomes_para_comissao(f.getlist("integrantes")),
-                                      salas, elegiveis=[u["nome"] for u in _elegiveis(conn)])
+        eid = inventario.criar_evento(conn, f.get("nome", ""), f.get("descricao", ""), _nomes_para_comissao(f.getlist("integrantes")),
+                                      salas, elegiveis=[u["nome"] for u in _elegiveis(conn)], abrir=abrir_agora)
     else:
-        eid = comissoes.abrir(conn, f.get("nome", ""), f.get("descricao", ""), f.getlist("usuarios"), salas)
-    flash("Evento aberto. Comece pelas salas.", "success")
-    return redirect(url_for("inventario.evento_tela", id=eid))
+        eid, concedidos = comissoes.criar(conn, f.get("nome", ""), f.get("descricao", ""), f.getlist("usuarios"), salas, abrir=abrir_agora)
+    nome = inventario.evento(conn, eid)["nome"]
+    flash(f"Inventário {nome} aberto." if abrir_agora else f"Inventário {nome} criado fechado.", "success")
+    _avisar_concedidos(concedidos)
+    return redirect(url_for("admin.tela"))
+
+
+def _avisar_concedidos(nomes):
+    if nomes:
+        flash("Função Inventário concedida a: " + ", ".join(nomes) + ".", "info")
+
+
+@inventario_bp.route("/<int:id>/abrir", methods=["POST"])
+def abrir_chave(id):
+    conn = _conn()
+    e = _evento_ou_404(conn, id)
+    fechado = inventario.ligar_chave(conn, id)
+    flash(f"Inventário {e['nome']} aberto; {fechado['nome']} foi fechado." if fechado else f"Inventário {e['nome']} aberto.", "success")
+    return redirect(url_for("admin.tela"))
+
+
+@inventario_bp.route("/<int:id>/fechar", methods=["POST"])
+def fechar(id):
+    conn = _conn()
+    e = _evento_ou_404(conn, id)
+    inventario.desligar_chave(conn, id)
+    flash(f"Inventário {e['nome']} fechado.", "success")
+    return redirect(url_for("admin.tela"))
 
 
 @inventario_bp.route("/<int:id>")
@@ -113,32 +144,33 @@ def encerrar(id):
     conn = _conn()
     _evento_ou_404(conn, id)
     if not request.form.get("confirmar"):
-        return redirect(url_for("inventario.evento_tela", id=id, confirmar="encerrar"))
+        return redirect(url_for("admin.tela", confirmar=id))
     inventario.encerrar_evento(conn, id)
-    flash("Evento encerrado. As leituras ficam congeladas; relatório e planilha continuam disponíveis.", "success")
-    return redirect(url_for("inventario.evento_tela", id=id))
+    flash("Inventário finalizado. As leituras ficam congeladas; relatório e planilha continuam disponíveis.", "success")
+    return redirect(url_for("admin.tela"))
 
 
 @inventario_bp.route("/<int:id>/comissao", methods=["GET", "POST"])
 def comissao(id):
     conn = _conn()
     e = _evento_ou_404(conn, id)
-    inventario._evento_aberto_ou_erro(conn, id)
+    inventario._evento_nao_finalizado_ou_erro(conn, id)
     if request.method == "POST":
         if _local():
             # Desktop: sem contas para vincular; nomes já na comissão continuam aceitos, nome novo só se for elegível.
             inventario.editar_comissao(conn, id, _nomes_para_comissao(request.form.getlist("integrantes")),
                                        elegiveis=[u["nome"] for u in _elegiveis(conn)] + e["integrantes"])
         else:
-            comissoes.definir(conn, id, request.form.getlist("usuarios"))
+            concedidos = comissoes.definir(conn, id, request.form.getlist("usuarios"))
+            _avisar_concedidos(concedidos)
         flash("Comissão atualizada.", "success")
-        return redirect(url_for("inventario.evento_tela", id=id))
+        return redirect(url_for("admin.tela"))
     com_leituras = {r[0] for r in conn.execute("SELECT DISTINCT integrante FROM inventario_leituras WHERE evento_id = ?", (id,))}
     ligados = comissoes.vinculos(conn, id)
     return render_template("inventario_comissao.html", e=e, elegiveis=_elegiveis(conn), com_leituras=com_leituras,
                            local=_local(), selecionados={v["usuario_id"] for v in ligados},
                            sem_vinculo=[n for n in e["integrantes"] if n not in {v["nome_na_comissao"] for v in ligados}],
-                           trilha=_trilha(e, ("Comissão", None)))
+                           trilha=[("Administração", url_for("admin.tela")), (f"Comissão de {e['nome']}", None)])
 
 
 def _apagar_fotos_do_evento(url):
@@ -159,8 +191,9 @@ def excluir(id):
             flash(str(erro), "error")
             return redirect(url_for("inventario.excluir", id=id))
         flash(f"Evento {e['nome']} excluído.", "success")
-        return redirect(url_for("inventario.eventos_tela"))
-    return render_template("inventario_excluir.html", e=e, c=inventario.contagem_para_exclusao(conn, id), trilha=_trilha(e, ("Excluir", None)))
+        return redirect(url_for("admin.tela"))
+    return render_template("inventario_excluir.html", e=e, c=inventario.contagem_para_exclusao(conn, id),
+                           trilha=[("Administração", url_for("admin.tela")), (f"Excluir {e['nome']}", None)])
 
 
 def _json_erro(e, status=409):

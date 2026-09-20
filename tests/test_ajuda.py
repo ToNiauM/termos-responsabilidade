@@ -54,6 +54,7 @@ def test_sumario_lista_exatamente_as_secoes_renderizadas(cliente):
 
 def test_administrador_ve_todas_as_secoes(cliente):
     assert ajuda(cliente).secoes == [id for id, *_ in menu.SECOES]
+    assert "Administra".encode() in cliente.get("/ajuda").data
 
 
 def test_inventariante_ve_a_conferencia_e_nao_a_consulta(cliente):
@@ -67,10 +68,10 @@ def test_consulta_de_inventarios_ve_a_consulta_e_nao_a_conferencia(cliente, dado
     assert ajuda(cliente).secoes == ['consulta-inventarios', 'conta', 'perguntas']
 
 
-def test_modo_local_nao_traz_usuarios_nem_conta(cliente_local):
+def test_modo_local_nao_traz_conta(cliente_local):
     secoes = ajuda(cliente_local).secoes
-    assert 'usuarios' not in secoes and 'conta' not in secoes
-    assert secoes == [id for id, *_ in menu.SECOES if id not in {'usuarios', 'conta'}]
+    assert 'conta' not in secoes
+    assert secoes == [id for id, *_ in menu.SECOES if id != 'conta']
 
 
 def test_ancora_da_tela_atual():
@@ -101,8 +102,7 @@ def test_contexto_leva_secoes_e_ancora_para_as_telas(dados):
         contexto = {}
         app.update_template_context(contexto)
     assert contexto['AJUDA_ANCORA'] == 'pesquisa'
-    assert [s['id'] for s in contexto['SECOES_AJUDA']] == [id for id, *_ in menu.SECOES
-                                                          if id not in {'usuarios', 'conta'}]
+    assert [s['id'] for s in contexto['SECOES_AJUDA']] == [id for id, *_ in menu.SECOES if id != 'conta']
 
 
 def test_contexto_sem_usuario_nao_oferece_ajuda(dados):

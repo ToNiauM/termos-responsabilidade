@@ -5,7 +5,9 @@ from urllib.parse import unquote
 import pytest
 from openpyxl import Workbook, load_workbook
 
+import comissoes
 import db
+import inventario
 from tests.conftest import semear, confirmar_revisao, logar, ADMIN_LOGIN, ADMIN_NOME, ADMIN_SENHA, SENHA_PADRAO
 from tests.test_db import CABECALHO
 from tests.test_permissoes import NEGADO
@@ -513,21 +515,23 @@ def _abrir(cliente, comissao=("Fulano", "Beltrana")):
 
 
 def test_inventario_eventos_abrir_e_encerrar(cliente):
+    # A tela de abrir/fechar inventário e a comissão migraram para /administracao (Tarefa 4); /inventario
+    # é só consulta dos eventos visíveis a quem pediu.
     r = cliente.get("/inventario")
-    assert r.status_code == 200 and b"Abrir evento" in r.data and b"Nenhum evento aberto" in r.data
+    assert r.status_code == 200 and "Nenhum inventário atribuído a você".encode() in r.data
     r = cliente.post("/inventario/abrir", data={"nome": "Inventário 2026", "descricao": "Portaria 1", "usuarios": _ids("Fulano", "Beltrana"), "escopo": "todas"}, follow_redirects=True)
     assert "Inventário 2026".encode() in r.data and b"01 - SALA CCI" in r.data and b"99 - SEM MAPA" in r.data
     assert "Inventário".encode() in cliente.get("/").data                          # menu
-    r = cliente.post("/inventario/abrir", data={"nome": "Outro", "usuarios": _ids("Fulano"), "escopo": "todas"}, follow_redirects=True)
+    r = cliente.post("/inventario/abrir", data={"nome": "Outro", "usuarios": _ids("Fulano"), "escopo": "todas", "abrir_agora": "1"}, follow_redirects=True)
     assert b"Outro" in r.data                                          # chave única: abrir fecha o anterior, não recusa
     import db, inventario
     eid = inventario.evento_aberto(db.conectar())["id"]
     assert inventario.evento(db.conectar(), eid)["nome"] == "Outro"
     assert b"Comiss" in cliente.get(f"/inventario/{eid}").data
     r = cliente.post(f"/inventario/{eid}/encerrar", data={}, follow_redirects=True)
-    assert b"Confirmar encerramento" in r.data
+    assert b"Confirmar finaliza" in r.data
     r = cliente.post(f"/inventario/{eid}/encerrar", data={"confirmar": "1"}, follow_redirects=True)
-    assert b"encerrado" in r.data
+    assert b"finalizado" in r.data
     assert cliente.get("/inventario/999").status_code == 404
 
 
@@ -892,12 +896,13 @@ def test_falha_no_bucket_mantem_a_foto_e_avisa(cliente, monkeypatch):
 
 
 def test_inventario_comissao_por_usuarios(cliente, dados, usuarios_exemplo):
+    # A comissão nasce em /administracao (Tarefa 4): o formulário "Novo inventário" saiu de /inventario.
     fulano, beltrana = _ids("Fulano", "Beltrana")
     leitor = _ids("Consulta Teste")[0]
-    r = cliente.get("/inventario")
+    r = cliente.get("/administracao")
     assert b'name="usuarios"' in r.data and b'name="integrantes"' not in r.data                     # web manda IDs
     assert b"Fulano (admin)" in r.data and b"Beltrana (beltrana)" in r.data
-    assert b"Operador Teste" not in r.data and b"Consulta Teste" not in r.data                      # só admin/inventariante
+    assert b"Operador Teste (op)" in r.data and b"Consulta Teste (leitor)" in r.data                # qualquer ativo entra na comissão
     r = cliente.post("/inventario/abrir", data={"nome": "Inv", "usuarios": [999999], "escopo": "todas"}, follow_redirects=True)
     assert "Selecione ao menos um usuário ativo.".encode() in r.data                                 # ID oculto recusado
     r = cliente.post("/inventario/abrir", data={"nome": "Inv", "usuarios": ["Beltrana"], "escopo": "todas"}, follow_redirects=True)
@@ -914,7 +919,7 @@ def test_inventario_comissao_por_usuarios(cliente, dados, usuarios_exemplo):
     assert "Selecione ao menos um usuário ativo.".encode() in r.data
     assert inventario_do_teste(eid)["integrantes"] == ["Beltrana"]                                   # comissão intacta
     r = cliente.post(f"/inventario/{eid}/comissao", data={"usuarios": [leitor]}, follow_redirects=True)
-    # Tarefa 4: assert "Função Inventário concedida a: Consulta Teste".encode() in r.data
+    assert "Função Inventário concedida a: Consulta Teste".encode() in r.data
     r = cliente.post(f"/inventario/{eid}/comissao", data={"usuarios": _ids("Fulano", "Beltrana")}, follow_redirects=True)
     assert "Comissão atualizada".encode() in r.data
     j = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"}).get_json()
@@ -1351,3 +1356,59 @@ def test_desktop_recusa_post_que_dependem_da_fila(cliente_local):
     assert db.pedido_do_termo(db.conectar(), j["id"]) is None
     assert cliente_local.post("/atualizar-base/spw").status_code == 403
     assert db.pedido_spw_ativo(db.conectar()) is None
+
+
+def test_administracao_lista_estados_e_acoes(cliente, dados, usuarios_exemplo):
+    fulano, beltrana = _ids("Fulano", "Beltrana")
+    r = cliente.get("/administracao")
+    assert r.status_code == 200 and b"Novo invent" in r.data and b'name="abrir_agora"' in r.data and b"checked" in r.data.split(b'name="abrir_agora"')[1][:80]
+    assert b"Consulta Teste" in r.data                                                # qualquer ativo entra na comissão
+    r = cliente.post("/inventario/abrir", data={"nome": "Inv A", "usuarios": [beltrana], "escopo": "todas", "abrir_agora": "1"}, follow_redirects=True)
+    assert r.request.path == "/administracao" and "Inventário Inv A aberto.".encode() in r.data
+    ea = inventario.evento_aberto(dados)["id"]
+    r = cliente.post("/inventario/abrir", data={"nome": "Inv B", "usuarios": [beltrana], "escopo": "todas", "abrir_agora": "0"}, follow_redirects=True)
+    eb = [e["id"] for e in inventario.eventos(dados) if e["nome"] == "Inv B"][0]
+    html = r.get_data(as_text=True)
+    assert "Inventário Inv B criado fechado." in html
+    assert f'action="/inventario/{eb}/abrir"' in html and f'action="/inventario/{ea}/fechar"' in html
+    assert html.count(">aberto<") == 1 and html.count(">fechado<") == 1
+    r = cliente.post(f"/inventario/{eb}/abrir", follow_redirects=True)
+    assert "Inventário Inv B aberto; Inv A foi fechado.".encode() in r.data and inventario.evento_aberto(dados)["id"] == eb
+    r = cliente.post(f"/inventario/{eb}/fechar", follow_redirects=True)
+    assert "Inventário Inv B fechado.".encode() in r.data and inventario.evento_aberto(dados) is None
+    r = cliente.post(f"/inventario/{ea}/encerrar", data={"confirmar": "1"}, follow_redirects=True)
+    assert r.request.path == "/administracao" and b">finalizado<" in r.data
+    html = r.get_data(as_text=True)
+    assert f'action="/inventario/{ea}/abrir"' not in html and f'href="/inventario/{ea}/relatorio"' in html
+    assert cliente.post(f"/inventario/{ea}/abrir", follow_redirects=True).get_data(as_text=True).count("finalizado não pode ser reaberto") == 1
+
+
+def test_administracao_sem_abrir_agora_abre_so_se_nao_ha_aberto(cliente, dados, usuarios_exemplo):
+    beltrana = _ids("Beltrana")[0]
+    cliente.post("/inventario/abrir", data={"nome": "Inv A", "usuarios": [beltrana], "escopo": "todas"})
+    ea = inventario.evento_aberto(dados)["id"]                                        # sem aberto: abre
+    cliente.post("/inventario/abrir", data={"nome": "Inv B", "usuarios": [beltrana], "escopo": "todas"})
+    assert inventario.evento_aberto(dados)["id"] == ea                                # já havia aberto: B nasce fechado
+    assert inventario.evento(dados, inventario.eventos(dados)[1]["id"])["estado"] == "fechado"
+
+
+def test_administracao_comissao_concede_funcao_e_funciona_fechado(cliente, dados, usuarios_exemplo):
+    beltrana, leitor = _ids("Beltrana", "Consulta Teste")
+    cliente.post("/inventario/abrir", data={"nome": "Inv", "usuarios": [beltrana], "escopo": "todas"})
+    eid = inventario.evento_aberto(dados)["id"]
+    r = cliente.post(f"/inventario/{eid}/comissao", data={"usuarios": [beltrana, leitor]}, follow_redirects=True)
+    assert "Função Inventário concedida a: Consulta Teste".encode() in r.data and r.request.path == "/administracao"
+    cliente.post(f"/inventario/{eid}/fechar")
+    r = cliente.get(f"/inventario/{eid}/comissao")
+    assert r.status_code == 200 and b'href="/administracao"' in r.data                # Cancelar volta para a Administração
+    r = cliente.post(f"/inventario/{eid}/comissao", data={"usuarios": [leitor]}, follow_redirects=True)
+    assert "Comissão atualizada.".encode() in r.data and inventario_do_teste(eid)["integrantes"] == ["Consulta Teste"]
+
+
+def test_administracao_so_para_admin_e_usuarios_vira_aba(cliente, usuarios_exemplo):
+    r = cliente.get("/usuarios")
+    assert r.status_code == 200 and b'class="br-tab' in r.data and b'href="/administracao"' in r.data and b">Usu\xc3\xa1rios<" in r.data
+    for funcao in ("operador", "inventariante", "consulta"):
+        cliente.post("/sair"); logar(cliente, *usuarios_exemplo[funcao])
+        assert cliente.get("/administracao").status_code == 403
+        assert cliente.post("/inventario/1/abrir").status_code == 403 and cliente.post("/inventario/1/fechar").status_code == 403

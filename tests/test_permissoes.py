@@ -75,6 +75,7 @@ _ROTAS_GET = {
     "/upload": {"admin": 200, "operador": 200, "inventariante": 403, "consulta": 403},
     "/inventario": {"admin": 200, "operador": 403, "inventariante": 200, "consulta": 403},
     "/meus-acessos": {"admin": 200, "operador": 200, "inventariante": 200, "consulta": 200},
+    "/administracao": {"admin": 200, "operador": 403, "inventariante": 403, "consulta": 403},
 }
 _ROTAS_POST = {
     "/gerar": {"admin": 302, "operador": 302, "inventariante": 403, "consulta": 403},
@@ -146,10 +147,10 @@ def test_menu_por_funcao(cliente, usuarios_exemplo):
     def menu(rota="/"):
         return cliente.get(rota).data.split(b'id="main-navigation"')[1].split(b"menu-footer")[0]
     m = menu()
-    assert b">Usu\xc3\xa1rios<" in m and b">Textos<" in m and b">Cadastros<" in m and b">In\xc3\xadcio<" in m
+    assert b">Administra\xc3\xa7\xc3\xa3o<" in m and b">Textos<" in m and b">Cadastros<" in m and b">In\xc3\xadcio<" in m
     cliente.post("/sair"); logar(cliente, *usuarios_exemplo["operador"])
     m = menu()
-    assert b">Usu\xc3\xa1rios<" not in m and b">Textos<" in m and b">Cadastros<" in m and b">Atualizar base<" in m
+    assert b">Administra\xc3\xa7\xc3\xa3o<" not in m and b">Textos<" in m and b">Cadastros<" in m and b">Atualizar base<" in m
     assert b">Invent\xc3\xa1rio<" not in m                                       # operador não tem função de inventário
     cliente.post("/sair"); logar(cliente, *usuarios_exemplo["inventariante"])
     m = menu("/inventario")
@@ -199,4 +200,5 @@ def test_consulta_nao_ve_botoes_de_emissao(cliente, usuarios_exemplo):
 def test_modo_desktop_sem_tela_de_usuarios(cliente_local):
     assert cliente_local.get("/usuarios").status_code == 404
     m = cliente_local.get("/").data.split(b'id="main-navigation"')[1].split(b"menu-footer")[0]
-    assert b">Usu\xc3\xa1rios<" not in m and b">Textos<" in m
+    assert b">Administra\xc3\xa7\xc3\xa3o<" in m and b">Textos<" in m
+    assert cliente_local.get("/administracao").status_code == 200 and b">Usu\xc3\xa1rios<" not in cliente_local.get("/administracao").data

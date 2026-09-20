@@ -160,7 +160,8 @@ def _form_usuario(u, valores, erro, senha_temporaria=None):
 def lista():
     q, funcao, inativos = request.args.get("q", ""), request.args.get("funcao") or None, request.args.get("inativos") == "1"
     return render_template("usuarios/lista.html", lista=usuarios.listar(_conn(), q, funcao, inativos), q=q, funcao=funcao,
-                           inativos=inativos, funcoes=usuarios.FUNCOES, rotulos=usuarios.ROTULOS, trilha=[("Usuários", None)])
+                           inativos=inativos, funcoes=usuarios.FUNCOES, rotulos=usuarios.ROTULOS,
+                           trilha=[("Administração", url_for("admin.tela")), ("Usuários", None)])
 
 
 @usuarios_bp.route("/usuarios/novo")

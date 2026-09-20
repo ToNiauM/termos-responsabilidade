@@ -85,8 +85,11 @@ pessoas_excluir POST
 localizacoes_excluir POST
 processos_excluir POST
 importar_cadastros POST
+admin.tela GET
 inventario.abrir POST
+inventario.abrir_chave POST
 inventario.encerrar POST
+inventario.fechar POST
 inventario.comissao GET POST
 inventario.excluir GET POST
 usuarios.lista GET

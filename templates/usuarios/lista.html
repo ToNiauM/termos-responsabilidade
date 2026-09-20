@@ -3,6 +3,8 @@
 {% from "_macros.html" import cabecalho_tabela, select %}
 {% block titulo %}Usuários{% endblock %}
 {% block conteudo %}
+{% set aba = 'usuarios' %}
+{% include '_abas_admin.html' %}
 <div class="d-flex align-items-center mb-4"><h1 class="mb-0">Usuários</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}
   <a class="br-button primary ml-auto" href="{{ url_for('usuarios.novo', retorno=request.full_path) }}"><i class="fas fa-user-plus mr-1" aria-hidden="true"></i>Novo usuário</a></div>
 <form method="get" class="br-card mb-3"><div class="card-content row align-items-end">
