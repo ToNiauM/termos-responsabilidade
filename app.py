@@ -557,9 +557,20 @@ def upload():
         flash(f"{resumo['total']} bens importados ({resumo['ativos']} ativos): {resumo['novos']} novo(s), "
               f"{resumo['removidos']} removido(s), {resumo['movidos']} movido(s), {resumo['situacao']} com situação alterada.", "success")
         return redirect(url_for("upload"))
-    return render_template("upload.html", sem_centro=db.localizacoes_sem_centro(obter_conn()),
-                           importacoes=db.importacoes(obter_conn()), execucoes=db.execucoes_robo(obter_conn()),
-                           trilha=[("Atualizar base", None)])
+    conn = obter_conn()
+    return render_template("upload.html", sem_centro=db.localizacoes_sem_centro(conn),
+                           importacoes=db.importacoes(conn), execucoes=db.execucoes_robo(conn),
+                           pedido_spw=db.pedido_spw_ativo(conn), ultimo_spw=db.ultimo_pedido_spw(conn),
+                           descricao_passo=db.DESCRICAO_PASSO, trilha=[("Atualizar base", None)])
+
+
+@app.route("/atualizar-base/spw", methods=["POST"])
+def base_atualizar_spw():
+    """Atualizar com SPW: enfileira a atualização; quem atende é o mesmo trabalhador da emissão no SEI."""
+    usuario = getattr(g, "usuario", None) or {}
+    db.enfileirar_pedido(obter_conn(), "spw", criado_por=usuario.get("login"))
+    flash("Atualização com o SPW iniciada.", "success")
+    return redirect(url_for("upload"))
 
 
 @app.route("/bens/exportar")

@@ -1114,7 +1114,7 @@ def test_inicio_mostra_robo_ok_sem_alerta(cliente, dados):
     db.importar_bens(dados, _xlsx_base(), nome_arquivo="SPW automático")
     db.registrar_execucao_robo(dados, "2026-09-18 04:00:00", "sem_mudanca", hash="h")
     r = cliente.get("/")
-    assert "robô ok · 18/09".encode() in r.data
+    assert "SPW ok · 18/09".encode() in r.data
     assert b"dsgov-kpi-alerta" not in r.data
 
 
@@ -1122,7 +1122,7 @@ def test_inicio_mostra_robo_falhou_em_alerta(cliente, dados):
     db.importar_bens(dados, _xlsx_base(), nome_arquivo="SPW automático")
     db.registrar_execucao_robo(dados, "2026-09-18 04:00:00", "erro", mensagem="Timeout 60000ms exceeded")
     r = cliente.get("/")
-    assert "robô falhou 18/09: Timeout 60000ms exceeded".encode() in r.data
+    assert "SPW falhou 18/09: Timeout 60000ms exceeded".encode() in r.data
     assert b"dsgov-kpi-alerta" in r.data and b"dsgov-robo-erro" in r.data
 
 
@@ -1134,17 +1134,44 @@ def test_inicio_esconde_robo_de_quem_nao_ve_importacao(cliente, dados, usuarios_
 
 
 def test_upload_lista_execucoes_do_robo(cliente, dados):
-    assert "Execuções do robô".encode() not in cliente.get("/upload").data
+    assert "Atualizações com o SPW".encode() not in cliente.get("/upload").data
     resumo = db.importar_bens(dados, _xlsx_base(), nome_arquivo="SPW automático")
     db.registrar_execucao_robo(dados, "2026-09-18 04:00:00", "importado", hash="h", importacao_id=resumo["importacao_id"], mensagem="1 bens")
     db.registrar_execucao_robo(dados, "2026-09-19 04:00:00", "sem_mudanca", hash="h", mensagem="nada mudou")
     db.registrar_execucao_robo(dados, "2026-09-20 04:00:00", "erro", mensagem="SPW fora do ar")
     r = cliente.get("/upload")
     html = r.data.decode()
-    assert "Execuções do robô" in html
+    assert "Atualizações com o SPW" in html
     assert html.index("SPW fora do ar") < html.index("nada mudou") < html.index("1 bens")   # mais recente primeiro
-    assert f'href="/importacoes/{resumo["importacao_id"]}"' in html.split("Execuções do robô")[-1]
+    assert f'href="/importacoes/{resumo["importacao_id"]}"' in html.split("Atualizações com o SPW")[-1]
     assert "sem mudança" in html and "bg-danger" in html
+
+
+def test_atualizar_com_spw_enfileira_e_mostra_andamento(cliente, dados):
+    r = cliente.get("/upload")
+    assert b"Atualizar com SPW" in r.data and b'action="/atualizar-base/spw"' in r.data and "robô".encode() not in r.data
+    r = cliente.post("/atualizar-base/spw")
+    assert r.status_code == 302
+    p = db.pedido_spw_ativo(dados)
+    assert p and p["criado_por"] == "admin"
+    r = cliente.get("/upload")
+    assert b"Atualizando com o SPW" in r.data and b'http-equiv="refresh" content="5"' in r.data and b"disabled" in r.data
+    r = cliente.post("/atualizar-base/spw", follow_redirects=True)
+    assert "A atualização com o SPW já está em andamento.".encode() in r.data
+    db.marcar_passo(dados, p["id"], "erro", "SPW fora do ar")
+    r = cliente.get("/upload")
+    assert b'http-equiv="refresh"' not in r.data and b"SPW fora do ar" in r.data
+
+
+def test_desktop_nao_mostra_atualizar_com_spw(cliente_local):
+    assert b"Atualizar com SPW" not in cliente_local.get("/upload").data
+
+
+def test_atualizar_com_spw_so_admin(cliente, usuarios_exemplo):
+    cliente.post("/sair")
+    assert logar(cliente, *usuarios_exemplo["operador"]).status_code == 302
+    assert cliente.post("/atualizar-base/spw").status_code == 403
+    assert b"Atualizar com SPW" not in cliente.get("/upload").data
 
 
 def test_formularios_de_cadastro_tem_unidade_sei(cliente):

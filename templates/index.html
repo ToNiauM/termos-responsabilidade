@@ -48,12 +48,12 @@
     {% if p.ultima_importacao %}<a class="br-card h-100 dsgov-kpi{% if alerta %} dsgov-kpi-alerta{% endif %}" href="{{ url_for('importacao_tela', id=p.ultima_importacao.id) }}"><div class="card-content">
       <div class="valor">{{ p.ultima_importacao.importado_em[8:10] }}/{{ p.ultima_importacao.importado_em[5:7] }}</div>
       <div class="text-down-01 text-gray-70">última importação · {{ p.ultima_importacao.novos }} novos, {{ p.ultima_importacao.removidos }} removidos</div>
-      {% if robo %}{% if robo.resultado == 'erro' %}<div class="text-down-01 dsgov-robo-erro"><i class="fas fa-exclamation-triangle mr-1" aria-hidden="true"></i>robô falhou {{ robo.iniciado_em[8:10] }}/{{ robo.iniciado_em[5:7] }}: {{ robo.mensagem|truncate(80) }}</div>
-      {% else %}<div class="text-down-01 text-gray-70">robô ok · {{ robo.iniciado_em[8:10] }}/{{ robo.iniciado_em[5:7] }}</div>{% endif %}{% endif %}
+      {% if robo %}{% if robo.resultado == 'erro' %}<div class="text-down-01 dsgov-robo-erro"><i class="fas fa-exclamation-triangle mr-1" aria-hidden="true"></i>SPW falhou {{ robo.iniciado_em[8:10] }}/{{ robo.iniciado_em[5:7] }}: {{ robo.mensagem|truncate(80) }}</div>
+      {% else %}<div class="text-down-01 text-gray-70">SPW ok · {{ robo.iniciado_em[8:10] }}/{{ robo.iniciado_em[5:7] }}</div>{% endif %}{% endif %}
       {% if alerta and (not robo or robo.resultado != 'erro') %}<div class="text-down-01 dsgov-robo-erro"><i class="fas fa-exclamation-triangle mr-1" aria-hidden="true"></i>base desatualizada</div>{% endif %}
     </div></a>
     {% else %}<div class="br-card h-100 dsgov-kpi{% if alerta %} dsgov-kpi-alerta{% endif %}"><div class="card-content"><div class="valor">—</div><div class="text-down-01 text-gray-70">Nenhuma importação registrada</div>
-      {% if robo and robo.resultado == 'erro' %}<div class="text-down-01 dsgov-robo-erro"><i class="fas fa-exclamation-triangle mr-1" aria-hidden="true"></i>robô falhou {{ robo.iniciado_em[8:10] }}/{{ robo.iniciado_em[5:7] }}: {{ robo.mensagem|truncate(80) }}</div>{% endif %}
+      {% if robo and robo.resultado == 'erro' %}<div class="text-down-01 dsgov-robo-erro"><i class="fas fa-exclamation-triangle mr-1" aria-hidden="true"></i>SPW falhou {{ robo.iniciado_em[8:10] }}/{{ robo.iniciado_em[5:7] }}: {{ robo.mensagem|truncate(80) }}</div>{% endif %}
       {% if alerta and (not robo or robo.resultado != 'erro') %}<div class="text-down-01 dsgov-robo-erro"><i class="fas fa-exclamation-triangle mr-1" aria-hidden="true"></i>base desatualizada</div>{% endif %}
     </div></div>{% endif %}
   </div>

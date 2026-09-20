@@ -27,6 +27,16 @@
   </div>
   {% endfor %}
 </div>
+{% if pedido_spw %}<meta http-equiv="refresh" content="5">{% endif %}
+{% if LOGIN_ATIVO and pode('base_atualizar_spw', 'POST') %}
+<div class="br-card mb-4"><div class="card-content d-flex align-items-center flex-wrap">
+  <form method="post" action="{{ url_for('base_atualizar_spw') }}" class="mr-3">{{ csrf_campo() }}
+    <button class="br-button primary" type="submit" {% if pedido_spw %}disabled{% endif %}><i class="fas fa-sync mr-1" aria-hidden="true"></i>Atualizar com SPW</button></form>
+  {% if pedido_spw %}<span><i class="fas fa-spinner mr-1" aria-hidden="true"></i>Atualizando com o SPW ({{ descricao_passo[pedido_spw.passo] }})…</span>
+  {% elif ultimo_spw and ultimo_spw.passo == 'erro' %}<span class="text-danger">Última atualização falhou: {{ ultimo_spw.mensagem }}</span>
+  {% else %}<span class="text-gray-70">Busca a relação de bens no SPW agora, sem esperar a atualização automática da madrugada.</span>{% endif %}
+</div></div>
+{% endif %}
 {% if sem_centro %}
 <div class="br-message warning">
   <div class="icon"><i class="fas fa-exclamation-triangle fa-lg" aria-hidden="true"></i></div>
@@ -49,7 +59,7 @@
 {% endif %}
 {% if execucoes %}
 <div class="mt-4">
-{{ cabecalho_tabela('Execuções do robô (SPW, dias úteis às 4h)', 'robo') }}
+{{ cabecalho_tabela('Atualizações com o SPW (automáticas nos dias úteis, de madrugada, e as pedidas aqui)', 'robo') }}
   <thead><tr><th scope="col">Início</th><th scope="col">Resultado</th><th scope="col">Detalhe</th></tr></thead>
   <tbody>
   {% for e in execucoes %}

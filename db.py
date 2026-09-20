@@ -1028,6 +1028,10 @@ def pedido_spw_ativo(conn) -> dict | None:
     return _um(conn, "SELECT * FROM robo_pedidos WHERE tipo = 'spw' AND passo NOT IN ('concluido','erro') ORDER BY id DESC LIMIT 1")
 
 
+def ultimo_pedido_spw(conn) -> dict | None:
+    return _um(conn, "SELECT * FROM robo_pedidos WHERE tipo = 'spw' ORDER BY id DESC LIMIT 1")
+
+
 def proximo_pedido(conn) -> dict | None:
     return _um(conn, "SELECT * FROM robo_pedidos WHERE passo = 'aguardando' ORDER BY id LIMIT 1")
 

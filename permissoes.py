@@ -89,6 +89,7 @@ usuarios.novo GET
 usuarios.incluir POST
 usuarios.editar GET POST
 usuarios.nova_senha POST
+base_atualizar_spw POST
 """)
 _registrar(EVENTOS, """
 inventario.eventos_tela GET
