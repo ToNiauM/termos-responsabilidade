@@ -9,7 +9,7 @@
 
 Hoje o robô entra no SEI sempre com a credencial de `secrets/sei.env` (a do Antônio): todo termo emitido por qualquer
 operador nasce no nome dele. Esta entrega faz cada pedido usar **a credencial do SEI de quem clicou**: o usuário cadastra
-login, senha e unidade do SEI numa tela própria ("Meu acesso ao SEI"); a senha fica cifrada no banco; o trabalhador
+login, senha e unidade do SEI numa tela própria ("Meus acessos"); a senha fica cifrada no banco; o trabalhador
 decifra ao atender o pedido e o robô entra como aquela pessoa, na unidade dela. Quem não cadastrou não emite.
 
 Não entra: instâncias separadas do trabalhador; usuário de serviço no SEI (se um dia existir, basta cadastrá-lo como
@@ -21,7 +21,7 @@ os botões). Manter Flask, SQLite, Jinja e DSGov.
 | Pergunta | Decisão |
 |---|---|
 | Como variar o usuário do SEI | Credencial por usuário do sistema (não instâncias) — opção 1 |
-| Sem acesso cadastrado | Falha antes de enfileirar: "Cadastre seu acesso ao SEI em Meu acesso ao SEI para emitir." — sem reserva no `sei.env` |
+| Sem acesso cadastrado | Falha antes de enfileirar: "Cadastre seu acesso ao SEI em Meus acessos para emitir." — sem reserva no `sei.env` |
 | Quem cadastra | Só o próprio usuário; admin vê se está cadastrado e pode apagar, nunca vê nem define senha |
 | Unidade | Por usuário (obrigatória); o robô troca para ela após o login; os blocos "Termos {CC}" precisam existir nessa unidade |
 
@@ -52,11 +52,11 @@ Funções em `usuarios.py`:
 
 ## 4. Telas
 
-- **`/meu-acesso-sei`** (`usuarios.acesso_sei`, GET/POST, qualquer usuário logado; só com login ativo): campos
+- **`/meus-acessos`** (`usuarios.acessos`, GET/POST, qualquer usuário logado; só com login ativo): campos
   *Usuário do SEI*, *Senha do SEI* (`type=password`, vazio = manter; texto "Senha cadastrada em dd/mm/aaaa" quando há),
   *Unidade no SEI* (sigla); botões *Salvar* e *Apagar meu acesso* (POST `/meu-acesso-sei/apagar`). Ajuda curta: "O termo
   é criado no SEI com este usuário e nesta unidade; os blocos 'Termos {sigla}' precisam existir nela." Link no cabeçalho
-  ao lado de *Trocar senha*: **Acesso ao SEI**. Entrada "Sua conta" da Ajuda menciona a tela.
+  ao lado de *Trocar senha*: **Meus acessos**. Entrada "Sua conta" da Ajuda menciona a tela.
 - **Usuários** (admin): coluna "Acesso ao SEI" — `sim · dd/mm` ou `—`; botão *Apagar acesso* (POST
   `/usuarios/<id>/apagar-acesso-sei`, `usuarios.apagar_acesso_sei`, com confirmação JS simples) quando há acesso.
 - **Página do termo emitido**: sem mudança de layout; mensagens novas em §6.
@@ -64,26 +64,26 @@ Funções em `usuarios.py`:
 ## 5. Fluxo
 
 1. `_enfileirar_emissao` (app.py): antes de `preparar_envio_sei`, `usuarios.acesso_sei(conn, g.usuario["id"])`; se
-   `None` → `ErroDeNegocio("Cadastre seu acesso ao SEI em Meu acesso ao SEI para emitir.")` (nada é registrado —
+   `None` → `ErroDeNegocio("Cadastre seu acesso ao SEI em Meus acessos para emitir.")` (nada é registrado —
    a checagem entra junto com a da unidade, antes de `registrar_emissao`). `criado_por` continua sendo o login do sistema.
 2. `atender_pedidos.executar_sei(conn, pedido)` (novo executor para `sei`): monta `env` =
    `segredos.ler_env(sei.env, (SEI_LOGIN_URL, SEI_ORGAO))` + `usuarios.credencial_sei(conn, pedido["criado_por"])`;
    sem credencial (usuário apagou o acesso depois de clicar, ou pedido antigo sem `criado_por`) → marca `erro` com
-   "Quem pediu a emissão não tem acesso ao SEI cadastrado; cadastre em Meu acesso ao SEI e emita de novo." e não abre
+   "Quem pediu a emissão não tem acesso ao SEI cadastrado; cadastre em Meus acessos e emita de novo." e não abre
    navegador; chave ausente → `erro` com a mensagem do cofre. Com credencial → `robo_sei.enviar_termo(conn, pedido,
    env=env)`. `enviar_termo` não lê mais `sei.env` sozinho: `env` passa a ser obrigatório (erro claro se faltar).
 3. `robo_sei`: sem mudança de lógica (já troca de unidade por `SEI_UNIDADE` e já trata login recusado). A mensagem de
-   login recusado passa a "O SEI recusou seu usuário ou senha; atualize em Meu acesso ao SEI."
+   login recusado passa a "O SEI recusou seu usuário ou senha; atualize em Meus acessos."
 4. *Atualizar com SPW*: inalterado (usa `spw.env`).
 
 ## 6. Mensagens
 
 | Situação | Mensagem |
 |---|---|
-| Emitir sem acesso | "Cadastre seu acesso ao SEI em Meu acesso ao SEI para emitir." |
-| Pedido sem credencial ao ser atendido | "Quem pediu a emissão não tem acesso ao SEI cadastrado; cadastre em Meu acesso ao SEI e emita de novo." |
+| Emitir sem acesso | "Cadastre seu acesso ao SEI em Meus acessos para emitir." |
+| Pedido sem credencial ao ser atendido | "Quem pediu a emissão não tem acesso ao SEI cadastrado; cadastre em Meus acessos e emita de novo." |
 | Chave ausente | "secrets/chaves.env não encontrado ou incompleto (…): falta CHAVE_SENHAS" |
-| SEI recusou | "O SEI recusou seu usuário ou senha; atualize em Meu acesso ao SEI." |
+| SEI recusou | "O SEI recusou seu usuário ou senha; atualize em Meus acessos." |
 | Salvar sem senha e sem anterior | "Informe a senha do SEI." |
 | Unidade vazia | "Informe a sigla da unidade no SEI." |
 
@@ -115,6 +115,27 @@ não existem.
 5. README: seção "Acesso ao SEI por usuário" (chave, backup da chave junto com o banco, o que fazer ao trocar a senha do
    SEI); Ajuda atualizada.
 
-## 10. Evidências
+## 10. SPW pelo mesmo princípio (pedido do usuário, 2026-09-20 à tarde)
+
+**"Atualizar com SPW" pelo site usa a credencial do SPW de quem clicou**; a atualização automática do cron da madrugada
+(`atualizar_base.sh` → `docker compose exec -T robo python importar_spw.py`) continua com `secrets/spw.env`.
+
+- Colunas em `usuarios`: `spw_login`, `spw_senha` (cifrada), `spw_atualizado_em`.
+- A tela passa a chamar-se **"Meus acessos"** (`/meus-acessos`, endpoint `usuarios.acessos`), com dois blocos: **SEI**
+  (usuário, senha, unidade) e **SPW** (usuário, senha), cada um com *Salvar* e *Apagar*; link do cabeçalho **"Meus acessos"**.
+  Funções: `acesso_spw(conn, id)`, `salvar_acesso_spw(conn, id, login, senha)`, `apagar_acesso_spw(conn, id)`,
+  `credencial_spw(conn, login_sistema) -> {SPW_USUARIO, SPW_SENHA} | None`. Lista de usuários: coluna **"Acessos"** com
+  "SEI" e/ou "SPW" (ou —) e um botão *Apagar acessos* (apaga os dois).
+- `base_atualizar_spw` (site): sem acesso ao SPW → `ErroDeNegocio("Cadastre seu acesso ao SPW em Meus acessos para
+  atualizar.")` antes de enfileirar. `executar_spw` (trabalhador): pedido com `criado_por` → `credencial_spw` +
+  `SPW_LOGIN_URL`/`SPW_CONSULTA_URL` do `spw.env`; sem credencial → `erro` "Quem pediu a atualização não tem acesso ao
+  SPW cadastrado; cadastre em Meus acessos e peça de novo."; `importar_spw.executar(conn, env=...)` passa o `env` a
+  `baixar_export`. Pedido sem `criado_por` (não existe pelo site) e o cron continuam com `spw.env` completo.
+- `importar_spw.CHAVES_ENV` continua exigindo as quatro chaves (o cron precisa delas); só o caminho do pedido
+  substitui usuário/senha.
+- Mensagens do robô do SPW com senha recusada: a existente ("credenciais recusadas") ganha o sufixo "; atualize em Meus
+  acessos" quando o pedido veio do site.
+
+## 11. Evidências
 
 (a preencher na publicação)
