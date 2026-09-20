@@ -8,7 +8,6 @@ import re
 import time
 import urllib.parse
 from contextlib import contextmanager
-from pathlib import Path
 
 import config
 import db
@@ -41,6 +40,11 @@ class RoboErro(Exception):
     """Erro previsto; a mensagem vai para robo_pedidos.mensagem e para a tela do termo."""
 
 
+class TempoEsgotado(RoboErro):
+    """O SEI não respondeu a tempo (seletor nunca apareceu). A mensagem interna cita seletores/frames
+    só para quem depura o robô; o usuário só vê a versão genérica montada por `_mensagem_de`."""
+
+
 def esperar(condicao, timeout_s=TIMEOUT_S, intervalo=0.3, erro="tempo esgotado"):
     fim = time.time() + timeout_s
     while time.time() < fim:
@@ -48,7 +52,7 @@ def esperar(condicao, timeout_s=TIMEOUT_S, intervalo=0.3, erro="tempo esgotado")
         if r:
             return r
         time.sleep(intervalo)
-    raise RoboErro(erro)
+    raise TempoEsgotado(erro)
 
 
 class SEI:
@@ -59,6 +63,7 @@ class SEI:
         self.ctx, self.t = context, timeout_s
         self.p = context.new_page()
         self.p.set_default_timeout(timeout_s * 1000)
+        self._saiu = False
 
     # --- infraestrutura ---
     def foto(self, nome: str = "erro.png", page=None) -> None:
@@ -73,7 +78,7 @@ class SEI:
         el = self.p.locator(f"#{nome}").first.element_handle(timeout=self.t * 1000)
         f = el.content_frame() if el else None
         if f is None:
-            raise RoboErro(f"frame {nome} ausente")
+            raise TempoEsgotado(f"frame {nome} ausente")
         return f
 
     def _frame_com(self, seletor, timeout_s=None):
@@ -117,6 +122,11 @@ class SEI:
     def arvore(self):
         return self._arvore() or self._abrir_todas_pastas()
 
+    def _anchors(self):
+        """Nós da árvore; lista vazia se a árvore ainda não carregou (ex.: logo após o SEI recarregar
+        a ifrArvore, quando `arvore()` pode devolver None por uma fração de segundo)."""
+        return (self.arvore() or {"anchors": []})["anchors"]
+
     # --- sessão ---
     def login(self, env: dict) -> dict:
         url = env.get("SEI_LOGIN_URL", BASE)
@@ -135,9 +145,19 @@ class SEI:
         self.p.fill("#txtUsuario", env["SEI_USUARIO"])
         self.p.fill("#pwdSenha", env["SEI_SENHA"])
         self.p.click("#sbmAcessar")
-        try:
-            self.p.wait_for_selector("#txtPesquisaRapida")
-        except Exception:
+        logado = False
+        fim = time.time() + self.t
+        while time.time() < fim:
+            if recusado:
+                break                                # usuário/senha recusados: o diálogo já respondeu, não vale esperar o timeout inteiro
+            try:
+                if self.p.locator("#txtPesquisaRapida").count():
+                    logado = True
+                    break
+            except Exception:
+                pass
+            time.sleep(0.2)
+        if not logado:
             return {"autenticado": False, "unidade": ""}
         unidade = ""
         try:
@@ -147,6 +167,9 @@ class SEI:
         return {"autenticado": urllib.parse.urlsplit(self.p.url).hostname in HOSTS, "unidade": unidade}
 
     def logout(self) -> None:
+        if self._saiu:
+            return                                   # enviar_termo já saiu; abrir_sei chamaria de novo (5s de clique perdidos)
+        self._saiu = True
         for pg in self.ctx.pages[1:]:
             try:
                 pg.close()
@@ -166,25 +189,18 @@ class SEI:
         if self.p.title().strip() != f"SEI - {numero}":
             raise RoboErro(f"Processo {numero} não abriu no SEI; nada foi criado.")
         esperar(self._arvore_bruta, self.t, erro="árvore do processo não carregou")
-        return {"titulo_confere": True, "nos": len(self.arvore()["anchors"])}
+        return {"titulo_confere": True, "nos": len(self._anchors())}
 
     def documento_na_arvore(self, rotulo: str) -> str | None:
-        for a in self.arvore()["anchors"]:
+        for a in self._anchors():
             m = RE_ROTULO.match(a["texto"])
             if m and m.group("rotulo") == rotulo:
                 return m.group("numero")
         return None
 
-    def _id_do_no(self, rotulo: str) -> str:
-        for a in self.arvore()["anchors"]:
-            m = RE_ROTULO.match(a["texto"])
-            if m and m.group("rotulo") == rotulo:
-                return a["id"]
-        raise RoboErro(f"documento '{rotulo}' não está na árvore")
-
     def _selecionar_raiz(self):
-        raiz = self.arvore()["anchors"][0]
-        self._frame("ifrArvore").click(f"#anchor{raiz['id']}")
+        r = esperar(self.arvore, self.t, erro="árvore do processo não carregou")
+        self._frame("ifrArvore").click(f"#anchor{r['anchors'][0]['id']}")
         return self._frame_com("img[title='Incluir Documento']")
 
     # --- escrita ---
@@ -228,7 +244,7 @@ class SEI:
 
     def incluir_em_bloco(self, numero: str, nome_bloco: str) -> str:
         no = None
-        for a in self.arvore()["anchors"]:
+        for a in self._anchors():
             m = RE_ROTULO.match(a["texto"])
             if m and m.group("numero") == numero:
                 no = a["id"]
@@ -293,8 +309,8 @@ AO_PASSO = {"login": "entrar no SEI", "documento": "criar o documento", "bloco":
 
 
 def _mensagem_de(exc: Exception, passo: str) -> str:
-    if type(exc).__name__ == "TimeoutError":
-        return f"O SEI não respondeu a tempo ao {AO_PASSO.get(passo, db.DESCRICAO_PASSO[passo])}."
+    if isinstance(exc, TempoEsgotado) or type(exc).__name__ == "TimeoutError":
+        return f"O SEI não respondeu a tempo ao {AO_PASSO[passo]}."
     return (str(exc) or type(exc).__name__)[:500]
 
 
@@ -337,7 +353,7 @@ def enviar_termo(conn, pedido: dict, abrir=None, env: dict | None = None) -> dic
         mensagem = f"documento {numero} no bloco {bloco}"
         db.marcar_passo(conn, pid, "concluido", mensagem)
         return {"passo": "concluido", "mensagem": mensagem, "documento_sei": numero, "bloco_sei": bloco}
-    except (segredos.SegredoAusente, Exception) as exc:
+    except Exception as exc:
         mensagem = _mensagem_de(exc, passo)
         db.marcar_passo(conn, pid, "erro", mensagem)
         t = db.termo_emitido(conn, pedido["termo_id"]) or {}

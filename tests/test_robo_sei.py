@@ -1,8 +1,6 @@
 """Orquestração do envio ao SEI sem navegador: um SEI falso registra as chamadas."""
 from contextlib import contextmanager
 
-import pytest
-
 import db
 import robo_sei
 from tests.conftest import semear
@@ -152,6 +150,16 @@ def test_tipo_de_documento_vem_dos_textos_e_devolucao_usa_a_pessoa(dados):
     robo_sei.enviar_termo(dados, db.pedido(dados, pid), abrir=_abrir(falso), env=ENV)
     assert ("documento_na_arvore", "Termo de Devolução 01/2026 - GECONT") in falso.chamadas
     assert ("incluir_em_bloco", "1557099", "Termos GECONT") in falso.chamadas
+
+
+def test_arvore_none_nao_derruba_documento_na_arvore(monkeypatch):
+    """Logo após o SEI recarregar a ifrArvore (ex.: depois de fechar o editor), arvore() pode
+    devolver None por uma fração de segundo; documento_na_arvore não pode explodir com TypeError."""
+    sei = robo_sei.SEI.__new__(robo_sei.SEI)
+    respostas = iter([None, {"anchors": [{"id": "1", "texto": "Termo de Responsabilidade 01/2026 - CCI (1557099)"}]}])
+    monkeypatch.setattr(sei, "arvore", lambda: next(respostas))
+    assert sei.documento_na_arvore("Termo de Responsabilidade 01/2026 - CCI") is None
+    assert sei.documento_na_arvore("Termo de Responsabilidade 01/2026 - CCI") == "1557099"
 
 
 def test_modulo_importa_sem_playwright():
