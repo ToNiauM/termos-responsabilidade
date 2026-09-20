@@ -176,6 +176,28 @@ def test_executar_spw_usa_credencial_de_quem_pediu(dados, chave, tmp_path, monke
     assert db.pedido(dados, pid3)["passo"] == "concluido"
 
 
+def test_executar_spw_erro_de_login_pelo_site_aponta_para_meus_acessos(dados, chave, tmp_path, monkeypatch):
+    import importar_spw, usuarios
+    semear(dados)
+    (tmp_path / "spw.env").write_text(
+        "SPW_USUARIO=robo\nSPW_SENHA=robo123\nSPW_LOGIN_URL=https://spw.cfc.org.br/login\nSPW_CONSULTA_URL=https://spw.cfc.org.br/consulta\n")
+    monkeypatch.setattr(importar_spw, "ARQUIVO_ENV", tmp_path / "spw.env")
+    uid = usuarios.criar(dados, "maria", "Maria", "Senha!234", ["operador"])
+    usuarios.salvar_acesso_spw(dados, uid, "maria.spw", "senha-errada")
+
+    def executar(conn, env=None):
+        return {"resultado": "erro", "mensagem": "login no SPW não chegou ao menu (usuário/senha?): https://x", "importacao_id": None}
+
+    # pela fila do site (criado_por): a mensagem ganha a dica de onde corrigir
+    pid = db.enfileirar_pedido(dados, "spw", criado_por="maria")
+    ap.executar_spw(dados, db.pedido(dados, pid), executar=executar)
+    assert db.pedido(dados, pid)["mensagem"] == "login no SPW não chegou ao menu (usuário/senha?): https://x; atualize em Meus acessos"
+    # sem criado_por (cron): mensagem sem alteração
+    pid2 = db.enfileirar_pedido(dados, "spw")
+    ap.executar_spw(dados, db.pedido(dados, pid2), executar=executar)
+    assert db.pedido(dados, pid2)["mensagem"] == "login no SPW não chegou ao menu (usuário/senha?): https://x"
+
+
 def test_travar_e_exclusivo(tmp_path):
     caminho = tmp_path / "robo.lock"
     with ap.travar(caminho):

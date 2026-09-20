@@ -97,6 +97,8 @@ def executar_spw(conn, pedido: dict, executar=None) -> dict:
             db.marcar_passo(conn, pedido["id"], "erro", mensagem)
             return {"resultado": "erro", "mensagem": mensagem}
         r = executar(conn, env={**env_arquivo, **credencial})
+    if criado_por and r["resultado"] == "erro" and "usuário/senha?" in r["mensagem"]:
+        r["mensagem"] = r["mensagem"] + "; atualize em Meus acessos"
     db.marcar_passo(conn, pedido["id"], "erro" if r["resultado"] == "erro" else "concluido", r["mensagem"])
     return r
 
