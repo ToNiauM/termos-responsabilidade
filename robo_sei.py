@@ -166,6 +166,22 @@ class SEI:
             pass
         return {"autenticado": urllib.parse.urlsplit(self.p.url).hostname in HOSTS, "unidade": unidade}
 
+    def trocar_unidade(self, sigla: str) -> str:
+        """Troca a unidade corrente (mostrada em #lnkInfraUnidade) para `sigla`, ex.: GESERV."""
+        oc = self.p.locator("#lnkInfraUnidade").first.get_attribute("onclick") or ""
+        m = re.search(r"href='([^']+)'", oc)
+        if m:
+            self.p.goto(urllib.parse.urljoin(BASE, m.group(1)), wait_until="domcontentloaded")
+        linha = self.p.locator("tr").filter(has=self.p.locator("td", has_text=re.compile(rf"^{re.escape(sigla)}$")))
+        if not linha.count():
+            raise RoboErro(f"Unidade {sigla} não está disponível para este usuário no SEI.")
+        with self.p.expect_navigation(wait_until="domcontentloaded"):
+            linha.first.locator("label.infraRadioLabel").first.click()
+        atual = self.p.locator("#lnkInfraUnidade").first.inner_text(timeout=3000).strip()
+        if atual != sigla:
+            raise RoboErro(f"Unidade {sigla} não está disponível para este usuário no SEI.")
+        return atual
+
     def logout(self) -> None:
         if self._saiu:
             return                                   # enviar_termo já saiu; abrir_sei chamaria de novo (5s de clique perdidos)
@@ -332,8 +348,12 @@ def enviar_termo(conn, pedido: dict, abrir=None, env: dict | None = None) -> dic
         db.marcar_passo(conn, pid, "login")
         with abrir(env) as sei:
             try:
-                if not sei.login(env).get("autenticado"):
+                resultado_login = sei.login(env)
+                if not resultado_login.get("autenticado"):
                     raise RoboErro("O SEI recusou usuário ou senha.")
+                unidade = env.get("SEI_UNIDADE", "").strip()
+                if unidade and unidade != resultado_login.get("unidade"):
+                    sei.trocar_unidade(unidade)
                 passo = "documento"
                 db.marcar_passo(conn, pid, "documento")
                 sei.abrir_processo(termo["numero_sei"])

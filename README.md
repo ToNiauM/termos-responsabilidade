@@ -202,7 +202,9 @@ O botão **Emitir Termo no SEI** (página do termo) e **Atualizar com SPW** (Atu
     cp ops/termos-robo.service /etc/systemd/system/ && sudo systemctl enable --now termos-robo
     sudo systemctl status termos-robo            # deve estar "active (running)"
 
-Segredos em `secrets/sei.env` (`SEI_USUARIO`, `SEI_SENHA`, `SEI_LOGIN_URL`, `SEI_ORGAO`; chmod 600). No SEI, crie à mão
+Segredos em `secrets/sei.env` (`SEI_USUARIO`, `SEI_SENHA`, `SEI_LOGIN_URL`, `SEI_ORGAO`; chmod 600). Opcionalmente,
+`SEI_UNIDADE` (sigla, ex.: `GESERV`) fixa a unidade em que os documentos e os blocos são tratados; se ausente, é a
+unidade do login. No SEI, crie à mão
 um bloco de assinatura por unidade, com o nome exato `Termos {UNIDADE}` (ex.: `Termos GECONT`); o sistema só inclui o
 documento — disponibilizar o bloco continua sendo feito por vocês. Em Cadastros, informe a "Unidade no SEI" das pessoas
 que recebem termo individual (e a exceção no centro de custo cuja sigla difere da unidade do SEI). Em Textos, o nome do

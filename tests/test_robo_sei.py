@@ -9,10 +9,12 @@ ENV = {"SEI_USUARIO": "u", "SEI_SENHA": "s", "SEI_LOGIN_URL": "https://sei.cfc.o
 
 
 class SEIFalso:
-    def __init__(self, arvore=None, falhar_em=None, autenticado=True, titulo_ok=True, bloco_existe=True, tipo_existe=True):
+    def __init__(self, arvore=None, falhar_em=None, autenticado=True, titulo_ok=True, bloco_existe=True,
+                 tipo_existe=True, unidades_ok=True):
         self.chamadas, self.arvore = [], dict(arvore or {})
         self.falhar_em, self.autenticado, self.titulo_ok = falhar_em, autenticado, titulo_ok
         self.bloco_existe, self.tipo_existe, self.saiu = bloco_existe, tipo_existe, False
+        self.unidades_ok = unidades_ok
 
     def _falha(self, passo):
         if self.falhar_em == passo:
@@ -21,6 +23,12 @@ class SEIFalso:
     def login(self, env):
         self.chamadas.append(("login", env["SEI_USUARIO"]))
         return {"autenticado": self.autenticado, "unidade": "GELIC"}
+
+    def trocar_unidade(self, sigla):
+        self.chamadas.append(("trocar_unidade", sigla))
+        if not self.unidades_ok:
+            raise robo_sei.RoboErro(f"Unidade {sigla} não está disponível para este usuário no SEI.")
+        return sigla
 
     def logout(self):
         self.saiu = True
@@ -81,6 +89,46 @@ def test_fluxo_completo_grava_documento_e_bloco(dados):
     t = db.termo_emitido(dados, t["id"])
     assert t["documento_sei"] == "1557099" and t["bloco_sei"] == "69766"
     assert db.pedido(dados, p["id"])["passo"] == "concluido"
+
+
+def test_troca_de_unidade_apos_login_quando_diferente(dados):
+    p, t = _pedido(dados)
+    falso = SEIFalso()
+    env = {**ENV, "SEI_UNIDADE": "GESERV"}
+    r = robo_sei.enviar_termo(dados, p, abrir=_abrir(falso), env=env)
+    assert r["passo"] == "concluido"
+    assert [c[0] for c in falso.chamadas] == [
+        "login", "trocar_unidade", "abrir_processo", "documento_na_arvore", "incluir_documento", "incluir_em_bloco"]
+    assert falso.chamadas[1] == ("trocar_unidade", "GESERV")
+
+
+def test_sem_troca_quando_sei_unidade_igual_a_do_login(dados):
+    p, t = _pedido(dados)
+    falso = SEIFalso()
+    env = {**ENV, "SEI_UNIDADE": "GELIC"}                    # SEIFalso.login já devolve unidade "GELIC"
+    r = robo_sei.enviar_termo(dados, p, abrir=_abrir(falso), env=env)
+    assert r["passo"] == "concluido"
+    assert "trocar_unidade" not in [c[0] for c in falso.chamadas]
+
+
+def test_sem_sei_unidade_no_env_nao_troca(dados):
+    p, t = _pedido(dados)
+    falso = SEIFalso()
+    r = robo_sei.enviar_termo(dados, p, abrir=_abrir(falso), env=ENV)
+    assert r["passo"] == "concluido"
+    assert "trocar_unidade" not in [c[0] for c in falso.chamadas]
+
+
+def test_troca_de_unidade_recusada_nao_cria_documento(dados):
+    p, t = _pedido(dados)
+    falso = SEIFalso(unidades_ok=False)
+    env = {**ENV, "SEI_UNIDADE": "GESERV"}
+    r = robo_sei.enviar_termo(dados, p, abrir=_abrir(falso), env=env)
+    assert r["passo"] == "erro"
+    assert r["mensagem"] == "Unidade GESERV não está disponível para este usuário no SEI."
+    assert "incluir_documento" not in [c[0] for c in falso.chamadas]
+    assert db.termo_emitido(dados, t["id"])["documento_sei"] is None
+    assert db.pedido(dados, p["id"])["passo"] == "erro"
 
 
 def test_falha_no_bloco_deixa_documento_gravado(dados):
