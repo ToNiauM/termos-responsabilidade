@@ -223,11 +223,16 @@ class SEI:
         esperar(self._arvore_bruta, self.t, erro="árvore do processo não carregou")
         return {"titulo_confere": True, "nos": len(self._anchors())}
 
+    @staticmethod
+    def _norma(rotulo: str) -> str:
+        """Compara rótulos ignorando o separador e espaços: o SEI monta "Tipo Número NomeNaÁrvore" do jeito dele."""
+        return " ".join(rotulo.replace(" - ", " ").split()).casefold()
+
     def _numeros_com_rotulo(self, rotulo: str) -> list[str]:
         out = []
         for a in self._anchors():
             m = RE_ROTULO.match(a["texto"])
-            if m and m.group("rotulo") == rotulo:
+            if m and self._norma(m.group("rotulo")) == self._norma(rotulo):
                 out.append(m.group("numero"))
         return out
 
@@ -272,10 +277,14 @@ class SEI:
         tipos.first.click()
         fr = self._frame_com("#txtNomeArvore")
         time.sleep(0.8)
-        fr.fill("#txtNomeArvore", nome_arvore)
+        nome = nome_arvore
+        if fr.locator("#txtNumero").first.is_visible():     # tipo com campo Número (ex.: Termo de Devolução): o SEI exige "Informe o Número."
+            numero_doc, _, nome = nome_arvore.partition(" - ")
+            fr.fill("#txtNumero", numero_doc)
+        fr.fill("#txtNomeArvore", nome)
         gravado = fr.input_value("#txtNomeArvore")
-        if gravado != nome_arvore:                          # o campo tem maxlength: nome de pessoa longo é cortado pelo SEI
-            rotulo = f"{tipo_nome} {gravado}"
+        if gravado != nome:                                 # o campo tem maxlength: nome de pessoa longo é cortado pelo SEI
+            rotulo = f"{tipo_nome} {nome_arvore[:len(nome_arvore) - len(nome)]}{gravado}"
         fr.click("label[for=optPublico]")
         fr.wait_for_function("() => document.getElementById('optPublico').checked")
         antes = self.numeros_na_arvore()

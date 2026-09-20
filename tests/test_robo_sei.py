@@ -239,6 +239,19 @@ def test_rotulo_repetido_nao_e_reaproveitado_e_novo_no_e_o_que_surgiu(monkeypatc
     assert sei.documento_novo_na_arvore("Termo de Devolução 01/2026 - ANTÔNIO", numeros) is None   # rótulo diferente: não é o nosso
 
 
+def test_rotulo_casa_com_o_separador_que_o_sei_usar(monkeypatch):
+    """Tipo com campo Número (Termo de Devolução): o SEI monta o rótulo com o número e o nome na árvore,
+    e o separador pode não ser " - "; o robô compara ignorando separador e espaços."""
+    sei = robo_sei.SEI.__new__(robo_sei.SEI)
+    monkeypatch.setattr(sei, "arvore", lambda: {"anchors": [
+        {"id": "1", "texto": "Termo de Devolução 01/2026 ANTÔNIO (1557201)"},
+        {"id": "2", "texto": "Termo de Devolução 02/2026 - MARIA (1557202)"},
+        {"id": "3", "texto": "Termo de Devolução 02/2026 - MARIANA (1557203)"}]})
+    assert sei.documento_na_arvore("Termo de Devolução 01/2026 - ANTÔNIO") == "1557201"
+    assert sei.documento_na_arvore("Termo de Devolução 02/2026 - MARIA") == "1557202"
+    assert sei.documento_na_arvore("Termo de Devolução 03/2026 - MARIA") is None
+
+
 def test_modulo_importa_sem_playwright():
     import importlib
     importlib.reload(robo_sei)          # playwright é importado só dentro de abrir_sei
