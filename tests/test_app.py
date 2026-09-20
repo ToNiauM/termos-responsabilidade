@@ -75,7 +75,7 @@ def test_termo_ccusto_documento_docx_planilha(cliente):
     assert r.status_code == 302 and r.headers["Location"].endswith("/termo/ccusto/CCI")
     assert cliente.get("/termo/ccusto/CCI").status_code == 200
     doc = cliente.get("/termo/ccusto/CCI/documento").data.decode()
-    assert "width:100%" in doc and "1001" in doc and "1002" not in doc  # 1002 está com ANA
+    assert "width:90%" in doc and "1001" in doc and "1002" not in doc  # 1002 está com ANA
     assert cliente.get("/termo/ccusto/CCI/docx").headers["Content-Disposition"].endswith('Termo_de_Responsabilidade_CCI.docx')
     assert cliente.get("/termo/ccusto/CCI/planilha").headers["Content-Disposition"].endswith('planilha_CCI.xlsx')
 
@@ -85,7 +85,7 @@ def test_termo_individual(cliente):
     r = cliente.post("/gerar-individual", data={"nome": "ANA SILVA"})
     assert r.status_code == 302
     doc = cliente.get("/termo/individual/ANA SILVA/documento").data.decode()
-    assert "width:80%" in doc and "NOTEBOOK" in doc
+    assert "width:90%" in doc and "NOTEBOOK" in doc
     assert cliente.get("/termo/individual/ANA SILVA/docx").status_code == 200
     assert cliente.get("/termo/individual/NINGUEM").status_code == 404
 
@@ -247,7 +247,7 @@ def test_termo_devolucao_fluxo(cliente):
     r = cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "gerar": "1"})
     assert unquote(r.headers["Location"]).endswith("/termo/devolucao/ANA SILVA")
     doc = cliente.get("/termo/devolucao/ANA SILVA/documento").data.decode()
-    assert "TERMO DE DEVOLUÇÃO" in doc and "CADEIRA" in doc and "width:80%" in doc
+    assert "TERMO DE DEVOLUÇÃO" in doc and "CADEIRA" in doc and "width:90%" in doc
     assert cliente.get("/termo/devolucao/ANA SILVA/docx").status_code == 200
     r = cliente.post("/termo_devolucao", data={"nome": "ANA SILVA", "remover": "1001"}, follow_redirects=True)
     assert b"CADEIRA" not in r.data
