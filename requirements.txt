@@ -6,3 +6,4 @@ pyinstaller
 pytest
 Pillow
 boto3
+cryptography
