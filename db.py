@@ -1198,7 +1198,8 @@ def importar_cadastros(conn, arquivo) -> dict:
     try:
         brutos = {t: _ler_aba_cadastro(wb, t, problemas, opcionais=("unidade_sei",)) for t in CADASTROS}
         inv_brutos = {aba: _ler_aba_cadastro(wb, aba, problemas, colunas=cols + (["foto_url"] if aba == "inv_leituras" else []),
-                                             opcional=True, opcionais=("foto_url", "fotos_seq") if aba == "inv_leituras" else ())
+                                             opcional=True,
+                                             opcionais=("foto_url", "fotos_seq") if aba == "inv_leituras" else (("suspenso_em",) if aba == "inv_eventos" else ()))
                      for aba, cols in inventario.ABAS.items()}
         tem_inventario = any(v is not None for v in inv_brutos.values())
     except ImportacaoInvalida:

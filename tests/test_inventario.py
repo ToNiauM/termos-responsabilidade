@@ -781,3 +781,40 @@ def test_esquema_acrescenta_suspenso_em_em_banco_antigo(dados):
     db.criar_esquema(dados)
     assert "suspenso_em" in db._colunas(dados, "inventario_eventos")
     assert inventario.evento_aberto(dados)["id"] == eid                        # o aberto de antes continua aberto
+
+
+def test_exportar_e_importar_cadastros_levam_suspenso_em(dados, tmp_path):
+    from openpyxl import load_workbook
+    eid = semear_inventario(dados)
+    e2 = inventario.criar_evento(dados, "Preparado", "", ["Fulano"])          # fechado
+    destino = tmp_path / "cadastros.xlsx"
+    db.exportar_cadastros(dados, destino)
+    ws = load_workbook(destino)["inv_eventos"]
+    cab = [c.value for c in ws[1]]
+    assert cab == ["id", "nome", "descricao", "aberto_em", "encerrado_em", "suspenso_em"]
+    linhas = {r[0]: r for r in ws.iter_rows(min_row=2, values_only=True)}
+    assert linhas[eid][5] is None and linhas[e2][5]                            # aberto sem suspenso_em; fechado com
+    db.importar_cadastros(dados, destino)                                       # round-trip mantém os estados
+    assert inventario.evento(dados, eid)["estado"] == "aberto" and inventario.evento(dados, e2)["estado"] == "fechado"
+
+
+def test_importar_cadastros_rejeita_dois_abertos_e_aceita_planilha_antiga(dados, tmp_path):
+    from openpyxl import load_workbook
+    eid = semear_inventario(dados)
+    e2 = inventario.criar_evento(dados, "Preparado", "", ["Fulano"])
+    destino = tmp_path / "cadastros.xlsx"
+    db.exportar_cadastros(dados, destino)
+    wb = load_workbook(destino)
+    ws = wb["inv_eventos"]
+    for r in ws.iter_rows(min_row=2):
+        r[5].value = None                                                       # os dois sem suspenso_em: dois abertos
+    wb.save(destino)
+    with pytest.raises(db.ImportacaoInvalida, match="mais de um evento aberto"):
+        db.importar_cadastros(dados, destino)
+    ws.delete_cols(6)                                                           # planilha antiga: sem a coluna
+    for r in ws.iter_rows(min_row=2):
+        if r[0].value == e2:
+            r[4].value = "2026-01-01 10:00:00"                                  # e2 finalizado para sobrar um aberto
+    wb.save(destino)
+    db.importar_cadastros(dados, destino)
+    assert inventario.evento(dados, eid)["estado"] == "aberto" and inventario.evento(dados, e2)["estado"] == "finalizado"

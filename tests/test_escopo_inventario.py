@@ -146,7 +146,7 @@ def test_apagar_usuario_apaga_os_vinculos_em_cascata(dados):
 
 
 def _linhas_de_importacao(eid, nome, aberto_em, integrantes):
-    return {"inv_eventos": [(eid, nome, None, aberto_em, None)],
+    return {"inv_eventos": [(eid, nome, None, aberto_em, None, None)],
             "inv_integrantes": [(eid, n) for n in integrantes],
             "inv_salas": [(eid, "01 - SALA CCI")], "inv_leituras": [], "inv_sobras": [],
             "inv_bens_encerrados": [], "inv_fotos": []}

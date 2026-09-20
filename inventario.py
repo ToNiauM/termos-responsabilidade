@@ -674,7 +674,7 @@ def exportar_xlsx(conn, evento_id: int, destino, localizacao: str | None = None,
 
 # ---------------------------------------------------------------- planilha de cadastros (migração de inventários)
 ABAS = {
-    "inv_eventos": ["id", "nome", "descricao", "aberto_em", "encerrado_em"],
+    "inv_eventos": ["id", "nome", "descricao", "aberto_em", "encerrado_em", "suspenso_em"],
     "inv_integrantes": ["evento_id", "nome"],
     "inv_salas": ["evento_id", "localizacao"],
     "inv_leituras": ["evento_id", "numero", "localizacao", "lido_em", "integrante", "conservacao", "quem_usa", "observacao", "fotos_seq"],
@@ -735,14 +735,15 @@ def validar_abas(conn, brutos: dict) -> tuple[dict, list]:
             problemas.append(f"{rot}: nome vazio"); continue
         aberto = _data_iso(r["aberto_em"], "aberto_em", rot, problemas, True)
         encerrado = _data_iso(r["encerrado_em"], "encerrado_em", rot, problemas, False)
-        if encerrado is None and _texto(r["encerrado_em"]) == "":
+        suspenso = _data_iso(r.get("suspenso_em"), "suspenso_em", rot, problemas, False) if _texto(r.get("suspenso_em")) else None
+        if encerrado is None and _texto(r["encerrado_em"]) == "" and suspenso is None:
             abertos += 1
         ids.add(eid)
         if encerrado:
             encerrados.add(eid)
-        linhas["inv_eventos"].append((eid, nome, _texto(r["descricao"]) or None, aberto, encerrado))
+        linhas["inv_eventos"].append((eid, nome, _texto(r["descricao"]) or None, aberto, encerrado, suspenso))
     if abertos > 1:
-        problemas.append("inv_eventos: mais de um evento aberto (sem encerrado_em)")
+        problemas.append("inv_eventos: mais de um evento aberto (sem encerrado_em e sem suspenso_em)")
     pastas: dict = {}
     for eid, nome, *_ in linhas["inv_eventos"]:
         p = fotos.pasta(nome, eid)
@@ -890,7 +891,7 @@ def substituir_tabelas(conn, linhas: dict) -> None:
                                JOIN inventario_eventos e ON e.id = c.evento_id""").fetchall()
     for aba in reversed(list(ABAS)):
         conn.execute(f"DELETE FROM {_TABELA[aba]}")
-    conn.executemany("INSERT INTO inventario_eventos (id, nome, descricao, aberto_em, encerrado_em) VALUES (?,?,?,?,?)", linhas["inv_eventos"])
+    conn.executemany("INSERT INTO inventario_eventos (id, nome, descricao, aberto_em, encerrado_em, suspenso_em) VALUES (?,?,?,?,?,?)", linhas["inv_eventos"])
     conn.executemany("INSERT INTO inventario_integrantes VALUES (?,?)", linhas["inv_integrantes"])
     conn.executemany("INSERT INTO inventario_salas VALUES (?,?)", linhas["inv_salas"])
     conn.executemany("INSERT INTO inventario_leituras (evento_id, numero, localizacao, lido_em, integrante, conservacao, quem_usa, observacao, fotos_seq) VALUES (?,?,?,?,?,?,?,?,?)", linhas["inv_leituras"])
