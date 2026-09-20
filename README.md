@@ -184,9 +184,8 @@ O container `robo` é permanente (`restart: unless-stopped`), sem porta exposta;
 capturas de erro) e `./secrets` (somente leitura). Sem ele de pé, o site continua funcionando: o pedido fica
 "aguardando a vez" e a tela avisa depois de 2 minutos.
 
-Segredos em `secrets/sei.env` (`SEI_USUARIO`, `SEI_SENHA`, `SEI_LOGIN_URL`, `SEI_ORGAO`; chmod 600). Opcionalmente,
-`SEI_UNIDADE` (sigla, ex.: `GESERV`) fixa a unidade em que os documentos e os blocos são tratados; se ausente, é a
-unidade do login. No SEI, crie à mão
+Segredos em `secrets/sei.env` (`SEI_LOGIN_URL`, `SEI_ORGAO`; chmod 600); usuário, senha e unidade são os cadastrados
+por quem emitiu em *Meus acessos* (ver "Acessos por usuário (SEI e SPW)" abaixo). No SEI, crie à mão
 um bloco de assinatura por unidade, com o nome exato `Termos {UNIDADE}` (ex.: `Termos GECONT`); o sistema só inclui o
 documento — disponibilizar o bloco continua sendo feito por vocês. Em Cadastros, informe a "Unidade no SEI" das pessoas
 que recebem termo individual (e a exceção no centro de custo cuja sigla difere da unidade do SEI). Em Textos, o nome do
@@ -194,13 +193,39 @@ tipo de documento por tipo de termo.
 
 Diagnóstico: `dados/robo_pedidos.log` (exceções), `dados/sei/erro.png` (tela do SEI no erro), tabela `robo_pedidos`.
 
+### Acessos por usuário (SEI e SPW)
+
+As senhas de cada operador ficam cifradas (Fernet, `cofre.py`) no banco, nunca em texto puro. Uma vez, gere a
+chave e guarde-a:
+
+    .venv/bin/python -c "import cofre; print(cofre.gerar_chave())"   # cole o resultado em secrets/chaves.env
+    # secrets/chaves.env:
+    # CHAVE_SENHAS=...
+    chmod 600 secrets/chaves.env
+
+As duas imagens (`web` e `robo`) montam `./secrets`. **Guarde `chaves.env` junto com o backup do banco** — sem
+ela as senhas cifradas em `termos.db` são inúteis; quem restaura o banco sem a chave junto precisa cadastrar os
+acessos de novo. Com isso, `secrets/sei.env` fica só com `SEI_LOGIN_URL` e `SEI_ORGAO`.
+
+Cada operador cadastra o próprio acesso em **Meus acessos** (link no cabeçalho, `/meus-acessos`): ao SEI (usuário,
+senha e sigla da unidade — é nessa unidade e em nome dessa pessoa que os termos nascem no SEI, e é lá que o bloco
+`Termos {SIGLA}` precisa existir) e ao SPW (usuário e senha — usado por *Atualizar com SPW* pelo site). Sem acesso
+cadastrado, o site recusa antes de enfileirar ("Cadastre seu acesso ao SEI em Meus acessos para emitir."/"...ao SPW
+... para atualizar."). Ao trocar a senha no SEI ou no SPW, atualize na mesma tela (deixar a senha em branco mantém
+a atual). O administrador, na lista de usuários, só vê se há acesso cadastrado (coluna "Acessos") e pode apagá-lo
+(*Apagar acessos*) — nunca vê a senha.
+
+O cron da madrugada (`./atualizar_base.sh`) continua usando `secrets/spw.env` completo, sem depender de acesso de
+ninguém (ver "Robô do SPW" abaixo).
+
 ### Robô do SPW
 
 `importar_spw.py` entra no SPW, exporta a relação de bens (Excel/Detalhado), compara com a última execução e,
 se mudou, importa como o upload de Atualizar base faria. Roda dentro do container `robo` (acima), em dias úteis
 às 3h, e registra cada execução em `robo_execucoes`: o card "última importação" do Início mostra `robô ok`/`robô
 falhou` e Atualizar base lista as últimas execuções. Segredos em `secrets/spw.env` (`SPW_USUARIO`, `SPW_SENHA`,
-`SPW_LOGIN_URL`, `SPW_CONSULTA_URL`, chmod 600).
+`SPW_LOGIN_URL`, `SPW_CONSULTA_URL`, chmod 600). Pelo site, *Atualizar com SPW* usa a credencial de quem clicou
+(ver "Acessos por usuário" acima); o cron continua com `spw.env`.
 
 `atualizar_base.sh` não roda mais o robô diretamente: ele entra no container já de pé com `docker compose exec`
 (e sai com um aviso claro se o `robo` não estiver rodando):
@@ -241,6 +266,7 @@ estão fixas no `Dockerfile`), mas os scripts de spike em `docs/superpowers/note
 | `painel.py`, `graficos.py` | cards de gráfico (ECharts embutido, tema DSGov) |
 | `inventario.py`, `fotos.py`, `app_inventario.py` | módulo de inventário (dados, fotos no R2, rotas) |
 | `usuarios.py`, `app_usuarios.py` | usuários, senhas, matriz de permissões e telas de login/usuários |
+| `cofre.py` | cifra (Fernet) das senhas do SEI e do SPW guardadas por usuário; chave em `secrets/chaves.env` |
 | `atualizar_base.sh` | Chama o robô do SPW dentro do container `robo` via `docker compose exec` (`--teste` usa uma cópia da base); o cron chama o mesmo script |
 | `importar_spw.py` | Robô do SPW: exporta, converte e importa os bens (roda no container `robo`, por cron) |
 | `requirements-robo.txt` | Não é usado pela imagem `robo` (dependências fixas no `Dockerfile`); ainda serve os scripts de spike em `docs/superpowers/notes/` |
