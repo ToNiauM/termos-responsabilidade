@@ -1225,6 +1225,18 @@ def test_estados_da_pagina_do_termo_emitido(cliente, dados):
     assert b"Enviar email" in r.data and b"mailto:" in r.data and b"Emitir Termo no SEI" not in r.data
 
 
+def test_erro_preenchido_a_mao_volta_ao_estado_manual(cliente, dados):
+    _processo_ccusto(cliente)
+    cliente.post("/termo/ccusto/CCI/enviar-sei")
+    p = db.pedido_do_termo(dados, 1)
+    db.marcar_passo(dados, p["id"], "erro", "O SEI recusou usuário ou senha.")
+    cliente.post("/termos-emitidos/1/documento", data={"documento_sei": "1557099", "bloco_sei": "69766"})
+    r = cliente.get("/termos-emitidos/1")
+    assert b"O SEI recusou" not in r.data and "Não foi possível emitir no SEI.".encode() not in r.data
+    assert b"Incluir no bloco" not in r.data
+    assert b"Enviar email" in r.data and b'class="br-button primary mr-3"' in r.data
+
+
 def test_pagina_sem_pedido_mantem_campos_manuais_e_numero_editavel(cliente, dados):
     _processo_ccusto(cliente)
     j = cliente.post("/termo/ccusto/CCI/registrar").get_json()
@@ -1232,8 +1244,10 @@ def test_pagina_sem_pedido_mantem_campos_manuais_e_numero_editavel(cliente, dado
     assert b'name="documento_sei"' in r.data and b'name="numero_termo"' in r.data and b"Emitir Termo no SEI" in r.data
     cliente.post(f"/termos-emitidos/{j['id']}/documento", data={"documento_sei": "", "bloco_sei": "", "numero_termo": "07/2026"})
     assert db.termo_emitido(dados, j["id"])["numero_termo"] == "07/2026"
-    r = cliente.post(f"/termos-emitidos/{j['id']}/documento", data={"documento_sei": "", "bloco_sei": "", "numero_termo": "x"}, follow_redirects=True)
+    r = cliente.post(f"/termos-emitidos/{j['id']}/documento", data={"documento_sei": "555", "bloco_sei": "8", "numero_termo": "x"}, follow_redirects=True)
     assert b"NN/AAAA" in r.data
+    t = db.termo_emitido(dados, j["id"])
+    assert t["documento_sei"] == "555" and t["bloco_sei"] == "8" and t["numero_termo"] == "07/2026"   # número inválido não perde documento/bloco já digitados
     cliente.post(f"/termos-emitidos/{j['id']}/documento", data={"documento_sei": "123", "bloco_sei": "9", "numero_termo": "07/2026"})
     r = cliente.get(f"/termos-emitidos/{j['id']}")
     assert b"Emitir Termo no SEI" not in r.data and b"Enviar email" in r.data          # preenchido à mão: como hoje

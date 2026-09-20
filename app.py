@@ -490,7 +490,7 @@ def _estado_emissao(t: dict, pedido: dict | None) -> str:
     if pedido and pedido["passo"] == "concluido" and t["documento_sei"] and t["bloco_sei"]:
         return "concluido"
     if pedido and pedido["passo"] == "erro":
-        return "erro_bloco" if t["documento_sei"] else "erro"
+        return "erro_bloco" if t["documento_sei"] and not t["bloco_sei"] else ("manual" if t["documento_sei"] else "erro")
     return "manual" if t["documento_sei"] else "inicial"
 
 
@@ -518,9 +518,11 @@ def termos_emitidos_tela():
 def termo_emitido_documento(id):
     conn = obter_conn()
     t = db.termo_emitido(conn, id) or abort(404)
-    if "numero_termo" in request.form and not t["documento_sei"]:
-        db.salvar_numero_termo(conn, id, request.form["numero_termo"])
-    db.salvar_documento_sei(conn, id, request.form.get("documento_sei", ""), request.form.get("bloco_sei", ""))
+    try:
+        if "numero_termo" in request.form and not t["documento_sei"]:
+            db.salvar_numero_termo(conn, id, request.form["numero_termo"])
+    finally:
+        db.salvar_documento_sei(conn, id, request.form.get("documento_sei", ""), request.form.get("bloco_sei", ""))
     flash("Documento e bloco SEI salvos.", "success")
     return redirect(url_for("termo_emitido_tela", id=id))
 

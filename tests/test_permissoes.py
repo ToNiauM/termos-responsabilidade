@@ -84,6 +84,7 @@ _ROTAS_POST = {
     "/importar-cadastros": {"admin": 302, "operador": 403, "inventariante": 403, "consulta": 403},
     "/inventario/abrir": {"admin": 302, "operador": 403, "inventariante": 403, "consulta": 403},
     "/termo/ccusto/CCI/enviar-sei": {"admin": 302, "operador": 302, "inventariante": 403, "consulta": 403},
+    "/termos-emitidos/1/enviar-sei": {"admin": 404, "operador": 404, "inventariante": 403, "consulta": 403},
 }
 
 
