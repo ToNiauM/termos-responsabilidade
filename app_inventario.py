@@ -75,7 +75,7 @@ def eventos_tela():
     conn = _conn()
     visiveis = [inventario.evento(conn, e["id"]) for e in comissoes.eventos_visiveis(conn, g.usuario)]
     corrente = next((e for e in visiveis if e["estado"] == "aberto"), None) or next((e for e in visiveis if e["estado"] == "fechado"), None)
-    return render_template("inventario_eventos.html", corrente=corrente,
+    return render_template("inventario_eventos.html", corrente=corrente, aberto=corrente,
                            eventos=[e for e in visiveis if corrente is None or e["id"] != corrente["id"]],
                            pode_administrar=_pode("admin.tela"), pode_relatorios=_pode("inventario.relatorio_tela"),
                            trilha=_trilha())

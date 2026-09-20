@@ -516,15 +516,19 @@ def _abrir(cliente, comissao=("Fulano", "Beltrana")):
 
 def test_inventario_eventos_abrir_e_encerrar(cliente):
     # A tela de abrir/fechar inventário e a comissão migraram para /administracao (Tarefa 4); /inventario
-    # é só consulta dos eventos visíveis a quem pediu.
+    # é só consulta dos eventos visíveis a quem pediu, mas continua trazendo o cartão do evento corrente.
+    import db, inventario
     r = cliente.get("/inventario")
     assert r.status_code == 200 and "Nenhum inventário atribuído a você".encode() in r.data
     r = cliente.post("/inventario/abrir", data={"nome": "Inventário 2026", "descricao": "Portaria 1", "usuarios": _ids("Fulano", "Beltrana"), "escopo": "todas"}, follow_redirects=True)
-    assert "Inventário 2026".encode() in r.data and b"01 - SALA CCI" in r.data and b"99 - SEM MAPA" in r.data
+    assert "Inventário 2026".encode() in r.data
+    eid1 = inventario.evento_aberto(db.conectar())["id"]
+    assert b"01 - SALA CCI" in cliente.get(f"/inventario/{eid1}").data and b"99 - SEM MAPA" in cliente.get(f"/inventario/{eid1}").data
+    r = cliente.get("/inventario")
+    assert b"Salas e leitura" in r.data and "Aberto em".encode() in r.data and "Inventário 2026".encode() in r.data   # cartão do evento corrente, não a mensagem de vazio
     assert "Inventário".encode() in cliente.get("/").data                          # menu
     r = cliente.post("/inventario/abrir", data={"nome": "Outro", "usuarios": _ids("Fulano"), "escopo": "todas", "abrir_agora": "1"}, follow_redirects=True)
     assert b"Outro" in r.data                                          # chave única: abrir fecha o anterior, não recusa
-    import db, inventario
     eid = inventario.evento_aberto(db.conectar())["id"]
     assert inventario.evento(db.conectar(), eid)["nome"] == "Outro"
     assert b"Comiss" in cliente.get(f"/inventario/{eid}").data

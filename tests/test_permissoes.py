@@ -85,6 +85,9 @@ _ROTAS_POST = {
     "/cadastros/responsaveis/excluir": {"admin": 200, "operador": 403, "inventariante": 403, "consulta": 403},
     "/importar-cadastros": {"admin": 302, "operador": 403, "inventariante": 403, "consulta": 403},
     "/inventario/abrir": {"admin": 302, "operador": 403, "inventariante": 403, "consulta": 403},
+    # sem evento id=1 semeado neste teste: admin passa da permissão e esbarra no 404 da rota
+    "/inventario/1/abrir": {"admin": 404, "operador": 403, "inventariante": 403, "consulta": 403},
+    "/inventario/1/fechar": {"admin": 404, "operador": 403, "inventariante": 403, "consulta": 403},
     "/termo/ccusto/CCI/enviar-sei": {"admin": 302, "operador": 302, "inventariante": 403, "consulta": 403},
     "/termos-emitidos/1/enviar-sei": {"admin": 404, "operador": 404, "inventariante": 403, "consulta": 403},
     "/atualizar-base/spw": {"admin": 302, "operador": 403, "inventariante": 403, "consulta": 403},
