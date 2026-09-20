@@ -26,10 +26,10 @@
   {% elif estado == 'concluido' %}
   <p class="mb-2"><i class="fas fa-check-circle text-success mr-1" aria-hidden="true"></i>Emitido no SEI em {{ pedido.terminado_em[8:10] }}/{{ pedido.terminado_em[5:7] }}/{{ pedido.terminado_em[:4] }} {{ pedido.terminado_em[11:16] }}: documento {{ t.documento_sei }}, bloco {{ t.bloco_sei }}.</p>
   {% endif %}
-  {% if estado in ('inicial', 'manual', 'erro') and pode('termo_emitido_documento', 'POST') %}
+  {% if estado in ('inicial', 'manual', 'erro', 'erro_bloco') and pode('termo_emitido_documento', 'POST') %}
   <form method="post" action="{{ url_for('termo_emitido_documento', id=t.id) }}" class="d-flex align-items-end flex-wrap">{{ csrf_campo() }}
     {% if not t.documento_sei %}<div class="br-input mr-2"><label for="numero_termo">Número do termo</label><input id="numero_termo" name="numero_termo" type="text" value="{{ t.numero_termo or '' }}" placeholder="NN/AAAA"/></div>{% endif %}
-    <div class="br-input mr-2"><label for="documento_sei">Documento no SEI</label><input id="documento_sei" name="documento_sei" type="text" value="{{ t.documento_sei or '' }}"/></div>
+    <div class="br-input mr-2"><label for="documento_sei">Documento no SEI</label><input id="documento_sei" name="documento_sei" type="text" value="{{ t.documento_sei or '' }}"{% if estado == 'erro_bloco' %} readonly{% endif %}/></div>
     <div class="br-input mr-2"><label for="bloco_sei">Bloco de assinatura</label><input id="bloco_sei" name="bloco_sei" type="text" value="{{ t.bloco_sei or '' }}"/></div>
     <button class="br-button secondary" type="submit"><i class="fas fa-save mr-1" aria-hidden="true"></i>Salvar</button>
   </form>

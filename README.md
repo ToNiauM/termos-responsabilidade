@@ -230,7 +230,7 @@ estão fixas no `Dockerfile`), mas os scripts de spike em `docs/superpowers/note
 | `app.py` | rotas Flask |
 | `app_cadastros.py` | navegação, formulários e revisão das alterações de cadastros |
 | `db.py` | esquema, importação, consultas, cadastros |
-| `termos_html.py` | corpo HTML dos termos (padrão gelic; tabelas 80 % / 100 %) |
+| `termos_html.py` | corpo HTML dos termos (padrão gelic; tabelas 90 %) |
 | `textos.py` | textos padrão dos termos e marcadores |
 | `Script_Termo_Individual.py`, `Termo_de_Responsabilidade.py`, `termo_devolucao.py` | geradores `.docx` |
 | `config.py` | pasta de dados (`TERMOS_DADOS` sobrepõe) |

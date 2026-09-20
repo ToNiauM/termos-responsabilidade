@@ -1,10 +1,12 @@
-"""Trabalhador do host: atende a fila robo_pedidos (emissão no SEI e atualização com o SPW), um pedido por vez.
+"""Trabalhador da fila robo_pedidos (emissão no SEI e atualização com o SPW), um pedido por vez.
 
-    .venv-robo/bin/python atender_pedidos.py
+Roda dentro do container `robo` do compose (alvo `robo` do Dockerfile, com Playwright):
 
-Serviço systemd em ops/termos-robo.service (ver README). Lock dados/robo.lock compartilhado com
-atualizar_base.sh (cron do SPW). Log de exceções em dados/robo_pedidos.log. Sem este processo o site
-funciona: os pedidos ficam "aguardando a vez" e a tela avisa depois de 2 minutos.
+    docker compose up -d robo
+
+Lock dados/robo.lock compartilhado com atualizar_base.sh (mesmo arquivo em host e container, pelo volume
+./dados:/app/dados). Log de exceções em dados/robo_pedidos.log. Sem este processo o site funciona: os
+pedidos ficam "aguardando a vez" e a tela avisa depois de 2 minutos.
 """
 import fcntl
 import sys
@@ -94,6 +96,12 @@ def laco(conn, intervalo: float = INTERVALO_S, executores: dict | None = None, c
         _registrar(f"{reenfileirados} pedido(s) órfão(s) voltaram à fila")
     while continuar():
         if atender_um(conn, executores, lock) is None:
+            # Fila ociosa: este trabalhador não tem nada em andamento, então qualquer pedido preso em
+            # passo intermediário há mais de 10 min é órfão de verdade (reinício rápido demais para o
+            # requeue do início pegar). O prazo ainda protege uma segunda instância rodando à mão.
+            reenfileirados = db.pedidos_orfaos_para_aguardando(conn)
+            if reenfileirados:
+                _registrar(f"{reenfileirados} pedido(s) órfão(s) voltaram à fila")
             dormir(intervalo)
 
 

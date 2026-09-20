@@ -1,12 +1,14 @@
 """Robô do SPW: entra no sistema de patrimônio, exporta a relação de bens e importa em termos.db.
 
-Roda no host, fora do container, com o venv que tem Playwright + xlrd:
+Roda dentro do container `robo` do compose (alvo `robo` do Dockerfile, com Playwright + xlrd): pela fila
+(atender_pedidos.py, pedido tipo "spw") ou na hora, fora da fila, com
 
-    .venv-robo/bin/python importar_spw.py
+    docker compose exec -T robo python importar_spw.py
 
-Cron (dias úteis, 4h): ver README "Robô do SPW". Segredos em secrets/spw.env (SPW_USUARIO, SPW_SENHA,
-SPW_LOGIN_URL, SPW_CONSULTA_URL). Resultado de cada execução fica em robo_execucoes e aparece no Início.
-playwright e xlrd são importados dentro das funções: os testes rodam sem eles.
+(é o que atualizar_base.sh chama; cron dias úteis, 4h, ver README "Robô do SPW"). Segredos em
+secrets/spw.env, montado em /app/secrets (SPW_USUARIO, SPW_SENHA, SPW_LOGIN_URL, SPW_CONSULTA_URL).
+Resultado de cada execução fica em robo_execucoes e aparece no Início. playwright e xlrd são importados
+dentro das funções: os testes rodam sem eles.
 """
 import hashlib
 import io

@@ -1223,6 +1223,7 @@ def test_emitir_sem_processo_ou_sem_unidade_avisa(cliente):
     r = cliente.post("/termo/individual/ANA%20SILVA/enviar-sei", follow_redirects=True)
     assert "Cadastre a unidade SEI de ANA SILVA".encode() in r.data
     assert db.pedido_do_termo(db.conectar(), 1) is None
+    assert db.termos_emitidos(db.conectar()) == []   # sem unidade: nenhum registro fantasma, sem documento
 
 
 def test_estados_da_pagina_do_termo_emitido(cliente, dados):
@@ -1267,6 +1268,20 @@ def test_erro_preenchido_a_mao_volta_ao_estado_manual(cliente, dados):
     assert b"Enviar email" in r.data and b'class="br-button primary mr-3"' in r.data
 
 
+def test_erro_bloco_permite_digitar_o_bloco_a_mao(cliente, dados):
+    _processo_ccusto(cliente)
+    cliente.post("/termo/ccusto/CCI/enviar-sei")
+    p = db.pedido_do_termo(dados, 1)
+    db.salvar_documento_sei(dados, 1, "1557099", "")
+    db.marcar_passo(dados, p["id"], "erro", "Bloco 'Termos CCI' não existe no SEI; crie o bloco e clique em Incluir no bloco.")
+    r = cliente.get("/termos-emitidos/1")
+    assert b'name="bloco_sei"' in r.data and b"Incluir no bloco" in r.data
+    assert b'name="documento_sei" type="text" value="1557099" readonly' in r.data
+    r = cliente.post("/termos-emitidos/1/documento", data={"documento_sei": "1557099", "bloco_sei": "69766"}, follow_redirects=True)
+    assert b"Enviar email" in r.data and b"Incluir no bloco" not in r.data
+    assert "Não foi possível emitir no SEI.".encode() not in r.data
+
+
 def test_pagina_sem_pedido_mantem_campos_manuais_e_numero_editavel(cliente, dados):
     _processo_ccusto(cliente)
     j = cliente.post("/termo/ccusto/CCI/registrar").get_json()
@@ -1286,3 +1301,15 @@ def test_pagina_sem_pedido_mantem_campos_manuais_e_numero_editavel(cliente, dado
 def test_desktop_nao_mostra_emitir_no_sei(cliente_local):
     cliente_local.post("/cadastros/processos/incluir", data={"tipo": "ccusto", "descricao": "T", "numero_sei": "2222", "vigente": "1"})
     assert b"Emitir Termo no SEI" not in cliente_local.get("/termo/ccusto/CCI").data
+
+
+def test_desktop_recusa_post_que_dependem_da_fila(cliente_local):
+    """Sem TERMOS_LOGIN não há trabalhador atendendo robo_pedidos: estas três rotas ficariam com pedidos parados."""
+    cliente_local.post("/cadastros/processos/incluir", data={"tipo": "ccusto", "descricao": "T", "numero_sei": "2222", "vigente": "1"})
+    assert cliente_local.post("/termo/ccusto/CCI/enviar-sei").status_code == 403
+    assert db.pedido_do_termo(db.conectar(), 1) is None
+    j = cliente_local.post("/termo/ccusto/CCI/registrar").get_json()
+    assert cliente_local.post(f"/termos-emitidos/{j['id']}/enviar-sei").status_code == 403
+    assert db.pedido_do_termo(db.conectar(), j["id"]) is None
+    assert cliente_local.post("/atualizar-base/spw").status_code == 403
+    assert db.pedido_spw_ativo(db.conectar()) is None

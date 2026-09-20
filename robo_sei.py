@@ -1,5 +1,6 @@
 """Emissão de termos no SEI: cria o documento no processo vigente, cola o termo e inclui no bloco
-"Termos {UNIDADE}". Roda só no host (.venv-robo, Playwright); a suíte usa um SEI falso.
+"Termos {UNIDADE}". Roda dentro do container `robo` do compose (alvo `robo` do Dockerfile, com
+Playwright), chamado por atender_pedidos.py; a suíte usa um SEI falso.
 
 Seletores provados em 2026-09-20 (docs/superpowers/notes/2026-09-20-spike-sei-escrita/README.md).
 `playwright` é importado dentro de `abrir_sei`: o módulo importa sem ele.

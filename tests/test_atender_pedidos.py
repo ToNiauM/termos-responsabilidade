@@ -1,4 +1,6 @@
 """Laço de atendimento com executores falsos: FIFO, um por vez, erro não derruba, órfão volta à fila."""
+from datetime import datetime, timedelta
+
 import pytest
 
 import atender_pedidos as ap
@@ -61,6 +63,36 @@ def test_laco_recoloca_orfaos_e_para_quando_mandado(dados):
     ap.laco(dados, intervalo=0, executores={"spw": spw, "sei": None}, continuar=lambda: len(voltas) < 3,
             dormir=lambda s: voltas.append(s))
     assert atendidos == [a] and voltas == [0, 0, 0]
+
+
+def test_laco_recoloca_orfao_surgido_durante_a_espera_ociosa(dados, monkeypatch):
+    """O requeue do início do laço só roda uma vez: um pedido que só completa os 10 min depois (reinício
+    rápido demais) tem que ser pego numa volta ociosa seguinte, não só no arranque."""
+    semear(dados)
+    pid = _sei_pedido(dados)
+    db.marcar_passo(dados, pid, "rodando")
+    limite = (datetime.now() - timedelta(minutes=11)).strftime("%Y-%m-%d %H:%M:%S")
+    dados.execute("UPDATE robo_pedidos SET iniciado_em = ? WHERE id = ?", (limite, pid)); dados.commit()
+
+    chamadas = []
+    original = db.pedidos_orfaos_para_aguardando
+
+    def requeue_so_na_segunda_chamada(conn, *a, **k):
+        # simula o requeue do início do laço não pegando o órfão ainda (a folga de 10 min só se
+        # completa depois); a chamada de verdade só acontece daqui pra frente.
+        chamadas.append(1)
+        return 0 if len(chamadas) == 1 else original(conn, *a, **k)
+    monkeypatch.setattr(db, "pedidos_orfaos_para_aguardando", requeue_so_na_segunda_chamada)
+
+    atendidos = []
+
+    def sei(conn, pedido):
+        atendidos.append(pedido["id"]); db.marcar_passo(conn, pedido["id"], "concluido", "ok")
+    voltas = []
+    ap.laco(dados, intervalo=0, executores={"sei": sei, "spw": None}, continuar=lambda: len(voltas) < 2,
+            dormir=lambda s: voltas.append(s))
+    assert atendidos == [pid]
+    assert db.pedido(dados, pid)["passo"] == "concluido"
 
 
 def test_executar_spw_usa_importar_spw_e_grava_passos(dados, monkeypatch):

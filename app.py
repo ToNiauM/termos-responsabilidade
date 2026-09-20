@@ -434,6 +434,13 @@ def _html_do_registro(conn, t: dict) -> str:
     return termos_html.corpo_devolucao(t["chave"], t["bens"], textos=tx)
 
 
+def _exigir_fila():
+    """No desktop (sem TERMOS_LOGIN) não há trabalhador atendendo robo_pedidos: o pedido ficaria
+    "aguardando a vez" para sempre. Estas rotas só existem com a fila ligada."""
+    if not config.exigir_login():
+        abort(403)
+
+
 def _enfileirar_emissao(conn, termo_id: int) -> None:
     t = db.preparar_envio_sei(conn, termo_id)
     usuario = getattr(g, "usuario", None) or {}
@@ -443,9 +450,11 @@ def _enfileirar_emissao(conn, termo_id: int) -> None:
 @app.route("/termo/<tipo>/<chave>/enviar-sei", methods=["POST"])
 def termo_enviar_sei(tipo, chave):
     """Emitir Termo no SEI: registra a emissão (como o Copiar), numera e enfileira; a página do registro acompanha."""
+    _exigir_fila()
     conn = obter_conn()
     if (volta := _exigir_processo(conn, tipo, chave)):
         return volta
+    db.unidade_sei(conn, tipo, chave)   # valida antes de registrar: sem unidade, nenhum termo fantasma fica gravado
     _, _, bens, _ = _bens_do_termo(conn, tipo, chave)
     t = db.registrar_emissao(conn, tipo, chave, bens)
     _enfileirar_emissao(conn, t["id"])
@@ -539,6 +548,7 @@ def termo_emitido_email(id):
 @app.route("/termos-emitidos/<int:id>/enviar-sei", methods=["POST"])
 def termo_emitido_enviar_sei(id):
     """Emitir de novo (ou só incluir no bloco, quando o documento já existe) sem registrar outra emissão."""
+    _exigir_fila()
     conn = obter_conn()
     db.termo_emitido(conn, id) or abort(404)
     _enfileirar_emissao(conn, id)
@@ -567,6 +577,7 @@ def upload():
 @app.route("/atualizar-base/spw", methods=["POST"])
 def base_atualizar_spw():
     """Atualizar com SPW: enfileira a atualização; quem atende é o mesmo trabalhador da emissão no SEI."""
+    _exigir_fila()
     usuario = getattr(g, "usuario", None) or {}
     db.enfileirar_pedido(obter_conn(), "spw", criado_por=usuario.get("login"))
     flash("Atualização com o SPW iniciada.", "success")
