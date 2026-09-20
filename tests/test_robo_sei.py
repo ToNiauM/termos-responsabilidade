@@ -1,6 +1,7 @@
 """Orquestração do envio ao SEI sem navegador: um SEI falso registra as chamadas."""
 from contextlib import contextmanager
 
+import config
 import db
 import robo_sei
 from tests.conftest import semear
@@ -10,8 +11,8 @@ ENV = {"SEI_USUARIO": "u", "SEI_SENHA": "s", "SEI_LOGIN_URL": "https://sei.cfc.o
 
 class SEIFalso:
     def __init__(self, arvore=None, falhar_em=None, autenticado=True, titulo_ok=True, bloco_existe=True,
-                 tipo_existe=True, unidades_ok=True):
-        self.chamadas, self.arvore = [], dict(arvore or {})
+                 tipo_existe=True, unidades_ok=True, avisos=()):
+        self.chamadas, self.arvore, self.avisos = [], dict(arvore or {}), list(avisos)
         self.falhar_em, self.autenticado, self.titulo_ok = falhar_em, autenticado, titulo_ok
         self.bloco_existe, self.tipo_existe, self.saiu = bloco_existe, tipo_existe, False
         self.unidades_ok = unidades_ok
@@ -32,6 +33,8 @@ class SEIFalso:
 
     def logout(self):
         self.saiu = True
+
+    anotar = robo_sei.SEI.anotar                       # grava dados/sei/erro.txt como o robô real
 
     def abrir_processo(self, numero):
         self.chamadas.append(("abrir_processo", numero))
@@ -178,6 +181,16 @@ def test_login_recusado_tipo_inexistente_e_timeout(dados):
     r = robo_sei.enviar_termo(dados, p, abrir=_abrir(SEIFalso(falhar_em="bloco")), env=ENV)
     assert r["mensagem"] == "O SEI não respondeu a tempo ao incluir no bloco de assinatura."
     assert db.termo_emitido(dados, p["termo_id"])["documento_sei"] == "1557099"          # criado antes do timeout
+
+
+def test_timeout_mostra_o_aviso_do_sei_e_grava_erro_bruto(dados, tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "pasta_dados", lambda: tmp_path)
+    p, _ = _pedido(dados)
+    sei = SEIFalso(falhar_em="documento", avisos=["Informe a Descrição do documento."])
+    r = robo_sei.enviar_termo(dados, p, abrir=_abrir(sei), env=ENV)
+    assert r["mensagem"] == "O SEI não respondeu a tempo ao criar o documento. O SEI avisou: «Informe a Descrição do documento.»"
+    nota = (tmp_path / "sei" / "erro.txt").read_text(encoding="utf-8")
+    assert "passo: documento" in nota and "Timeout 30000ms exceeded em documento" in nota and "Informe a Descrição" in nota
 
 
 def test_env_ausente_vira_erro_legivel(dados):

@@ -66,11 +66,28 @@ class SEI:
 
     def __init__(self, context, timeout_s: int = TIMEOUT_S):
         self.ctx, self.t = context, timeout_s
+        self.avisos: list[str] = []                  # alert/confirm que o SEI mostrou (descartados, mas guardados p/ diagnóstico)
+        context.on("page", self._vigiar_dialogos)
         self.p = context.new_page()
         self.p.set_default_timeout(timeout_s * 1000)
         self._saiu = False
 
+    def _vigiar_dialogos(self, page) -> None:
+        def dialogo(d):
+            self.avisos.append(d.message.strip())
+            d.dismiss()
+        page.on("dialog", dialogo)
+
     # --- infraestrutura ---
+    def anotar(self, texto: str, nome: str = "erro.txt") -> None:
+        """Erro bruto (exceção, passo, avisos do SEI) ao lado de erro.png — só para quem depura o robô."""
+        try:
+            pasta = config.pasta_dados() / PASTA_SEI
+            pasta.mkdir(parents=True, exist_ok=True)
+            (pasta / nome).write_text(texto, encoding="utf-8")
+        except OSError:
+            pass
+
     def foto(self, nome: str = "erro.png", page=None) -> None:
         try:
             pasta = config.pasta_dados() / PASTA_SEI
@@ -139,13 +156,7 @@ class SEI:
         if partes.scheme != "https" or partes.hostname not in HOSTS:
             raise RoboErro("SEI_LOGIN_URL inesperada em secrets/sei.env")
         self.p.goto(url, wait_until="domcontentloaded")
-        recusado = []
-
-        def dialogo(d):
-            if "inválid" in d.message.casefold():
-                recusado.append(True)
-            d.dismiss()
-        self.p.on("dialog", dialogo)
+        vistos = len(self.avisos)
         self.p.select_option("#selOrgao", label=env.get("SEI_ORGAO", "CFC"))
         self.p.fill("#txtUsuario", env["SEI_USUARIO"])
         self.p.fill("#pwdSenha", env["SEI_SENHA"])
@@ -153,7 +164,7 @@ class SEI:
         logado = False
         fim = time.time() + self.t
         while time.time() < fim:
-            if recusado:
+            if any("inválid" in a.casefold() for a in self.avisos[vistos:]):
                 break                                # usuário/senha recusados: o diálogo já respondeu, não vale esperar o timeout inteiro
             try:
                 if self.p.locator("#txtPesquisaRapida").count():
@@ -329,9 +340,12 @@ def abrir_sei(env: dict):
 AO_PASSO = {"login": "entrar no SEI", "documento": "criar o documento", "bloco": "incluir no bloco de assinatura"}
 
 
-def _mensagem_de(exc: Exception, passo: str) -> str:
+def _mensagem_de(exc: Exception, passo: str, avisos=()) -> str:
     if isinstance(exc, TempoEsgotado) or type(exc).__name__ == "TimeoutError":
-        return f"O SEI não respondeu a tempo ao {AO_PASSO[passo]}."
+        m = f"O SEI não respondeu a tempo ao {AO_PASSO[passo]}."
+        if avisos:                                      # o SEI mostrou um alert/confirm que o robô descartou: é a causa provável
+            m += f" O SEI avisou: «{avisos[-1][:200]}»"
+        return m
     return (str(exc) or type(exc).__name__)[:500]
 
 
@@ -341,7 +355,7 @@ def enviar_termo(conn, pedido: dict, abrir=None, env: dict | None = None) -> dic
     abrir = abrir or abrir_sei
     pid = pedido["id"]
     termo = db.termo_emitido(conn, pedido["termo_id"])
-    passo = "login"
+    passo, avisos = "login", []
     try:
         if termo is None:
             raise RoboErro("Termo emitido não existe mais.")
@@ -371,8 +385,12 @@ def enviar_termo(conn, pedido: dict, abrir=None, env: dict | None = None) -> dic
                 db.marcar_passo(conn, pid, "bloco")
                 bloco = sei.incluir_em_bloco(numero, nome_bloco)
                 db.salvar_documento_sei(conn, termo["id"], numero, bloco)
-            except Exception:
+            except Exception as exc:
                 getattr(sei, "foto", lambda *_: None)("erro.png")
+                avisos = getattr(sei, "avisos", [])
+                getattr(sei, "anotar", lambda *_: None)(
+                    f"{db._agora()} pedido {pid} termo {termo['id']} passo: {passo}\n{exc!r}\n"
+                    + "".join(f"aviso do SEI: {a}\n" for a in avisos))
                 raise
             finally:
                 sei.logout()
@@ -380,7 +398,7 @@ def enviar_termo(conn, pedido: dict, abrir=None, env: dict | None = None) -> dic
         db.marcar_passo(conn, pid, "concluido", mensagem)
         return {"passo": "concluido", "mensagem": mensagem, "documento_sei": numero, "bloco_sei": bloco}
     except Exception as exc:
-        mensagem = _mensagem_de(exc, passo)
+        mensagem = _mensagem_de(exc, passo, avisos)
         db.marcar_passo(conn, pid, "erro", mensagem)
         t = db.termo_emitido(conn, pedido["termo_id"]) or {}
         return {"passo": "erro", "mensagem": mensagem, "documento_sei": t.get("documento_sei"), "bloco_sei": t.get("bloco_sei")}
