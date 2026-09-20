@@ -376,7 +376,7 @@ def test_termos_emitidos_lista_detalhe_e_documento_sei(cliente):
     r = cliente.get(f"/termos-emitidos/{tid}")
     assert b"CADEIRA" in r.data and b"1001" in r.data and b'name="documento_sei"' in r.data
     r = cliente.post(f"/termos-emitidos/{tid}/documento", data={"documento_sei": "0459999"}, follow_redirects=True)
-    assert b"0459999" in r.data and b"Informe documento e bloco" in r.data and b"mailto:" not in r.data
+    assert b"0459999" in r.data and b"informe documento e bloco" in r.data and b"mailto:" not in r.data
     # com documento + bloco e e-mail do responsável (CCI tem j@cfc.org.br): link mailto com assunto e corpo
     r = cliente.post(f"/termos-emitidos/{tid}/documento", data={"documento_sei": "0459999", "bloco_sei": "77"}, follow_redirects=True)
     html = r.data.decode()
@@ -384,7 +384,7 @@ def test_termos_emitidos_lista_detalhe_e_documento_sei(cliente):
     assert "Prezado%28a%29%20Jaqueline%2C" in html and "Jaqueline%20Portela" not in html    # só o primeiro nome
     assert "E-mail não enviado" in html
     r = cliente.post(f"/termos-emitidos/{tid}/email", follow_redirects=True)
-    assert "E-mail enviado em" in r.data.decode() and "Enviar e-mail novamente" in r.data.decode()
+    assert "E-mail enviado em" in r.data.decode() and "Enviar email novamente" in r.data.decode()
     assert b"0459999" in cliente.get("/termos-emitidos").data and b"77" in cliente.get("/termos-emitidos").data
     assert cliente.get("/termos-emitidos/999").status_code == 404
     assert b"Termos emitidos" in cliente.get("/").data    # menu
@@ -1154,3 +1154,91 @@ def test_formularios_de_cadastro_tem_unidade_sei(cliente):
     assert db.pessoa(db.conectar(), "BEA")["unidade_sei"] == "GECONT"
     cliente.post("/cadastros/responsaveis/CCI/editar", data={"ccustos": "CCI", "responsavel": "J", "unidade_sei": "GAB"})
     assert db.responsavel(db.conectar(), "CCI")["unidade_sei"] == "GAB"
+
+
+def _processo_ccusto(cliente):
+    cliente.post("/cadastros/processos/incluir", data={"tipo": "ccusto", "descricao": "T", "numero_sei": "2222", "vigente": "1"})
+
+
+def test_botao_emitir_no_sei_na_pagina_do_termo(cliente):
+    assert b"Emitir Termo no SEI" not in cliente.get("/termo/ccusto/CCI").data      # sem processo vigente
+    _processo_ccusto(cliente)
+    r = cliente.get("/termo/ccusto/CCI")
+    assert b"Emitir Termo no SEI" in r.data and b'action="/termo/ccusto/CCI/enviar-sei"' in r.data
+    assert "robô".encode() not in r.data
+
+
+def test_emitir_registra_numera_e_enfileira(cliente):
+    _processo_ccusto(cliente)
+    r = cliente.post("/termo/ccusto/CCI/enviar-sei")
+    assert r.status_code == 302 and r.headers["Location"].endswith("/termos-emitidos/1")
+    conn = db.conectar()
+    t = db.termo_emitido(conn, 1)
+    assert t["numero_termo"].endswith(f"/{db._agora()[:4]}") and t["unidade_sei"] == "CCI"
+    p = db.pedido_do_termo(conn, 1)
+    assert p["tipo"] == "sei" and p["passo"] == "aguardando" and p["criado_por"] == "admin"
+    assert "Termo de Responsabilidade - CCI" in p["html"] and "text-align:justify" in p["html"]
+    r = cliente.get("/termos-emitidos/1")
+    assert b"Emitindo no SEI" in r.data and b"aguardando a vez" in r.data and b'http-equiv="refresh" content="5"' in r.data
+    assert b"Emitir Termo no SEI" not in r.data and b'name="documento_sei"' not in r.data
+    r = cliente.post("/termo/ccusto/CCI/enviar-sei", follow_redirects=True)           # segundo clique
+    assert "Já há uma emissão deste termo em andamento.".encode() in r.data
+    assert b"enviando" in cliente.get("/termos-emitidos").data
+
+
+def test_emitir_sem_processo_ou_sem_unidade_avisa(cliente):
+    r = cliente.post("/termo/ccusto/CCI/enviar-sei", follow_redirects=True)
+    assert b"Cadastre um processo SEI vigente" in r.data
+    cliente.post("/cadastros/processos/incluir", data={"tipo": "individual", "descricao": "T", "numero_sei": "1111", "vigente": "1"})
+    r = cliente.post("/termo/individual/ANA%20SILVA/enviar-sei", follow_redirects=True)
+    assert "Cadastre a unidade SEI de ANA SILVA".encode() in r.data
+    assert db.pedido_do_termo(db.conectar(), 1) is None
+
+
+def test_estados_da_pagina_do_termo_emitido(cliente, dados):
+    _processo_ccusto(cliente)
+    cliente.post("/termo/ccusto/CCI/enviar-sei")
+    p = db.pedido_do_termo(dados, 1)
+    db.marcar_passo(dados, p["id"], "documento")
+    assert b"criando o documento" in cliente.get("/termos-emitidos/1").data
+    # parado: aguardando há mais de 2 min
+    db.marcar_passo(dados, p["id"], "aguardando")
+    dados.execute("UPDATE robo_pedidos SET criado_em = '2020-01-01 00:00:00' WHERE id = ?", (p["id"],)); dados.commit()
+    assert "A emissão ainda não começou; avise o administrador.".encode() in cliente.get("/termos-emitidos/1").data
+    # erro sem documento → botão de novo
+    db.marcar_passo(dados, p["id"], "erro", "O SEI recusou usuário ou senha.")
+    r = cliente.get("/termos-emitidos/1")
+    assert b"O SEI recusou" in r.data and b"Emitir Termo no SEI" in r.data and b'action="/termos-emitidos/1/enviar-sei"' in r.data
+    assert b'http-equiv="refresh"' not in r.data
+    # erro com documento → Incluir no bloco
+    db.salvar_documento_sei(dados, 1, "1557099", "")
+    db.marcar_passo(dados, p["id"], "erro", "Bloco 'Termos CCI' não existe no SEI; crie o bloco e clique em Incluir no bloco.")
+    r = cliente.get("/termos-emitidos/1")
+    assert b"Incluir no bloco" in r.data and b"1557099" in r.data and b"Emitir Termo no SEI" not in r.data
+    r = cliente.post("/termos-emitidos/1/enviar-sei")
+    assert r.status_code == 302 and db.pedido_do_termo(dados, 1)["passo"] == "aguardando"
+    # concluído → e-mail
+    db.salvar_documento_sei(dados, 1, "1557099", "69766")
+    db.marcar_passo(dados, db.pedido_do_termo(dados, 1)["id"], "concluido", "documento 1557099 no bloco 69766")
+    r = cliente.get("/termos-emitidos/1")
+    assert b"Emitido no SEI em" in r.data and b"documento 1557099, bloco 69766" in r.data
+    assert b"Enviar email" in r.data and b"mailto:" in r.data and b"Emitir Termo no SEI" not in r.data
+
+
+def test_pagina_sem_pedido_mantem_campos_manuais_e_numero_editavel(cliente, dados):
+    _processo_ccusto(cliente)
+    j = cliente.post("/termo/ccusto/CCI/registrar").get_json()
+    r = cliente.get(f"/termos-emitidos/{j['id']}")
+    assert b'name="documento_sei"' in r.data and b'name="numero_termo"' in r.data and b"Emitir Termo no SEI" in r.data
+    cliente.post(f"/termos-emitidos/{j['id']}/documento", data={"documento_sei": "", "bloco_sei": "", "numero_termo": "07/2026"})
+    assert db.termo_emitido(dados, j["id"])["numero_termo"] == "07/2026"
+    r = cliente.post(f"/termos-emitidos/{j['id']}/documento", data={"documento_sei": "", "bloco_sei": "", "numero_termo": "x"}, follow_redirects=True)
+    assert b"NN/AAAA" in r.data
+    cliente.post(f"/termos-emitidos/{j['id']}/documento", data={"documento_sei": "123", "bloco_sei": "9", "numero_termo": "07/2026"})
+    r = cliente.get(f"/termos-emitidos/{j['id']}")
+    assert b"Emitir Termo no SEI" not in r.data and b"Enviar email" in r.data          # preenchido à mão: como hoje
+
+
+def test_desktop_nao_mostra_emitir_no_sei(cliente_local):
+    cliente_local.post("/cadastros/processos/incluir", data={"tipo": "ccusto", "descricao": "T", "numero_sei": "2222", "vigente": "1"})
+    assert b"Emitir Termo no SEI" not in cliente_local.get("/termo/ccusto/CCI").data

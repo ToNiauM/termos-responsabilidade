@@ -135,7 +135,7 @@ def contexto_dsgov():
     usuario = getattr(g, "usuario", None)
     contexto = {"DSGOV": dsgov, "USUARIO": usuario, "MENU": [], "CSRF": _csrf_token(),
                 "URL_INICIAL": url_for("home"), "pode": lambda *_a, **_k: False,
-                "SECOES_AJUDA": [], "AJUDA_ANCORA": None}
+                "SECOES_AJUDA": [], "AJUDA_ANCORA": None, "LOGIN_ATIVO": config.exigir_login()}
     if not usuario:
         return contexto
     funcoes = usuario["funcoes"]
@@ -424,6 +424,34 @@ def termo_registrar(tipo, chave):
     return {"id": t["id"], "emitido_em": t["emitido_em"]}
 
 
+def _html_do_registro(conn, t: dict) -> str:
+    """O mesmo corpo que o Copiar cola, gerado a partir da foto do registro (não dos bens de hoje)."""
+    tx = textos.obter(conn)
+    if t["tipo"] == "ccusto":
+        return termos_html.corpo_ccusto(t["chave"], db.responsavel(conn, t["chave"]) or {}, t["bens"], textos=tx)
+    if t["tipo"] == "individual":
+        return termos_html.corpo_individual(t["chave"], t["bens"], textos=tx)
+    return termos_html.corpo_devolucao(t["chave"], t["bens"], textos=tx)
+
+
+def _enfileirar_emissao(conn, termo_id: int) -> None:
+    t = db.preparar_envio_sei(conn, termo_id)
+    usuario = getattr(g, "usuario", None) or {}
+    db.enfileirar_pedido(conn, "sei", termo_id=t["id"], html=_html_do_registro(conn, t), criado_por=usuario.get("login"))
+
+
+@app.route("/termo/<tipo>/<chave>/enviar-sei", methods=["POST"])
+def termo_enviar_sei(tipo, chave):
+    """Emitir Termo no SEI: registra a emissão (como o Copiar), numera e enfileira; a página do registro acompanha."""
+    conn = obter_conn()
+    if (volta := _exigir_processo(conn, tipo, chave)):
+        return volta
+    _, _, bens, _ = _bens_do_termo(conn, tipo, chave)
+    t = db.registrar_emissao(conn, tipo, chave, bens)
+    _enfileirar_emissao(conn, t["id"])
+    return redirect(url_for("termo_emitido_tela", id=t["id"]))
+
+
 @app.route("/termo/ccusto/<chave>/planilha")
 def termo_planilha(chave):
     _, _, bens, _ = _bens_do_termo(obter_conn(), "ccusto", chave)
@@ -456,12 +484,25 @@ def _mailto(conn, t, nome, email):
     return f"mailto:{quote(email, safe='@')}?subject={quote(assunto)}&body={quote(corpo)}"
 
 
+def _estado_emissao(t: dict, pedido: dict | None) -> str:
+    if pedido and pedido["passo"] in db.PASSOS_ATIVOS:
+        return "andamento"
+    if pedido and pedido["passo"] == "concluido" and t["documento_sei"] and t["bloco_sei"]:
+        return "concluido"
+    if pedido and pedido["passo"] == "erro":
+        return "erro_bloco" if t["documento_sei"] else "erro"
+    return "manual" if t["documento_sei"] else "inicial"
+
+
 @app.route("/termos-emitidos/<int:id>")
 def termo_emitido_tela(id):
     conn = obter_conn()
     t = db.termo_emitido(conn, id) or abort(404)
     nome, email = _destinatario(conn, t)
+    pedido = db.pedido_do_termo(conn, id)
     return render_template("termo_emitido.html", t=t, rotulos=db.ROTULO_TIPO, email=email, mailto=_mailto(conn, t, nome, email),
+                           pedido=pedido, estado=_estado_emissao(t, pedido), parado=db.pedido_parado(pedido),
+                           descricao_passo=db.DESCRICAO_PASSO,
                            trilha=[("Termos emitidos", url_for("termos_emitidos_tela")), (f"Registro {id}", None)])
 
 
@@ -469,13 +510,16 @@ def termo_emitido_tela(id):
 def termos_emitidos_tela():
     tipo, chave = request.args.get("tipo") or None, request.args.get("chave", "").strip() or None
     return render_template("termos_emitidos.html", termos=db.termos_emitidos(obter_conn(), tipo, chave),
-                           tipo=tipo, chave=chave, rotulos=db.ROTULO_TIPO, trilha=[("Termos emitidos", None)])
+                           tipo=tipo, chave=chave, rotulos=db.ROTULO_TIPO, enviando=db.termos_com_pedido_ativo(obter_conn()),
+                           trilha=[("Termos emitidos", None)])
 
 
 @app.route("/termos-emitidos/<int:id>/documento", methods=["POST"])
 def termo_emitido_documento(id):
     conn = obter_conn()
-    db.termo_emitido(conn, id) or abort(404)
+    t = db.termo_emitido(conn, id) or abort(404)
+    if "numero_termo" in request.form and not t["documento_sei"]:
+        db.salvar_numero_termo(conn, id, request.form["numero_termo"])
     db.salvar_documento_sei(conn, id, request.form.get("documento_sei", ""), request.form.get("bloco_sei", ""))
     flash("Documento e bloco SEI salvos.", "success")
     return redirect(url_for("termo_emitido_tela", id=id))
@@ -487,6 +531,15 @@ def termo_emitido_email(id):
     db.termo_emitido(conn, id) or abort(404)
     db.registrar_email(conn, id)
     flash("Envio do e-mail registrado.", "success")
+    return redirect(url_for("termo_emitido_tela", id=id))
+
+
+@app.route("/termos-emitidos/<int:id>/enviar-sei", methods=["POST"])
+def termo_emitido_enviar_sei(id):
+    """Emitir de novo (ou só incluir no bloco, quando o documento já existe) sem registrar outra emissão."""
+    conn = obter_conn()
+    db.termo_emitido(conn, id) or abort(404)
+    _enfileirar_emissao(conn, id)
     return redirect(url_for("termo_emitido_tela", id=id))
 
 

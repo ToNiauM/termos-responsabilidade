@@ -6,7 +6,8 @@
   <h1 class="mb-0">{{ titulo }}</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}
   {% if processo and pode('termo_docx') %}
   <div class="ml-auto">
-    <button class="br-button primary" type="button" id="copiar" data-registrar="{{ url_for('termo_registrar', tipo=tipo, chave=chave) }}"><i class="fas fa-copy mr-1" aria-hidden="true"></i>Copiar para o SEI</button>
+    {% if LOGIN_ATIVO and pode('termo_enviar_sei', 'POST') %}<form method="post" action="{{ url_for('termo_enviar_sei', tipo=tipo, chave=chave) }}" class="d-inline mr-2">{{ csrf_campo() }}<button class="br-button primary" type="submit"><i class="fas fa-paper-plane mr-1" aria-hidden="true"></i>Emitir Termo no SEI</button></form>{% endif %}
+    <button class="br-button secondary" type="button" id="copiar" data-registrar="{{ url_for('termo_registrar', tipo=tipo, chave=chave) }}"><i class="fas fa-copy mr-1" aria-hidden="true"></i>Copiar para o SEI</button>
     <a class="br-button secondary ml-2" href="{{ url_for('termo_docx', tipo=tipo, chave=chave) }}"><i class="fas fa-download mr-1" aria-hidden="true"></i>Baixar .docx</a>
     {% if tipo == 'ccusto' %}<a class="br-button ml-2" href="{{ url_for('termo_planilha', chave=chave) }}">Baixar planilha</a>{% endif %}
   </div>

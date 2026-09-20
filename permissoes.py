@@ -51,6 +51,8 @@ termo_registrar POST
 termo_devolucao POST
 termo_emitido_documento POST
 termo_emitido_email POST
+termo_enviar_sei POST
+termo_emitido_enviar_sei POST
 cadastros GET
 cadastro_novo GET
 responsaveis_incluir POST
