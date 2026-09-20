@@ -10,7 +10,8 @@ Exceção do modo desktop: o "Administrador local" não tem linha em `usuarios` 
 pelo nome em `inventario_integrantes`, como sempre foi (lá só existe um usuário, o administrador da máquina).
 
 Transações: `definir` e `atualizar_nome` abrem transação própria e exigem conexão sem transação pendente;
-`abrir` envolve `inventario.abrir_evento(..., confirmar=False)` para que evento e vínculos caiam juntos.
+`criar` (e `abrir`, que é `criar(..., abrir=True)`) envolve `inventario.criar_evento(..., confirmar=False)`
+para que evento, vínculos e função Inventário caiam juntos.
 """
 import db
 import permissoes
@@ -42,24 +43,26 @@ def eventos_visiveis(conn, u) -> list[dict]:
 
 
 def _usuarios_selecionados(conn, ids) -> list[dict]:
-    """IDs vindos do formulário → usuários elegíveis. ID oculto, inativo ou sem função de inventário é recusado."""
+    """IDs vindos do formulário → usuários ativos. ID oculto ou inativo é recusado."""
     import usuarios
     try:
         ids = sorted({int(i) for i in ids})
     except (TypeError, ValueError):
         raise db.ErroDeNegocio("Selecione integrantes válidos.")
-    elegiveis = {u["id"]: u for u in usuarios.elegiveis_comissao(conn)}
-    if not ids or not set(ids) <= set(elegiveis):
-        raise db.ErroDeNegocio("Selecione ao menos um usuário ativo com função de inventário.")
-    return [elegiveis[i] for i in ids]
+    ativos = {u["id"]: u for u in usuarios.ativos_para_comissao(conn)}
+    if not ids or not set(ids) <= set(ativos):
+        raise db.ErroDeNegocio("Selecione ao menos um usuário ativo.")
+    return [ativos[i] for i in ids]
 
 
-def definir(conn, eid, ids) -> None:
-    """Substitui a comissão do evento aberto: vínculos e nomes exibidos. Leituras já feitas não mudam."""
+def definir(conn, eid, ids) -> list[str]:
+    """Substitui a comissão do evento aberto ou fechado: vínculos, nomes exibidos e função Inventário a quem
+    não tinha. Leituras já feitas não mudam. Devolve os nomes que ganharam a função."""
     import inventario
+    import usuarios
     with conn:
         conn.execute("BEGIN IMMEDIATE")
-        inventario._evento_aberto_ou_erro(conn, eid)
+        inventario._evento_nao_finalizado_ou_erro(conn, eid)
         selecionados = _usuarios_selecionados(conn, ids)
         conn.execute("DELETE FROM inventario_comissao_usuarios WHERE evento_id=?", (eid,))
         conn.executemany("INSERT INTO inventario_comissao_usuarios VALUES (?,?,?)",
@@ -67,18 +70,27 @@ def definir(conn, eid, ids) -> None:
         conn.execute("DELETE FROM inventario_integrantes WHERE evento_id=?", (eid,))
         conn.executemany("INSERT INTO inventario_integrantes VALUES (?,?)",
                          [(eid, n) for n in sorted({u["nome"] for u in selecionados})])
+        return usuarios.conceder_funcao(conn, [u["id"] for u in selecionados])
+
+
+def criar(conn, nome, descricao, ids, salas, abrir: bool = False) -> tuple[int, list[str]]:
+    """Cria o evento (fechado, ou aberto se abrir=True) com vínculos e função Inventário na mesma transação.
+    Devolve (id do evento, nomes que ganharam a função)."""
+    import inventario
+    import usuarios
+    selecionados = _usuarios_selecionados(conn, ids)
+    with conn:
+        eid = inventario.criar_evento(conn, nome, descricao, [u["nome"] for u in selecionados],
+                                      salas, confirmar=False, abrir=abrir)
+        conn.executemany("INSERT INTO inventario_comissao_usuarios VALUES (?,?,?)",
+                         [(eid, u["id"], u["nome"]) for u in selecionados])
+        concedidos = usuarios.conceder_funcao(conn, [u["id"] for u in selecionados])
+    return eid, concedidos
 
 
 def abrir(conn, nome, descricao, ids, salas) -> int:
-    """Abre o evento e grava os vínculos na mesma transação (falha no vínculo desfaz o evento)."""
-    import inventario
-    selecionados = _usuarios_selecionados(conn, ids)
-    with conn:
-        eid = inventario.abrir_evento(conn, nome, descricao, [u["nome"] for u in selecionados],
-                                      salas, confirmar=False)
-        conn.executemany("INSERT INTO inventario_comissao_usuarios VALUES (?,?,?)",
-                         [(eid, u["id"], u["nome"]) for u in selecionados])
-    return eid
+    """Cria já com a chave ligada (compatibilidade com os testes e com o caminho antigo)."""
+    return criar(conn, nome, descricao, ids, salas, abrir=True)[0]
 
 
 def atualizar_nome(conn, uid) -> None:

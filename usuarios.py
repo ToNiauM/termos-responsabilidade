@@ -176,6 +176,25 @@ def elegiveis_comissao(conn) -> list[dict]:
                   key=lambda u: (u["nome"], u["login"]))
 
 
+def ativos_para_comissao(conn) -> list[dict]:
+    """Todos os usuários ativos, por nome: qualquer um pode entrar na comissão (a função Inventário é concedida ao entrar)."""
+    return sorted(listar(conn), key=lambda u: (u["nome"], u["login"]))
+
+
+def conceder_funcao(conn, ids, funcao: str = "inventariante") -> list[str]:
+    """Dá a função a quem ainda não a tem (admin já tem tudo). Devolve os nomes de quem ganhou.
+    Sem commit: roda dentro da transação de quem chamou (comissoes.criar / comissoes.definir)."""
+    if funcao not in FUNCOES:
+        raise ValueError(funcao)
+    nomes = []
+    for uid in ids:
+        u = por_id(conn, uid)
+        if u and u["ativo"] and funcao not in u["funcoes"] and "admin" not in u["funcoes"]:
+            conn.execute("INSERT OR IGNORE INTO usuarios_funcoes VALUES (?,?)", (uid, funcao))
+            nomes.append(u["nome"])
+    return nomes
+
+
 # ---------------------------------------------------------------- permissões (nega por padrão)
 # FUNCOES, ROTULOS e permitido vêm de permissoes.py (matriz por endpoint Flask).
 

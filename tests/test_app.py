@@ -898,8 +898,8 @@ def test_inventario_comissao_por_usuarios(cliente, dados, usuarios_exemplo):
     assert b'name="usuarios"' in r.data and b'name="integrantes"' not in r.data                     # web manda IDs
     assert b"Fulano (admin)" in r.data and b"Beltrana (beltrana)" in r.data
     assert b"Operador Teste" not in r.data and b"Consulta Teste" not in r.data                      # só admin/inventariante
-    r = cliente.post("/inventario/abrir", data={"nome": "Inv", "usuarios": [leitor], "escopo": "todas"}, follow_redirects=True)
-    assert "ao menos um usuário ativo com função de inventário".encode() in r.data                  # ID oculto recusado
+    r = cliente.post("/inventario/abrir", data={"nome": "Inv", "usuarios": [999999], "escopo": "todas"}, follow_redirects=True)
+    assert "Selecione ao menos um usuário ativo.".encode() in r.data                                 # ID oculto recusado
     r = cliente.post("/inventario/abrir", data={"nome": "Inv", "usuarios": ["Beltrana"], "escopo": "todas"}, follow_redirects=True)
     assert "Selecione integrantes válidos".encode() in r.data                                       # nome no lugar do ID
     eid = _abrir(cliente, comissao=["Beltrana"])
@@ -910,9 +910,11 @@ def test_inventario_comissao_por_usuarios(cliente, dados, usuarios_exemplo):
     r = cliente.get(f"/inventario/{eid}/comissao")
     assert r.status_code == 200 and b'value="%d" checked' % beltrana in r.data and b'value="%d"/' % fulano in r.data
     assert b"sem conta vinculada" not in r.data                                                     # toda a comissão tem conta
-    r = cliente.post(f"/inventario/{eid}/comissao", data={"usuarios": [leitor]}, follow_redirects=True)
-    assert "ao menos um usuário ativo com função de inventário".encode() in r.data
+    r = cliente.post(f"/inventario/{eid}/comissao", data={"usuarios": [999999]}, follow_redirects=True)
+    assert "Selecione ao menos um usuário ativo.".encode() in r.data
     assert inventario_do_teste(eid)["integrantes"] == ["Beltrana"]                                   # comissão intacta
+    r = cliente.post(f"/inventario/{eid}/comissao", data={"usuarios": [leitor]}, follow_redirects=True)
+    # Tarefa 4: assert "Função Inventário concedida a: Consulta Teste".encode() in r.data
     r = cliente.post(f"/inventario/{eid}/comissao", data={"usuarios": _ids("Fulano", "Beltrana")}, follow_redirects=True)
     assert "Comissão atualizada".encode() in r.data
     j = cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"}).get_json()

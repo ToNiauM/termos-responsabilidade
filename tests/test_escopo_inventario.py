@@ -34,19 +34,20 @@ def test_escopo_por_id_e_nao_por_nome(dados):
     assert not comissoes.pode_conferir(dados, usuarios.por_id(dados, b), eid)
 
 
-def test_definir_recusa_id_oculto_inativo_ou_sem_funcao(dados):
+def test_definir_recusa_id_oculto_ou_inativo_mas_aceita_sem_funcao(dados):
     semear(dados)
     a = usuarios.criar(dados, "ana", "Ana", "Senha!234", ["inventariante"])
     leitor = usuarios.criar(dados, "leitor", "Leitor", "Senha!234", ["consulta"])
     eid = inventario.abrir_evento(dados, "Evento", "", ["Ana"])
     comissoes.definir(dados, eid, [a])
-    for ids in ([], [leitor], [a, leitor], [a + leitor + 10], ["Ana"], [None]):
+    for ids in ([], [a + leitor + 10], ["Ana"], [None]):
         with pytest.raises(db.ErroDeNegocio):
             comissoes.definir(dados, eid, ids)
+    assert comissoes.definir(dados, eid, [a, leitor]) == ["Leitor"]   # qualquer ativo é aceito: leitor ganha a função
     usuarios.editar(dados, a, "Ana", ["inventariante"], ativo=0)
     with pytest.raises(db.ErroDeNegocio, match="ao menos um usuário ativo"):
         comissoes.definir(dados, eid, [a])
-    assert _vinculos(dados, eid) == [(a, "Ana")]              # nada mudou nas recusas
+    assert _vinculos(dados, eid) == [(a, "Ana"), (leitor, "Leitor")]  # nada mudou na recusa
 
 
 def test_trocar_a_comissao_substitui_vinculos_e_preserva_leituras(dados):
@@ -381,3 +382,36 @@ def test_queda_de_funcao_nao_apaga_historico(cliente, dados):
     usuarios.editar(dados, ana, "Ana", ["consulta"], ativo=True)       # perde inventariante e operador
     depois = {t: [tuple(r) for r in dados.execute(f"SELECT * FROM {t}")] for t in tabelas}
     assert antes == depois and all(antes[t] for t in tabelas)
+
+
+def test_comissao_aceita_qualquer_ativo_e_concede_a_funcao_inventario(dados):
+    semear(dados)
+    admin = usuarios.criar(dados, "adm", "Admin", SENHA_PADRAO, ["admin"], trocar_senha=False)
+    leitor = usuarios.criar(dados, "leitor", "Consulta Teste", SENHA_PADRAO, ["consulta"], trocar_senha=False)
+    inativo = usuarios.criar(dados, "ina", "Inativo", SENHA_PADRAO, ["inventariante"], trocar_senha=False)
+    usuarios.editar(dados, inativo, "Inativo", ["inventariante"], ativo=False)
+    assert [u["login"] for u in usuarios.ativos_para_comissao(dados)] == ["adm", "leitor"]
+    eid, concedidos = comissoes.criar(dados, "Inv", "", [admin, leitor], None, abrir=True)
+    assert concedidos == ["Consulta Teste"]
+    assert usuarios.por_id(dados, leitor)["funcoes"] == ("consulta", "inventariante")
+    assert usuarios.por_id(dados, admin)["funcoes"] == ("admin",)                     # admin não precisa da função
+    assert _vinculos(dados, eid) == [(admin, "Admin"), (leitor, "Consulta Teste")]
+    assert inventario.evento_aberto(dados)["id"] == eid
+    with pytest.raises(db.ErroDeNegocio, match="usuário ativo"):
+        comissoes.definir(dados, eid, [inativo])
+    assert comissoes.definir(dados, eid, [leitor]) == []                              # já tem a função: nada a conceder
+    inventario.desligar_chave(dados, eid)
+    assert comissoes.definir(dados, eid, [admin]) == [] and _integrantes(dados, eid) == ["Admin"]   # fechado aceita comissão
+    inventario.encerrar_evento(dados, eid)
+    with pytest.raises(db.ErroDeNegocio, match="encerrado"):
+        comissoes.definir(dados, eid, [admin])
+
+
+def test_criar_sem_abrir_nasce_fechado_e_conceder_e_atomico(dados):
+    semear(dados)
+    fulano = usuarios.criar(dados, "fulano2", "Fulano Dois", SENHA_PADRAO, ["consulta"], trocar_senha=False)
+    eid, concedidos = comissoes.criar(dados, "Preparado", "", [fulano], None)
+    assert inventario.evento(dados, eid)["estado"] == "fechado" and concedidos == ["Fulano Dois"]
+    with pytest.raises(db.ErroDeNegocio):
+        comissoes.criar(dados, "Preparado", "", [fulano], None)                        # nome repetido: nada gravado
+    assert len(inventario.eventos(dados)) == 1
