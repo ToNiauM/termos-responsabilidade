@@ -46,8 +46,6 @@ def test_abrir_evento_amostragem_e_validacoes(dados):
     eid = inventario.abrir_evento(dados, "Amostra", None, ["A", "A ", "b"], salas=["99 - SEM MAPA"])
     assert [s["localizacao"] for s in inventario.salas(dados, eid)] == ["99 - SEM MAPA"]
     assert inventario.evento(dados, eid)["integrantes"] == ["A", "b"]
-    with pytest.raises(db.ErroDeNegocio):
-        inventario.abrir_evento(dados, "Outro", "", ["A"])          # já há aberto
     inventario.encerrar_evento(dados, eid)
     assert inventario.evento_aberto(dados) is None
     e2 = inventario.abrir_evento(dados, "Outro", "", ["A"])
@@ -723,3 +721,63 @@ def test_esquema_normaliza_encerrado_em_vazio(dados):
     assert inventario.evento_aberto(dados) is None                     # o limbo
     db.criar_esquema(dados)                                             # roda a cada abertura do programa
     assert inventario.evento_aberto(dados)["id"] == eid
+
+
+def test_criar_evento_nasce_fechado_e_a_chave_fecha_o_outro(dados):
+    eid = semear_inventario(dados)                                             # abrir_evento: nasce aberto
+    assert inventario.evento(dados, eid)["estado"] == "aberto"
+    e2 = inventario.criar_evento(dados, "Inventário 2027", "", ["Fulano"])
+    assert inventario.evento(dados, e2)["estado"] == "fechado" and inventario.evento_aberto(dados)["id"] == eid
+    fechado = inventario.ligar_chave(dados, e2)
+    assert fechado["id"] == eid
+    assert inventario.evento_aberto(dados)["id"] == e2 and inventario.evento(dados, eid)["estado"] == "fechado"
+    assert inventario.ligar_chave(dados, e2) is None                          # já estava aberto: nada muda
+    inventario.desligar_chave(dados, e2)
+    assert inventario.evento_aberto(dados) is None and inventario.evento_corrente(dados)["id"] == e2   # fechado mais recente
+    inventario.desligar_chave(dados, e2)                                       # idempotente
+    e3 = inventario.abrir_evento(dados, "Inventário 2028", "", ["Fulano"])    # sem erro mesmo com outros fechados
+    assert inventario.evento_aberto(dados)["id"] == e3 and inventario.eventos(dados)[0]["id"] == e3
+    assert [e["estado"] for e in map(lambda e: inventario.evento(dados, e["id"]), inventario.eventos(dados))] == ["aberto", "fechado", "fechado"]
+
+
+def test_evento_fechado_bloqueia_leitura_e_reabrir_mantem(dados):
+    eid = semear_inventario(dados)
+    inventario.ler(dados, eid, "01 - SALA CCI", 1001, "Fulano")
+    inventario.desligar_chave(dados, eid)
+    with pytest.raises(db.ErroDeNegocio, match="fechado"):
+        inventario.ler(dados, eid, "01 - SALA CCI", 1002, "Fulano")
+    with pytest.raises(db.ErroDeNegocio, match="fechado"):
+        inventario.registrar_sobra(dados, eid, "01 - SALA CCI", "X", "", "", "", "Fulano", exigir_foto=False)
+    with pytest.raises(db.ErroDeNegocio, match="fechado"):
+        inventario.atualizar_leitura(dados, eid, 1001, conservacao="Bom")
+    inventario.editar_comissao(dados, eid, ["Fulano", "Beltrana"])           # comissão muda com o evento fechado
+    inventario.ligar_chave(dados, eid)
+    assert inventario.resumo(dados, eid)["lidos"] == 1
+    inventario.ler(dados, eid, "01 - SALA CCI", 1002, "Fulano")
+    assert inventario.resumo(dados, eid)["lidos"] == 2
+
+
+def test_finalizar_fechado_congela_e_nao_reabre(dados):
+    eid = semear_inventario(dados)
+    inventario.desligar_chave(dados, eid)
+    inventario.encerrar_evento(dados, eid)
+    e = inventario.evento(dados, eid)
+    assert e["estado"] == "finalizado" and e["suspenso_em"] is None and e["encerrado_em"]
+    assert dados.execute("SELECT count(*) FROM inventario_bens_encerrados WHERE evento_id=?", (eid,)).fetchone()[0] == 5
+    with pytest.raises(db.ErroDeNegocio, match="finalizado"):
+        inventario.ligar_chave(dados, eid)
+    with pytest.raises(db.ErroDeNegocio, match="finalizado"):
+        inventario.desligar_chave(dados, eid)
+    with pytest.raises(db.ErroDeNegocio, match="encerrado"):
+        inventario.editar_comissao(dados, eid, ["Fulano"])
+    assert inventario.evento_corrente(dados) is None
+
+
+def test_esquema_acrescenta_suspenso_em_em_banco_antigo(dados):
+    semear(dados)
+    eid = inventario.abrir_evento(dados, "Antigo", "", ["Fulano"])
+    dados.execute("ALTER TABLE inventario_eventos DROP COLUMN suspenso_em")
+    dados.commit()
+    db.criar_esquema(dados)
+    assert "suspenso_em" in db._colunas(dados, "inventario_eventos")
+    assert inventario.evento_aberto(dados)["id"] == eid                        # o aberto de antes continua aberto

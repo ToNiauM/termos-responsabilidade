@@ -29,12 +29,31 @@ class BemNaoEncontrado(ErroDeNegocio):
 
 
 # ---------------------------------------------------------------- eventos
+ABERTO_SQL = "encerrado_em IS NULL AND suspenso_em IS NULL"
+FECHADO = "Evento fechado: não aceita leituras até ser reaberto."
+
+
+def estado(e) -> str:
+    """aberto | fechado | finalizado, derivado de encerrado_em e suspenso_em."""
+    if e["encerrado_em"]:
+        return "finalizado"
+    return "fechado" if e["suspenso_em"] else "aberto"
+
+
 def evento_aberto(conn) -> dict | None:
-    return _um(conn, "SELECT * FROM inventario_eventos WHERE encerrado_em IS NULL")
+    return _um(conn, f"SELECT * FROM inventario_eventos WHERE {ABERTO_SQL}")
+
+
+def evento_corrente(conn) -> dict | None:
+    """O aberto ou, sem aberto, o fechado mais recente: é o que o card do Início e o menu mostram."""
+    return _um(conn, """SELECT * FROM inventario_eventos WHERE encerrado_em IS NULL
+                        ORDER BY (suspenso_em IS NULL) DESC, aberto_em DESC, id DESC LIMIT 1""")
 
 
 def eventos(conn) -> list[dict]:
-    return _todos(conn, "SELECT * FROM inventario_eventos ORDER BY (encerrado_em IS NULL) DESC, aberto_em DESC, id DESC")
+    """Aberto primeiro, depois os fechados, depois os finalizados; dentro de cada grupo o mais recente antes."""
+    return _todos(conn, """SELECT * FROM inventario_eventos ORDER BY (encerrado_em IS NULL) DESC,
+                           (suspenso_em IS NULL) DESC, aberto_em DESC, id DESC""")
 
 
 def evento(conn, id: int) -> dict | None:
@@ -43,15 +62,23 @@ def evento(conn, id: int) -> dict | None:
         e["integrantes"] = [r[0] for r in conn.execute(
             "SELECT nome FROM inventario_integrantes WHERE evento_id = ? ORDER BY nome", (id,))]
         e["resumo"] = resumo(conn, id)
+        e["estado"] = estado(e)
     return e
 
 
-def _evento_aberto_ou_erro(conn, id: int) -> dict:
+def _evento_nao_finalizado_ou_erro(conn, id: int) -> dict:
     e = _um(conn, "SELECT * FROM inventario_eventos WHERE id = ?", id)
     if not e:
         raise ErroDeNegocio("Evento de inventário não encontrado.")
     if e["encerrado_em"]:
         raise ErroDeNegocio("Evento encerrado: não aceita alterações.")
+    return e
+
+
+def _evento_aberto_ou_erro(conn, id: int) -> dict:
+    e = _evento_nao_finalizado_ou_erro(conn, id)
+    if e["suspenso_em"]:
+        raise ErroDeNegocio(FECHADO)
     return e
 
 
@@ -80,8 +107,8 @@ def _nomes_da_comissao(integrantes, elegiveis) -> list[str]:
 
 
 def editar_comissao(conn, evento_id: int, integrantes: list, elegiveis: list | None = None) -> None:
-    """Substitui a comissão do evento aberto. Leituras já feitas não mudam: quem sai só deixa de poder ler."""
-    _evento_aberto_ou_erro(conn, evento_id)
+    """Substitui a comissão do evento aberto ou fechado. Leituras já feitas não mudam: quem sai só deixa de poder ler."""
+    _evento_nao_finalizado_ou_erro(conn, evento_id)
     nomes = _nomes_da_comissao(integrantes, elegiveis)
     conn.execute("DELETE FROM inventario_integrantes WHERE evento_id = ?", (evento_id,))
     conn.executemany("INSERT INTO inventario_integrantes VALUES (?,?)", [(evento_id, n) for n in nomes])
@@ -102,41 +129,83 @@ def renomear_integrante(conn, antigo: str, novo: str) -> int:
     return cur.rowcount
 
 
-def abrir_evento(conn, nome: str, descricao, integrantes: list, salas: list | None = None, elegiveis: list | None = None,
-                 confirmar: bool = True) -> int:
-    """Um evento aberto por vez. salas=None → todas as localizações com bens ATIVO; lista → amostragem.
-    confirmar=False deixa a transação aberta para quem chamou (comissoes.abrir grava os vínculos junto)."""
+def _fechar_os_outros(conn, eid: int) -> None:
+    conn.execute(f"UPDATE inventario_eventos SET suspenso_em = ? WHERE {ABERTO_SQL} AND id <> ?", (_agora(), eid))
+
+
+def criar_evento(conn, nome: str, descricao, integrantes: list, salas: list | None = None, elegiveis: list | None = None,
+                 confirmar: bool = True, abrir: bool = False) -> int:
+    """Cria o evento fechado (chave desligada); abrir=True já liga a chave e fecha o que estava aberto.
+    salas=None → todas as localizações com bens ATIVO; lista → amostragem.
+    confirmar=False deixa a transação aberta para quem chamou (comissoes.criar grava os vínculos junto)."""
     nome = _obrigatorio(nome, "Nome do evento")
     nova = fotos.pasta(nome, 0)
     for outro in eventos(conn):
         if fotos.pasta(outro["nome"], outro["id"]) == nova:
             raise ErroDeNegocio(f"Já existe um evento com esse nome (pasta de fotos '{nova}'); escolha outro nome.")
-    if evento_aberto(conn):
-        raise ErroDeNegocio("Já existe um evento de inventário aberto; encerre-o antes de abrir outro.")
     nomes = _nomes_da_comissao(integrantes, elegiveis)
     ativas = db.localizacoes_ativas(conn)
     escolhidas = ativas if salas is None else [s for s in ativas if s in set(salas)]
     if not escolhidas:
         raise ErroDeNegocio("Nenhuma sala com bens ativos no escopo do evento.")
-    cur = conn.execute("INSERT INTO inventario_eventos (nome, descricao, aberto_em) VALUES (?,?,?)",
-                       (nome, _texto(descricao) or None, _agora()))
+    agora = _agora()
+    cur = conn.execute("INSERT INTO inventario_eventos (nome, descricao, aberto_em, suspenso_em) VALUES (?,?,?,?)",
+                       (nome, _texto(descricao) or None, agora, None if abrir else agora))
     eid = cur.lastrowid
     conn.executemany("INSERT INTO inventario_integrantes VALUES (?,?)", [(eid, n) for n in nomes])
     conn.executemany("INSERT INTO inventario_salas (evento_id, localizacao) VALUES (?,?)", [(eid, s) for s in escolhidas])
+    if abrir:
+        _fechar_os_outros(conn, eid)
     if confirmar:
         conn.commit()
     return eid
 
 
+def abrir_evento(conn, nome: str, descricao, integrantes: list, salas: list | None = None, elegiveis: list | None = None,
+                 confirmar: bool = True) -> int:
+    """Cria já com a chave ligada (o que estava aberto fica fechado)."""
+    return criar_evento(conn, nome, descricao, integrantes, salas, elegiveis, confirmar, abrir=True)
+
+
+def ligar_chave(conn, id: int) -> dict | None:
+    """Abre o evento e fecha o que estava aberto. Devolve o evento fechado por causa disso (ou None)."""
+    e = _um(conn, "SELECT * FROM inventario_eventos WHERE id = ?", id)
+    if not e:
+        raise ErroDeNegocio("Evento de inventário não encontrado.")
+    if e["encerrado_em"]:
+        raise ErroDeNegocio("Evento finalizado não pode ser reaberto.")
+    atual = evento_aberto(conn)
+    if atual and atual["id"] == id:
+        return None
+    conn.execute("UPDATE inventario_eventos SET suspenso_em = NULL WHERE id = ?", (id,))
+    _fechar_os_outros(conn, id)
+    conn.commit()
+    return atual
+
+
+def desligar_chave(conn, id: int) -> None:
+    """Fecha o evento (leituras suspensas até reabrir). Fechar um já fechado não faz nada."""
+    e = _um(conn, "SELECT * FROM inventario_eventos WHERE id = ?", id)
+    if not e:
+        raise ErroDeNegocio("Evento de inventário não encontrado.")
+    if e["encerrado_em"]:
+        raise ErroDeNegocio("Evento finalizado não tem chave.")
+    if e["suspenso_em"]:
+        return
+    conn.execute("UPDATE inventario_eventos SET suspenso_em = ? WHERE id = ?", (_agora(), id))
+    conn.commit()
+
+
 def encerrar_evento(conn, id: int) -> None:
     """Grava encerrado_em e congela os bens do evento (ativos das salas do escopo + todo bem lido) em
-    inventario_bens_encerrados, para o relatório não mudar quando o export do SPW seguinte for carregado."""
+    inventario_bens_encerrados, para o relatório não mudar quando o export do SPW seguinte for carregado.
+    Vale para evento aberto ou fechado."""
     e = _um(conn, "SELECT * FROM inventario_eventos WHERE id = ?", id)
     if not e:
         raise ErroDeNegocio("Evento de inventário não encontrado.")
     if e["encerrado_em"]:
         return
-    conn.execute("UPDATE inventario_eventos SET encerrado_em = ? WHERE id = ?", (_agora(), id))
+    conn.execute("UPDATE inventario_eventos SET encerrado_em = ?, suspenso_em = NULL WHERE id = ?", (_agora(), id))
     conn.execute("DELETE FROM inventario_bens_encerrados WHERE evento_id = ?", (id,))
     conn.execute(f"""INSERT OR IGNORE INTO inventario_bens_encerrados (evento_id, {_COLS_SNAPSHOT})
         SELECT ?, {_COLS_SNAPSHOT} FROM bens

@@ -519,9 +519,10 @@ def test_inventario_eventos_abrir_e_encerrar(cliente):
     assert "Inventário 2026".encode() in r.data and b"01 - SALA CCI" in r.data and b"99 - SEM MAPA" in r.data
     assert "Inventário".encode() in cliente.get("/").data                          # menu
     r = cliente.post("/inventario/abrir", data={"nome": "Outro", "usuarios": _ids("Fulano"), "escopo": "todas"}, follow_redirects=True)
-    assert "já existe".encode() in r.data.lower() or "Já existe".encode() in r.data
+    assert b"Outro" in r.data                                          # chave única: abrir fecha o anterior, não recusa
     import db, inventario
     eid = inventario.evento_aberto(db.conectar())["id"]
+    assert inventario.evento(db.conectar(), eid)["nome"] == "Outro"
     assert b"Comiss" in cliente.get(f"/inventario/{eid}").data
     r = cliente.post(f"/inventario/{eid}/encerrar", data={}, follow_redirects=True)
     assert b"Confirmar encerramento" in r.data

@@ -122,7 +122,8 @@ CREATE TABLE IF NOT EXISTS inventario_eventos (
   nome         TEXT NOT NULL,
   descricao    TEXT,
   aberto_em    TEXT NOT NULL,
-  encerrado_em TEXT
+  encerrado_em TEXT,
+  suspenso_em  TEXT                          -- preenchido = fechado (chave desligada); NULL com encerrado_em NULL = aberto
 );
 CREATE TABLE IF NOT EXISTS inventario_integrantes (
   evento_id INTEGER NOT NULL REFERENCES inventario_eventos(id) ON DELETE CASCADE,
@@ -240,6 +241,9 @@ def criar_esquema(conn: sqlite3.Connection) -> None:
     if "email" not in _colunas(conn, "usuarios"):
         conn.execute("ALTER TABLE usuarios ADD COLUMN email TEXT")
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS usuarios_email ON usuarios(email) WHERE email IS NOT NULL")
+    # 2026-09-18: chave aberto/fechado dos inventários (spec administracao-inventarios §3).
+    if "suspenso_em" not in _colunas(conn, "inventario_eventos"):
+        conn.execute("ALTER TABLE inventario_eventos ADD COLUMN suspenso_em TEXT")
     # Evento com encerrado_em vazio ("" em vez de NULL, visto em produção em 2026-09-17) não é aberto nem encerrado.
     conn.execute("UPDATE inventario_eventos SET encerrado_em = NULL WHERE encerrado_em = ''")
     # Mudanças órfãs de importações apagadas com FK desligada (visto em produção em 2026-09-17, 8.708 linhas):
