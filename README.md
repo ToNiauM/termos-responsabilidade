@@ -167,40 +167,22 @@ usuários da comissão do evento aberto com **exatamente** os nomes já gravados
 `/etc/nginx/conf.d/patrimonio.sistemascfc.org.conf` e recarregar (`nginx -t && systemctl reload nginx`).
 Enquanto o `auth_basic` ficar, o site pede as duas senhas, sem prejuízo.
 
-`Dockerfile`, `compose.yml` e `.dockerignore` são só do site; o programa de desktop não os usa. O vhost fica em
-`/etc/nginx/conf.d/patrimonio.sistemascfc.org.conf`. Backup continua sendo copiar a pasta `dados/`.
-
-### Robô do SPW
-
-`importar_spw.py` entra no SPW, exporta a relação de bens (Excel/Detalhado), compara com a última execução e,
-se mudou, importa como o upload de Atualizar base faria. Roda no host (fora do container), em dias úteis às 3h,
-e registra cada execução em `robo_execucoes`: o card "última importação" do Início mostra `robô ok`/`robô falhou`
-e Atualizar base lista as últimas execuções. Segredos em `secrets/spw.env` (`SPW_USUARIO`, `SPW_SENHA`,
-`SPW_LOGIN_URL`, `SPW_CONSULTA_URL`, chmod 600).
-
-    python3 -m venv .venv-robo && .venv-robo/bin/pip install -r requirements-robo.txt
-    .venv-robo/bin/playwright install --with-deps chromium
-    ./atualizar_base.sh            # atualiza agora, fora do cron; sai 0 (importado/sem mudança) ou 1 (erro)
-    ./atualizar_base.sh --teste    # mesma coisa numa cópia em /tmp/robo-teste, sem tocar na base real
-
-Crontab (`crontab -e`, usuário dono de `dados/termos.db`); o script já grava em `dados/robo_spw.log`:
-
-    0 3 * * 1-5 /opt/web/termos-responsabilidade/atualizar_base.sh >/dev/null 2>>/opt/web/termos-responsabilidade/dados/robo_spw.log
-
-O robô não importa se o export vier com menos de 90% dos bens da base (protege contra export vazio ou truncado);
-nesse caso registra erro e a baixa em massa, se for real, passa por Atualizar base. Um upload manual entre
-execuções fica valendo até o SPW mudar: o robô compara o export com a própria execução anterior, não com a base.
-
-Diagnóstico: `dados/robo_spw.log` (uma linha por execução) e `dados/spw/erro.png` (tela do SPW no momento do erro).
-Se o SPW mudar o layout, os seletores ficam todos em `baixar_export`.
+`Dockerfile` (alvos `web` e `robo`), `compose.yml` e `.dockerignore` são só do site; o programa de desktop não os
+usa. O vhost fica em `/etc/nginx/conf.d/patrimonio.sistemascfc.org.conf`. Backup continua sendo copiar a pasta
+`dados/`.
 
 ### Emissão no SEI
 
 O botão **Emitir Termo no SEI** (página do termo) e **Atualizar com SPW** (Atualizar base) enfileiram pedidos em
-`robo_pedidos`; quem atende é `atender_pedidos.py`, no host, no mesmo `.venv-robo` do SPW:
+`robo_pedidos`; quem atende é `atender_pedidos.py`, rodando **dentro do container `robo`** (`compose.yml`,
+alvo `robo` do `Dockerfile`), que tem Playwright e xlrd por cima da imagem do site:
 
-    cp ops/termos-robo.service /etc/systemd/system/ && sudo systemctl enable --now termos-robo
-    sudo systemctl status termos-robo            # deve estar "active (running)"
+    docker compose up -d --build   # constrói as duas imagens (web e robo) e sobe os dois containers
+    docker compose logs -f robo    # acompanhar o trabalhador (pedidos atendidos, erros)
+
+O container `robo` é permanente (`restart: unless-stopped`), sem porta exposta; monta `./dados` (banco, logs,
+capturas de erro) e `./secrets` (somente leitura). Sem ele de pé, o site continua funcionando: o pedido fica
+"aguardando a vez" e a tela avisa depois de 2 minutos.
 
 Segredos em `secrets/sei.env` (`SEI_USUARIO`, `SEI_SENHA`, `SEI_LOGIN_URL`, `SEI_ORGAO`; chmod 600). Opcionalmente,
 `SEI_UNIDADE` (sigla, ex.: `GESERV`) fixa a unidade em que os documentos e os blocos são tratados; se ausente, é a
@@ -211,7 +193,35 @@ que recebem termo individual (e a exceção no centro de custo cuja sigla difere
 tipo de documento por tipo de termo.
 
 Diagnóstico: `dados/robo_pedidos.log` (exceções), `dados/sei/erro.png` (tela do SEI no erro), tabela `robo_pedidos`.
-Sem o serviço, o site funciona: o pedido fica "aguardando a vez" e a tela avisa depois de 2 minutos.
+
+### Robô do SPW
+
+`importar_spw.py` entra no SPW, exporta a relação de bens (Excel/Detalhado), compara com a última execução e,
+se mudou, importa como o upload de Atualizar base faria. Roda dentro do container `robo` (acima), em dias úteis
+às 3h, e registra cada execução em `robo_execucoes`: o card "última importação" do Início mostra `robô ok`/`robô
+falhou` e Atualizar base lista as últimas execuções. Segredos em `secrets/spw.env` (`SPW_USUARIO`, `SPW_SENHA`,
+`SPW_LOGIN_URL`, `SPW_CONSULTA_URL`, chmod 600).
+
+`atualizar_base.sh` não roda mais o robô diretamente: ele entra no container já de pé com `docker compose exec`
+(e sai com um aviso claro se o `robo` não estiver rodando):
+
+    ./atualizar_base.sh            # docker compose exec -T robo python importar_spw.py; sai 0/1
+    ./atualizar_base.sh --teste    # mesma coisa numa cópia em dados/robo-teste, sem tocar na base real
+
+Crontab (`crontab -e`, usuário dono de `dados/termos.db`); o script já grava em `dados/robo_spw.log` (o container
+`robo` precisa estar de pé — `docker compose up -d` — para o cron funcionar):
+
+    0 3 * * 1-5 /opt/web/termos-responsabilidade/atualizar_base.sh >/dev/null 2>>/opt/web/termos-responsabilidade/dados/robo_spw.log
+
+O robô não importa se o export vier com menos de 90% dos bens da base (protege contra export vazio ou truncado);
+nesse caso registra erro e a baixa em massa, se for real, passa por Atualizar base. Um upload manual entre
+execuções fica valendo até o SPW mudar: o robô compara o export com a própria execução anterior, não com a base.
+
+Diagnóstico: `dados/robo_spw.log` (uma linha por execução) e `dados/spw/erro.png` (tela do SPW no momento do erro).
+Se o SPW mudar o layout, os seletores ficam todos em `baixar_export`.
+
+`requirements-robo.txt` (Playwright, xlrd) continua no repositório: a imagem `robo` não o usa (as dependências
+estão fixas no `Dockerfile`), mas os scripts de spike em `docs/superpowers/notes/` ainda dependem dele.
 
 ## Arquivos
 
@@ -225,15 +235,15 @@ Sem o serviço, o site funciona: o pedido fica "aguardando a vez" e a tela avisa
 | `Script_Termo_Individual.py`, `Termo_de_Responsabilidade.py`, `termo_devolucao.py` | geradores `.docx` |
 | `config.py` | pasta de dados (`TERMOS_DADOS` sobrepõe) |
 | `main.py`, `build.bat` | programa de desktop e build |
-| `Dockerfile`, `compose.yml` | site em patrimonio.sistemascfc.org |
+| `Dockerfile` | dois alvos: `web` (site) e `robo` (`FROM web`, + Playwright e xlrd, atende `robo_pedidos`) |
+| `compose.yml` | serviços `web` (site, porta 12012) e `robo` (trabalhador da fila, sem porta) |
 | `templates/`, `static/dsgov/` | telas DSGov 3.7.0 (offline) |
 | `painel.py`, `graficos.py` | cards de gráfico (ECharts embutido, tema DSGov) |
 | `inventario.py`, `fotos.py`, `app_inventario.py` | módulo de inventário (dados, fotos no R2, rotas) |
 | `usuarios.py`, `app_usuarios.py` | usuários, senhas, matriz de permissões e telas de login/usuários |
-| `atualizar_base.sh` | Roda o robô do SPW na hora (`--teste` usa uma cópia da base); o cron chama o mesmo script |
-| `importar_spw.py` | Robô do SPW: exporta, converte e importa os bens (roda no host, por cron) |
-| `requirements-robo.txt` | Dependências só do robô (Playwright, xlrd) |
+| `atualizar_base.sh` | Chama o robô do SPW dentro do container `robo` via `docker compose exec` (`--teste` usa uma cópia da base); o cron chama o mesmo script |
+| `importar_spw.py` | Robô do SPW: exporta, converte e importa os bens (roda no container `robo`, por cron) |
+| `requirements-robo.txt` | Não é usado pela imagem `robo` (dependências fixas no `Dockerfile`); ainda serve os scripts de spike em `docs/superpowers/notes/` |
 | `robo_sei.py` | Robô do SEI: login, cria o documento no processo e inclui no bloco de assinatura |
-| `atender_pedidos.py` | Trabalhador do host: atende a fila `robo_pedidos` (emissão no SEI e atualização com o SPW) |
+| `atender_pedidos.py` | Trabalhador do container `robo`: atende a fila `robo_pedidos` (emissão no SEI e atualização com o SPW) |
 | `segredos.py` | Lê os arquivos `secrets/*.env` (SPW, SEI) |
-| `ops/termos-robo.service` | Serviço systemd do trabalhador (`atender_pedidos.py`) |

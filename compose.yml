@@ -1,6 +1,8 @@
 services:
   web:
-    build: .
+    build:
+      context: .
+      target: web
     image: termos-patrimonio:latest
     container_name: termos-patrimonio
     restart: unless-stopped
@@ -11,8 +13,29 @@ services:
         required: false
     environment:
       TERMOS_LOGIN: "1"     # site pede usuário e senha (o programa Windows não define e entra direto)
+      TZ: America/Sao_Paulo # hora de Brasília nos logs e no mtime de dados/
     ports:
       - "127.0.0.1:12012:8000"
     volumes:
       # termos.db e timbrado.docx vivem aqui; backup = copiar a pasta dados/
       - ./dados:/app/dados
+
+  # Trabalhador da fila robo_pedidos (emissão no SEI e atualização com o SPW), com Playwright
+  # (alvo robo do Dockerfile). Sobe permanente com `docker compose up -d`; sem ele o site
+  # continua funcionando, só que os pedidos ficam "aguardando a vez" (ver README, Emissão no SEI).
+  # O --teste de importar_spw.py roda dentro deste container via `docker compose exec` (atualizar_base.sh).
+  robo:
+    build:
+      context: .
+      target: robo
+    image: termos-patrimonio-robo:latest
+    container_name: termos-robo
+    restart: unless-stopped
+    environment:
+      TZ: America/Sao_Paulo
+    volumes:
+      - ./dados:/app/dados
+      - ./secrets:/app/secrets:ro
+    shm_size: "1gb"   # Chromium (Playwright) precisa de mais /dev/shm que o padrão do Docker
+    depends_on:
+      - web
