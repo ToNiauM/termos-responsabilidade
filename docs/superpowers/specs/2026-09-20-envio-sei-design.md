@@ -311,4 +311,15 @@ documento (título centrado, texto justificado, tabela 90%): `../notes/2026-09-2
 Decisão dele: "testa no GELIC, depois eu apago" → criados em GELIC (nº 69788–69808, `evidencias/blocos-gelic.png`). Um lote
 criado por engano em CAE-A (69767–69787, pela unidade lembrada) foi excluído na hora (blocos vazios, 0 restantes).
 
-**Emissão no SEI pelo site** (após publicação): a registrar pelo usuário no primeiro termo real.
+**Mudança de arquitetura na publicação (13:00):** o usuário pediu o trabalhador em container → serviço `robo` do compose
+(alvo `robo` do Dockerfile, Playwright/Chromium na imagem, `dados/` e `secrets/` montados, TZ Brasília nos dois serviços);
+`ops/termos-robo.service` saiu; o cron das 3h continua chamando `atualizar_base.sh`, que agora executa
+`docker compose exec -T robo python importar_spw.py`.
+
+**Publicado em 2026-09-20 13:14** (`docker compose up -d --build`, backup `termos-2026-09-20-1313.db.gz`). Processo de
+rascunho cadastrado como vigente nos três tipos, a pedido do usuário, para os testes.
+
+**Emissões pela fila de produção (container `robo`):** COMUNICA pelo site, pelo usuário, às 13:15 (21 s); GECER pelo
+controlador às 13:18 (29 s, documento 1557118, bloco 69793). Incidente: a emissão da COMUNICA adotou o documento homônimo
+do spike (regra §5.3) e a limpeza dos documentos do spike, dois minutos depois, apagou-o; o registro foi zerado e reemitido
+(documento 1557119, bloco 69788). Aprendizado: o SEI aceita o mesmo documento em mais de um bloco.
