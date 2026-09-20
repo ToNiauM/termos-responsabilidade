@@ -60,6 +60,17 @@ def esperar(condicao, timeout_s=TIMEOUT_S, intervalo=0.3, erro="tempo esgotado")
     raise TempoEsgotado(erro)
 
 
+def campos_do_formulario(nome_arvore: str, tem_numero: bool) -> tuple[str, str]:
+    """(Número, Nome na Árvore) do formulário Gerar Documento. Tipos sem o campo Número (Termo de Responsabilidade)
+    levam tudo no nome. Tipos com Número (Termo de Devolução) exigem preenchê-lo; o SEI então exibe
+    "Tipo Número NomeNaÁrvore" separados por espaço — o " - " fica no nome para a árvore seguir o padrão
+    "01/2026 - ANTÔNIO" dos demais."""
+    if not tem_numero:
+        return "", nome_arvore
+    numero, sep, resto = nome_arvore.partition(" - ")
+    return numero, f"- {resto}" if sep else ""
+
+
 class SEI:
     """Uma sessão do SEI num contexto do Chromium. Os iframes do SEI têm URL pouco confiável: os frames
     são localizados pelo conteúdo (`_frame_com`) ou pelo id do elemento (`_frame`)."""
@@ -277,14 +288,13 @@ class SEI:
         tipos.first.click()
         fr = self._frame_com("#txtNomeArvore")
         time.sleep(0.8)
-        nome = nome_arvore
-        if fr.locator("#txtNumero").first.is_visible():     # tipo com campo Número (ex.: Termo de Devolução): o SEI exige "Informe o Número."
-            numero_doc, _, nome = nome_arvore.partition(" - ")
+        numero_doc, nome = campos_do_formulario(nome_arvore, fr.locator("#txtNumero").first.is_visible())
+        if numero_doc:                                      # tipo com campo Número (ex.: Termo de Devolução): o SEI exige "Informe o Número."
             fr.fill("#txtNumero", numero_doc)
         fr.fill("#txtNomeArvore", nome)
         gravado = fr.input_value("#txtNomeArvore")
         if gravado != nome:                                 # o campo tem maxlength: nome de pessoa longo é cortado pelo SEI
-            rotulo = f"{tipo_nome} {nome_arvore[:len(nome_arvore) - len(nome)]}{gravado}"
+            rotulo = f"{tipo_nome} {numero_doc} {gravado}".replace("  ", " ")
         fr.click("label[for=optPublico]")
         fr.wait_for_function("() => document.getElementById('optPublico').checked")
         antes = self.numeros_na_arvore()

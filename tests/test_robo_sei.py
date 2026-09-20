@@ -252,6 +252,13 @@ def test_rotulo_casa_com_o_separador_que_o_sei_usar(monkeypatch):
     assert sei.documento_na_arvore("Termo de Devolução 03/2026 - MARIA") is None
 
 
+def test_campos_do_formulario_mantem_o_padrao_numero_traco_nome():
+    """Tipo com campo Número (Termo de Devolução): o SEI monta "Tipo Número NomeNaÁrvore" com um espaço; para a árvore
+    ficar "01/2026 - ANTÔNIO" como nos outros tipos, o traço vai junto do nome."""
+    assert robo_sei.campos_do_formulario("01/2026 - ANTÔNIO", tem_numero=True) == ("01/2026", "- ANTÔNIO")
+    assert robo_sei.campos_do_formulario("01/2026 - GELAI", tem_numero=False) == ("", "01/2026 - GELAI")
+
+
 def test_modulo_importa_sem_playwright():
     import importlib
     importlib.reload(robo_sei)          # playwright é importado só dentro de abrir_sei
