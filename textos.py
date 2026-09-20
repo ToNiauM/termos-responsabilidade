@@ -73,6 +73,10 @@ PADRAO = {
         "Atenciosamente,",
         "{unidade_sigla}",
     ]),
+    # nome exato do tipo de documento na lista "Gerar Documento" do SEI (Exibir todos os tipos)
+    "sei_tipo_ccusto": "Termo de Responsabilidade",
+    "sei_tipo_individual": "Termo de Responsabilidade",
+    "sei_tipo_devolucao": "Termo de Devolução",
 }
 
 _GERAIS = set()
@@ -91,6 +95,7 @@ MARCADORES = {
     "devolucao_titulo": _DEVOLUCAO, "devolucao_abertura": _DEVOLUCAO, "devolucao_data": _DEVOLUCAO,
     "devolucao_recebimento": _DEVOLUCAO,
     "email_assunto": _EMAIL, "email_corpo": _EMAIL,
+    "sei_tipo_ccusto": _GERAIS, "sei_tipo_individual": _GERAIS, "sei_tipo_devolucao": _GERAIS,
 }
 
 # Ordem e agrupamento da tela Textos.
@@ -102,6 +107,7 @@ GRUPOS = [
     ("Termo por centro de custo", ["ccusto_titulo", "ccusto_paragrafos", "ccusto_assinatura"]),
     ("Termo de devolução", ["devolucao_titulo", "devolucao_abertura", "devolucao_data", "devolucao_recebimento"]),
     ("E-mail de assinatura no SEI", ["email_assunto", "email_corpo"]),
+    ("Emissão no SEI", ["sei_tipo_ccusto", "sei_tipo_individual", "sei_tipo_devolucao"]),
 ]
 # Blocos que viram br-textarea; os demais são br-input.
 TEXTAREA = {"individual_abertura", "individual_compromissos", "individual_ciencia", "ccusto_paragrafos",
@@ -118,6 +124,8 @@ ROTULOS = {
     "devolucao_titulo": "Título", "devolucao_abertura": "Abertura", "devolucao_data": "Linha da data",
     "devolucao_recebimento": "Declaração de recebimento",
     "email_assunto": "Assunto", "email_corpo": "Corpo (enviado pelo seu programa de e-mail)",
+    "sei_tipo_ccusto": "Tipo de documento — termo por centro de custo", "sei_tipo_individual": "Tipo de documento — termo individual",
+    "sei_tipo_devolucao": "Tipo de documento — termo de devolução",
 }
 
 

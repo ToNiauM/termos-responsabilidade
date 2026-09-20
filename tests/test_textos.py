@@ -97,3 +97,14 @@ def test_salvar_todos_e_tudo_ou_nada(dados):
     t = textos.obter(dados)
     assert t["orgao_nome"] == "Conselho X" and t["cidade"] == "Goiânia (GO)"
     assert dados.execute("SELECT count(*) FROM textos").fetchone()[0] == 2   # só o que difere do padrão
+
+
+def test_tipos_de_documento_no_sei(dados):
+    t = textos.obter(dados)
+    assert t["sei_tipo_ccusto"] == "Termo de Responsabilidade" and t["sei_tipo_individual"] == "Termo de Responsabilidade"
+    assert t["sei_tipo_devolucao"] == "Termo de Devolução"
+    textos.salvar(dados, "sei_tipo_devolucao", "Termo")
+    assert textos.obter(dados)["sei_tipo_devolucao"] == "Termo"
+    with pytest.raises(db.ErroDeNegocio):
+        textos.validar("sei_tipo_ccusto", "Termo {x}")                           # sem marcadores
+    assert any(g == "Emissão no SEI" for g, _ in textos.GRUPOS)
