@@ -253,8 +253,9 @@ estão fixas no `Dockerfile`), mas os scripts de spike em `docs/superpowers/note
 ### Limpar o banco antes de entrar em produção
 
     ./apagar_termos_emitidos.sh   # só termos emitidos, seus bens e a fila de emissão (numeração recomeça do 01)
-    ./zerar_banco.sh              # cargas, importações, emissões, inventários — mantém pessoas, centros de custo,
-                                  # localizações, processos do SEI, textos e usuários
+    ./zerar_banco.sh              # histórico de cargas (importações, execuções do robô) e emissões — mantém bens,
+                                  # atribuições, pessoas, centros de custo, localizações, processos, textos, usuários
+    ./zerar_banco.sh --inventario # idem, apagando também o inventário (eventos, leituras, fotos, sobras)
 
 Os dois listam o que vai apagar, pedem confirmação (ou `--sim`) e deixam uma cópia em `dados/termos-antes-de-*.db`.
 Documentos já criados no SEI não são tocados. A numeração dos termos é automática: por unidade do SEI, por tipo de
