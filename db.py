@@ -251,6 +251,14 @@ def criar_esquema(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE {tabela} ADD COLUMN unidade_sei TEXT")
     if "numero_termo" not in _colunas(conn, "termos_emitidos"):
         conn.execute("ALTER TABLE termos_emitidos ADD COLUMN numero_termo TEXT")
+    # Acesso ao SEI por usuário (2026-09-20): login, senha cifrada (cofre.py) e unidade de quem emite.
+    for coluna in ("sei_login", "sei_senha", "sei_unidade", "sei_atualizado_em"):
+        if coluna not in _colunas(conn, "usuarios"):
+            conn.execute(f"ALTER TABLE usuarios ADD COLUMN {coluna} TEXT")
+    # Acesso ao SPW por usuário (2026-09-20): mesmo princípio, sem unidade.
+    for coluna in ("spw_login", "spw_senha", "spw_atualizado_em"):
+        if coluna not in _colunas(conn, "usuarios"):
+            conn.execute(f"ALTER TABLE usuarios ADD COLUMN {coluna} TEXT")
     conn.commit()
     # Fase 5A: perfil único de usuários.perfil vira funções (usuarios_funcoes); a comissão de
     # inventário ganha identidade de usuário quando o nome não é ambíguo. Reserva a própria transação.

@@ -23,7 +23,9 @@ USUARIO_LOCAL = {"id": None, "login": "local", "nome": "Administrador local", "f
 # real quando o login não existe (ou está inativo), para não dar pista por tempo de resposta.
 _HASH_FALSO = generate_password_hash("senha-falsa-para-tempo-constante")
 
-_COLUNAS_LISTA = "id, login, email, nome, ativo, trocar_senha, falhas, bloqueado_ate, criado_em, ultimo_acesso"
+_COLUNAS_LISTA = ("id, login, email, nome, ativo, trocar_senha, falhas, bloqueado_ate, criado_em, ultimo_acesso, "
+                   "sei_login, sei_atualizado_em, spw_login, spw_atualizado_em")
+_COLUNAS_CONTA = _COLUNAS_LISTA + ", senha_hash, sei_unidade"
 _MANTER = object()     # editar(): "não mexer no e-mail"
 
 
@@ -87,16 +89,16 @@ def _gravar_funcoes(conn, uid, funcoes):
 
 
 def por_id(conn, id) -> dict | None:
-    return _com_funcoes(conn, _um(conn, "SELECT * FROM usuarios WHERE id=?", id)) if id is not None else None
+    return _com_funcoes(conn, _um(conn, f"SELECT {_COLUNAS_CONTA} FROM usuarios WHERE id=?", id)) if id is not None else None
 
 
 def por_login(conn, login) -> dict | None:
-    return _com_funcoes(conn, _um(conn, "SELECT * FROM usuarios WHERE login=?", str(login or "").strip().lower()))
+    return _com_funcoes(conn, _um(conn, f"SELECT {_COLUNAS_CONTA} FROM usuarios WHERE login=?", str(login or "").strip().lower()))
 
 
 def por_email(conn, email) -> dict | None:
     v = str(email or "").strip().lower()
-    return _com_funcoes(conn, _um(conn, "SELECT * FROM usuarios WHERE email=?", v)) if v else None
+    return _com_funcoes(conn, _um(conn, f"SELECT {_COLUNAS_CONTA} FROM usuarios WHERE email=?", v)) if v else None
 
 
 def criar(conn, login, nome, senha, funcoes, trocar_senha=True, email=None) -> int:
@@ -230,6 +232,98 @@ def trocar_senha(conn, id, atual, nova, confirmacao) -> None:
         raise ErroDeNegocio("A confirmação não confere com a nova senha.")
     conn.execute("UPDATE usuarios SET senha_hash = ?, trocar_senha = 0 WHERE id = ?", (generate_password_hash(nova), id))
     conn.commit()
+
+
+# ---------------------------------------------------------------- acesso ao SEI
+def acesso_sei(conn, id) -> dict | None:
+    """Login, unidade e data do acesso ao SEI de um usuário — nunca a senha."""
+    r = _um(conn, "SELECT sei_login, sei_unidade, sei_atualizado_em FROM usuarios WHERE id=?", id)
+    if not r or not (r["sei_login"] and r["sei_unidade"]):
+        return None
+    return {"login": r["sei_login"], "unidade": r["sei_unidade"], "atualizado_em": r["sei_atualizado_em"]}
+
+
+def salvar_acesso_sei(conn, id, login, senha, unidade) -> None:
+    """Senha vazia mantém a atual (erro se não há atual). Cifra com cofre.py; grava a data."""
+    import cofre
+    login = " ".join(str(login or "").split())
+    unidade = " ".join(str(unidade or "").split()).upper()
+    senha = str(senha or "")
+    if not login:
+        raise ErroDeNegocio("Informe o usuário do SEI.")
+    if not unidade:
+        raise ErroDeNegocio("Informe a sigla da unidade no SEI.")
+    atual = _um(conn, "SELECT sei_senha FROM usuarios WHERE id=?", id)
+    if atual is None:
+        raise ErroDeNegocio("Usuário não encontrado.")
+    if not senha and not atual["sei_senha"]:
+        raise ErroDeNegocio("Informe a senha do SEI.")
+    cifrada = cofre.cifrar(senha) if senha else atual["sei_senha"]
+    with conn:
+        conn.execute("UPDATE usuarios SET sei_login=?, sei_senha=?, sei_unidade=?, sei_atualizado_em=? WHERE id=?",
+                     (login, cifrada, unidade, _agora(), id))
+
+
+def apagar_acesso_sei(conn, id) -> None:
+    with conn:
+        conn.execute("UPDATE usuarios SET sei_login=NULL, sei_senha=NULL, sei_unidade=NULL, sei_atualizado_em=NULL WHERE id=?", (id,))
+
+
+def credencial_sei(conn, login_sistema) -> dict | None:
+    """Só para o trabalhador: credencial decifrada de quem pediu a emissão (None se não há acesso)."""
+    import cofre
+    r = _um(conn, "SELECT sei_login, sei_senha, sei_unidade FROM usuarios WHERE login=?", str(login_sistema or "").strip().lower())
+    if not r or not (r["sei_login"] and r["sei_senha"] and r["sei_unidade"]):
+        return None
+    return {"SEI_USUARIO": r["sei_login"], "SEI_SENHA": cofre.decifrar(r["sei_senha"]), "SEI_UNIDADE": r["sei_unidade"]}
+
+
+# ---------------------------------------------------------------- acesso ao SPW
+def acesso_spw(conn, id) -> dict | None:
+    """Login e data do acesso ao SPW de um usuário — nunca a senha."""
+    r = _um(conn, "SELECT spw_login, spw_atualizado_em FROM usuarios WHERE id=?", id)
+    if not r or not r["spw_login"]:
+        return None
+    return {"login": r["spw_login"], "atualizado_em": r["spw_atualizado_em"]}
+
+
+def salvar_acesso_spw(conn, id, login, senha) -> None:
+    """Senha vazia mantém a atual (erro se não há atual). Cifra com cofre.py; grava a data."""
+    import cofre
+    login = " ".join(str(login or "").split())
+    senha = str(senha or "")
+    if not login:
+        raise ErroDeNegocio("Informe o usuário do SPW.")
+    atual = _um(conn, "SELECT spw_senha FROM usuarios WHERE id=?", id)
+    if atual is None:
+        raise ErroDeNegocio("Usuário não encontrado.")
+    if not senha and not atual["spw_senha"]:
+        raise ErroDeNegocio("Informe a senha do SPW.")
+    cifrada = cofre.cifrar(senha) if senha else atual["spw_senha"]
+    with conn:
+        conn.execute("UPDATE usuarios SET spw_login=?, spw_senha=?, spw_atualizado_em=? WHERE id=?",
+                     (login, cifrada, _agora(), id))
+
+
+def apagar_acesso_spw(conn, id) -> None:
+    with conn:
+        conn.execute("UPDATE usuarios SET spw_login=NULL, spw_senha=NULL, spw_atualizado_em=NULL WHERE id=?", (id,))
+
+
+def credencial_spw(conn, login_sistema) -> dict | None:
+    """Só para o trabalhador: credencial decifrada de quem pediu a atualização (None se não há acesso)."""
+    import cofre
+    r = _um(conn, "SELECT spw_login, spw_senha FROM usuarios WHERE login=?", str(login_sistema or "").strip().lower())
+    if not r or not (r["spw_login"] and r["spw_senha"]):
+        return None
+    return {"SPW_USUARIO": r["spw_login"], "SPW_SENHA": cofre.decifrar(r["spw_senha"])}
+
+
+def apagar_acessos(conn, id) -> None:
+    """Apaga o acesso ao SEI e ao SPW de uma vez (botão "Apagar acessos" do admin)."""
+    with conn:
+        conn.execute("""UPDATE usuarios SET sei_login=NULL, sei_senha=NULL, sei_unidade=NULL, sei_atualizado_em=NULL,
+                        spw_login=NULL, spw_senha=NULL, spw_atualizado_em=NULL WHERE id=?""", (id,))
 
 
 def criar_admin(conn, login, nome, senha, email=None) -> int:

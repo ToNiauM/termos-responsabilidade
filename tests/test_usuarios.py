@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 import db
 import usuarios
+from tests.conftest import SENHA_PADRAO
 
 
 def test_criar_e_buscar(dados):
@@ -226,3 +227,59 @@ def test_criar_admin_com_email(dados):
     senhas = iter(["Senha!234", "Senha!234"])
     assert usuarios.main(["criar-admin", "ze", "Zé", "ze@cfc.org.br"], ler_senha=lambda _p: next(senhas)) == 0
     assert usuarios.por_login(dados, "ze")["email"] == "ze@cfc.org.br"
+
+
+def test_acesso_sei_salvar_manter_apagar(dados, chave):
+    uid = usuarios.criar(dados, "maria", "Maria", SENHA_PADRAO, ["operador"])
+    assert usuarios.acesso_sei(dados, uid) is None and usuarios.credencial_sei(dados, "maria") is None
+    with pytest.raises(db.ErroDeNegocio, match="Informe a senha do SEI."):
+        usuarios.salvar_acesso_sei(dados, uid, "maria.silva", "", "gecont")
+    with pytest.raises(db.ErroDeNegocio, match="Informe a sigla da unidade no SEI."):
+        usuarios.salvar_acesso_sei(dados, uid, "maria.silva", "S3nha", " ")
+    with pytest.raises(db.ErroDeNegocio, match="Informe o usuário do SEI."):
+        usuarios.salvar_acesso_sei(dados, uid, "", "S3nha", "GECONT")
+    usuarios.salvar_acesso_sei(dados, uid, " maria.silva ", "S3nha", " gecont ")
+    a = usuarios.acesso_sei(dados, uid)
+    assert a["login"] == "maria.silva" and a["unidade"] == "GECONT" and a["atualizado_em"] and "senha" not in a
+    linha = dados.execute("SELECT sei_senha FROM usuarios WHERE id=?", (uid,)).fetchone()[0]
+    assert linha and "S3nha" not in linha
+    assert usuarios.credencial_sei(dados, "maria") == {"SEI_USUARIO": "maria.silva", "SEI_SENHA": "S3nha", "SEI_UNIDADE": "GECONT"}
+    usuarios.salvar_acesso_sei(dados, uid, "maria.silva", "", "GESERV")            # senha vazia mantém
+    assert usuarios.credencial_sei(dados, "maria")["SEI_SENHA"] == "S3nha" and usuarios.acesso_sei(dados, uid)["unidade"] == "GESERV"
+    assert "sei_senha" not in usuarios.por_id(dados, uid) and "sei_senha" not in usuarios.por_login(dados, "maria")
+    lista = [u for u in usuarios.listar(dados) if u["login"] == "maria"][0]
+    assert lista["sei_login"] == "maria.silva" and lista["sei_atualizado_em"] and "sei_senha" not in lista
+    usuarios.apagar_acesso_sei(dados, uid)
+    assert usuarios.acesso_sei(dados, uid) is None and usuarios.credencial_sei(dados, "maria") is None
+    assert usuarios.credencial_sei(dados, "nao-existe") is None
+
+
+def test_acesso_spw_salvar_manter_apagar(dados, chave):
+    uid = usuarios.criar(dados, "maria", "Maria", SENHA_PADRAO, ["operador"])
+    assert usuarios.acesso_spw(dados, uid) is None and usuarios.credencial_spw(dados, "maria") is None
+    with pytest.raises(db.ErroDeNegocio, match="Informe a senha do SPW."):
+        usuarios.salvar_acesso_spw(dados, uid, "maria.silva", "")
+    with pytest.raises(db.ErroDeNegocio, match="Informe o usuário do SPW."):
+        usuarios.salvar_acesso_spw(dados, uid, "", "S3nha")
+    usuarios.salvar_acesso_spw(dados, uid, " maria.silva ", "S3nha")
+    a = usuarios.acesso_spw(dados, uid)
+    assert a["login"] == "maria.silva" and a["atualizado_em"] and "senha" not in a
+    linha = dados.execute("SELECT spw_senha FROM usuarios WHERE id=?", (uid,)).fetchone()[0]
+    assert linha and "S3nha" not in linha
+    assert usuarios.credencial_spw(dados, "maria") == {"SPW_USUARIO": "maria.silva", "SPW_SENHA": "S3nha"}
+    usuarios.salvar_acesso_spw(dados, uid, "maria.silva2", "")            # senha vazia mantém
+    assert usuarios.credencial_spw(dados, "maria")["SPW_SENHA"] == "S3nha" and usuarios.acesso_spw(dados, uid)["login"] == "maria.silva2"
+    assert "spw_senha" not in usuarios.por_id(dados, uid) and "spw_senha" not in usuarios.por_login(dados, "maria")
+    lista = [u for u in usuarios.listar(dados) if u["login"] == "maria"][0]
+    assert lista["spw_login"] == "maria.silva2" and lista["spw_atualizado_em"] and "spw_senha" not in lista
+    usuarios.apagar_acesso_spw(dados, uid)
+    assert usuarios.acesso_spw(dados, uid) is None and usuarios.credencial_spw(dados, "maria") is None
+    assert usuarios.credencial_spw(dados, "nao-existe") is None
+
+
+def test_apagar_acessos_limpa_sei_e_spw(dados, chave):
+    uid = usuarios.criar(dados, "maria", "Maria", SENHA_PADRAO, ["operador"])
+    usuarios.salvar_acesso_sei(dados, uid, "maria.silva", "S3nha", "GECONT")
+    usuarios.salvar_acesso_spw(dados, uid, "maria.silva", "S3nha")
+    usuarios.apagar_acessos(dados, uid)
+    assert usuarios.acesso_sei(dados, uid) is None and usuarios.acesso_spw(dados, uid) is None

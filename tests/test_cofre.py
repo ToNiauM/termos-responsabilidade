@@ -4,14 +4,6 @@ import cofre
 import db
 
 
-@pytest.fixture
-def chave(tmp_path, monkeypatch):
-    arq = tmp_path / "chaves.env"
-    arq.write_text(f"CHAVE_SENHAS={cofre.gerar_chave()}\n")
-    monkeypatch.setattr(cofre, "ARQUIVO_CHAVE", arq)
-    return arq
-
-
 def test_ida_e_volta_e_tokens_diferentes(chave):
     a, b = cofre.cifrar("Segredo!1"), cofre.cifrar("Segredo!1")
     assert a != b and "Segredo" not in a and cofre.decifrar(a) == cofre.decifrar(b) == "Segredo!1"

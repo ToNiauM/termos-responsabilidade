@@ -4,6 +4,17 @@ from flask.testing import FlaskClient
 from html.parser import HTMLParser
 from werkzeug.datastructures import MultiDict
 
+import cofre
+
+
+@pytest.fixture
+def chave(tmp_path, monkeypatch):
+    """Chave Fernet isolada em tmp_path, para testes de cofre.py e do acesso ao SEI/SPW."""
+    arq = tmp_path / "chaves.env"
+    arq.write_text(f"CHAVE_SENHAS={cofre.gerar_chave()}\n")
+    monkeypatch.setattr(cofre, "ARQUIVO_CHAVE", arq)
+    return arq
+
 
 class ClienteComCSRF(FlaskClient):
     """Todo POST leva o token da sessão no cabeçalho X-CSRF, como o navegador levaria o campo oculto.
