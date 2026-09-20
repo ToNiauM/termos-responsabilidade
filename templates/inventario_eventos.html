@@ -3,72 +3,43 @@
 {% from "_macros.html" import cabecalho_tabela %}
 {% block titulo %}Inventário{% endblock %}
 {% block conteudo %}
-<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Inventário</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}</div>
-{% if aberto %}
+<div class="d-flex align-items-center mb-4"><h1 class="mb-0">Inventário</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}
+  {% if pode_administrar %}<a class="br-button secondary ml-auto" href="{{ url_for('admin.tela') }}"><i class="fas fa-cogs mr-1" aria-hidden="true"></i>Administrar inventários</a>{% endif %}</div>
+{% if corrente %}
 <div class="br-card mb-4">
-  <div class="card-header"><div class="text-weight-semi-bold text-up-02">{{ aberto.nome }}</div>
-    <div class="text-down-01 text-gray-70">Aberto em {{ aberto.aberto_em[8:10] }}/{{ aberto.aberto_em[5:7] }}/{{ aberto.aberto_em[:4] }}{% if aberto.descricao %} · {{ aberto.descricao }}{% endif %} · Comissão: {{ aberto.integrantes|join(', ') }}</div></div>
+  <div class="card-header"><div class="text-weight-semi-bold text-up-02">{{ corrente.nome }}
+      {% if corrente.estado == 'fechado' %}<span class="br-tag bg-warning ml-2"><span>fechado</span></span>{% else %}<span class="br-tag bg-success text-pure-0 ml-2"><span>aberto</span></span>{% endif %}</div>
+    <div class="text-down-01 text-gray-70">Criado em {{ corrente.aberto_em[8:10] }}/{{ corrente.aberto_em[5:7] }}/{{ corrente.aberto_em[:4] }}{% if corrente.descricao %} · {{ corrente.descricao }}{% endif %} · Comissão: {{ corrente.integrantes|join(', ') }}</div></div>
   <div class="card-content">
-    {% set r = aberto.resumo %}
+    {% set r = corrente.resumo %}
     <div class="row">
       {% for valor, legenda in [(r.salas_iniciadas ~ ' / ' ~ r.salas, 'salas iniciadas'), (r.lidos ~ ' / ' ~ r.bens, 'bens localizados'), (r.divergentes, 'divergentes'), (r.pendentes, 'pendentes'), (r.sobras, 'sobras')] %}
       <div class="col-6 col-md mb-3"><div class="text-up-03 text-weight-bold">{{ valor }}</div><div class="text-down-01 text-gray-70">{{ legenda }}</div></div>
       {% endfor %}
     </div>
+    {% if corrente.estado == 'fechado' %}
+    <div class="br-message warning mb-3"><div class="icon"><i class="fas fa-pause-circle fa-lg" aria-hidden="true"></i></div>
+      <div class="content"><span class="message-title">Inventário fechado.</span><span class="message-body"> A leitura está suspensa até o administrador reabrir; consulta liberada.</span></div></div>
+    {% else %}
     <div class="br-message info mb-3"><div class="icon"><i class="fas fa-info-circle fa-lg" aria-hidden="true"></i></div>
       <div class="content"><span class="message-body">{{ r.pct_bens }}% dos bens localizados.</span></div></div>
-    <a class="br-button primary" href="{{ url_for('inventario.evento_tela', id=aberto.id) }}"><i class="fas fa-door-open mr-1" aria-hidden="true"></i>{% if pode('inventario.ler', 'POST') %}Salas e leitura{% else %}Salas{% endif %}</a>
-    {% if pode_relatorios %}<a class="br-button secondary ml-2" href="{{ url_for('inventario.relatorio_tela', id=aberto.id) }}"><i class="fas fa-table mr-1" aria-hidden="true"></i>Relatório</a>{% endif %}
+    {% endif %}
+    <a class="br-button primary" href="{{ url_for('inventario.evento_tela', id=corrente.id) }}"><i class="fas fa-door-open mr-1" aria-hidden="true"></i>{% if corrente.estado == 'aberto' and pode('inventario.ler', 'POST') %}Salas e leitura{% else %}Salas{% endif %}</a>
+    {% if pode_relatorios %}<a class="br-button secondary ml-2" href="{{ url_for('inventario.relatorio_tela', id=corrente.id) }}"><i class="fas fa-table mr-1" aria-hidden="true"></i>Relatório</a>{% endif %}
   </div>
 </div>
-{% elif not pode_abrir %}
-<p class="text-gray-70">{% if eventos %}Nenhum evento aberto no momento.{% else %}Nenhum inventário atribuído a você. Quando a comissão de um evento incluir seu usuário, ele aparece aqui.{% endif %}</p>
 {% else %}
-<p class="text-gray-70">Nenhum evento aberto. Abra um evento para começar a conferência.</p>
-<form method="post" action="{{ url_for('inventario.abrir') }}" class="br-card mb-4">{{ csrf_campo() }}<div class="card-content">
-  <div class="text-weight-semi-bold text-up-01 mb-3">Abrir evento</div>
-  <div class="row">
-    <div class="col-md-6 mb-3"><div class="br-input"><label for="nome">Nome</label><input id="nome" name="nome" type="text" placeholder="Ex.: Inventário 2026" required/></div></div>
-    <div class="col-md-6 mb-3"><div class="br-input"><label for="descricao">Descrição (portaria, observações)</label><input id="descricao" name="descricao" type="text"/></div></div>
-    <div class="col-md-6 mb-3">
-      <div class="text-weight-semi-bold mb-2">Comissão (quem poderá ler)</div>
-      {% for u in elegiveis %}
-      {% if local %}
-      <div class="br-checkbox mb-1"><input id="int-{{ loop.index }}" name="integrantes" type="checkbox" value="{{ u.nome }}"{% if u.id is none %} checked disabled{% endif %}/><label for="int-{{ loop.index }}">{{ u.nome }} <span class="text-gray-70 text-down-01">· {{ u.funcoes|map('rotulo_funcao')|join(', ') }}</span></label></div>
-      {% else %}
-      <div class="br-checkbox mb-2">
-        <input id="integrante-{{ u.id }}" name="usuarios" type="checkbox" value="{{ u.id }}"/>
-        <label for="integrante-{{ u.id }}">{{ u.nome }} ({{ u.login }})</label>
-      </div>
-      {% endif %}
-      {% else %}<p class="text-gray-70">Nenhum usuário elegível. Cadastre usuários com função Inventário ou Administrador.</p>{% endfor %}
-    </div>
-    <div class="col-md-6 mb-3">
-      <div class="text-weight-semi-bold mb-2">Escopo</div>
-      <div class="br-radio mb-2"><input id="escopo-todas" name="escopo" type="radio" value="todas" checked/><label for="escopo-todas">Todas as salas com bens ativos ({{ salas_ativas|length }})</label></div>
-      <div class="br-radio mb-2"><input id="escopo-escolher" name="escopo" type="radio" value="escolher"/><label for="escopo-escolher">Escolher salas (amostragem)</label></div>
-      <div id="lista-salas" hidden>
-        {% for s in salas_ativas %}<div class="br-checkbox"><input id="sala-{{ loop.index }}" name="salas" type="checkbox" value="{{ s }}"/><label for="sala-{{ loop.index }}">{{ s }}</label></div>{% endfor %}
-      </div>
-    </div>
-  </div>
-  <button class="br-button primary" type="submit"><i class="fas fa-play mr-1" aria-hidden="true"></i>Abrir evento</button>
-</div></form>
+<p class="text-gray-70">{% if eventos %}Nenhum inventário aberto ou fechado no momento.{% elif pode_administrar %}Nenhum inventário criado. Crie um em Administrar inventários.{% else %}Nenhum inventário atribuído a você. Quando a comissão de um evento incluir seu usuário, ele aparece aqui.{% endif %}</p>
 {% endif %}
 {% if eventos %}
-{{ cabecalho_tabela('Eventos encerrados', 'eventos') }}
-  <thead><tr><th scope="col">Evento</th><th scope="col">Aberto em</th><th scope="col">Encerrado em</th>{% if pode_relatorios %}<th scope="col" class="dsgov-acoes">Relatório</th>{% endif %}</tr></thead>
+{{ cabecalho_tabela('Outros inventários', 'eventos') }}
+  <thead><tr><th scope="col">Inventário</th><th scope="col">Estado</th><th scope="col">Criado em</th><th scope="col">Finalizado em</th>{% if pode_relatorios %}<th scope="col" class="dsgov-acoes">Relatório</th>{% endif %}</tr></thead>
   <tbody>{% for e in eventos %}
-  <tr><td><a href="{{ url_for('inventario.evento_tela', id=e.id) }}">{{ e.nome }}</a></td><td>{{ e.aberto_em[8:10] }}/{{ e.aberto_em[5:7] }}/{{ e.aberto_em[:4] }}</td><td>{% if e.encerrado_em %}{{ e.encerrado_em[8:10] }}/{{ e.encerrado_em[5:7] }}/{{ e.encerrado_em[:4] }}{% else %}—{% endif %}</td>
+  <tr><td><a href="{{ url_for('inventario.evento_tela', id=e.id) }}">{{ e.nome }}</a></td>
+    <td>{% if e.estado == 'aberto' %}<span class="br-tag bg-success text-pure-0"><span>aberto</span></span>{% elif e.estado == 'fechado' %}<span class="br-tag bg-warning"><span>fechado</span></span>{% else %}<span class="br-tag bg-gray-20"><span>finalizado</span></span>{% endif %}</td>
+    <td>{{ e.aberto_em[8:10] }}/{{ e.aberto_em[5:7] }}/{{ e.aberto_em[:4] }}</td><td>{% if e.encerrado_em %}{{ e.encerrado_em[8:10] }}/{{ e.encerrado_em[5:7] }}/{{ e.encerrado_em[:4] }}{% else %}—{% endif %}</td>
     {% if pode_relatorios %}<td class="dsgov-acoes"><a class="br-button circle small" href="{{ url_for('inventario.relatorio_tela', id=e.id) }}" aria-label="Relatório de {{ e.nome }}"><i class="fas fa-table" aria-hidden="true"></i></a></td>{% endif %}</tr>
   {% endfor %}</tbody>
 </table></div>
 {% endif %}
-{% endblock %}
-{% block scripts %}
-<script>
-document.querySelectorAll('input[name="escopo"]').forEach(function (r) {
-  r.addEventListener("change", function () { document.getElementById("lista-salas").hidden = this.value !== "escolher"; });
-});
-</script>
 {% endblock %}

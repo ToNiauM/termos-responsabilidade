@@ -39,9 +39,7 @@
   <p>Localizado foi lido na sala cadastrada; divergente foi lido em outra sala; pendente ainda não foi lido. A conferência não muda o cadastro de localização do sistema de patrimônio. Bens baixados continuam baixados.</p>
   <p>Se a plaqueta não existir no cadastro, registre uma sobra com descrição, observação e foto quando o recurso estiver disponível. Para plaquetas ilegíveis, use a marcação em lote após conferir os bens.</p>
   <p>Desmarcar remove a leitura e as fotos associadas. Se leu na sala errada, leia novamente na sala correta; vale a leitura mais recente.</p>
-  {% if pode('inventario.abrir','POST') %}
-  <p>O administrador abre o evento, define a comissão e o escopo das salas. Só pode haver um evento aberto. Encerrar congela os registros; excluir pede confirmação pelo nome e não pode ser desfeito.</p>
-  {% endif %}
+  <p>Evento fechado pelo administrador aceita consulta, mas não leitura, até ser reaberto.</p>
 {% elif s.id == 'consulta-inventarios' %}
   <p>A função Consulta de inventários permite acompanhar todos os eventos, anteriores e futuros, pelo Painel, Relatório e exportação. Ela não permite conferir bens por si só.</p>
   <p>O Painel mostra o andamento e as distribuições do evento. No Relatório, filtre sala, situação, integrante, conservação, fotos e texto e use a ordenação das colunas.</p>
@@ -57,6 +55,7 @@
   <p>Envie o arquivo .xlsx exportado do sistema de patrimônio. A atualização substitui a base de bens e mantém os cadastros de responsáveis, pessoas e atribuições, conforme as validações apresentadas.</p>
   <p>O histórico registra entradas, saídas e mudanças dos bens. Exportar bens gera uma planilha no formato de importação para cópia de segurança.</p>
 {% elif s.id == 'usuarios' %}
+  <p>Em <strong>Administração › Inventários</strong> o administrador cria inventários, define a comissão e o escopo de salas, liga e desliga a chave Abrir/Fechar (só um fica aberto; ligar em um fecha o outro), finaliza e exclui. Finalizar congela as leituras e não tem volta. Quem entra na comissão sem a função Inventário recebe a função na hora.</p>
   <p>Crie usuários e selecione somente as funções necessárias. Administrador gerencia o sistema; Operador emite termos, mantém cadastros e textos e atualiza a base; Consulta lê acervo e termos; Inventário faz conferência na própria comissão; Consulta de inventários acompanha painéis, relatórios e exportações de todos os eventos.</p>
   <p>As funções selecionadas se somam. Criar um usuário com Inventário não o inclui automaticamente em uma comissão. Login é único; o e-mail é opcional, único e também pode ser usado para entrar.</p>
   <p>Usuários são inativados, não excluídos. Nova senha gera uma senha temporária mostrada uma única vez, com troca obrigatória no acesso seguinte. Cinco tentativas erradas bloqueiam o login por 15 minutos.</p>

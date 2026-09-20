@@ -209,9 +209,9 @@ def home():
     p = db.painel(obter_conn())
     f = {"situacao": "ATIVO"}
     a = _evento_corrente_visivel(g.usuario) if usuarios.permitido(g.usuario["funcoes"], "inventario.eventos_tela") else None
-    inventario_aberto = inventario.evento(obter_conn(), a["id"]) if a else None
-    return render_template("index.html", p=p, f=f,
-                           moeda=painel.moeda, url_recorte=painel.url_recorte, trilha=[], inventario_aberto=inventario_aberto)
+    inventario_corrente = inventario.evento(obter_conn(), a["id"]) if a else None
+    return render_template("index.html", p=p, f=f, moeda=painel.moeda, url_recorte=painel.url_recorte, trilha=[],
+                           inventario_corrente=inventario_corrente)
 
 
 def _decimal(v: str) -> str:

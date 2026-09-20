@@ -519,13 +519,13 @@ def test_inventario_eventos_abrir_e_encerrar(cliente):
     # é só consulta dos eventos visíveis a quem pediu, mas continua trazendo o cartão do evento corrente.
     import db, inventario
     r = cliente.get("/inventario")
-    assert r.status_code == 200 and "Nenhum inventário atribuído a você".encode() in r.data
+    assert r.status_code == 200 and b"Nenhum invent" in r.data and b'href="/administracao"' in r.data
     r = cliente.post("/inventario/abrir", data={"nome": "Inventário 2026", "descricao": "Portaria 1", "usuarios": _ids("Fulano", "Beltrana"), "escopo": "todas"}, follow_redirects=True)
     assert "Inventário 2026".encode() in r.data
     eid1 = inventario.evento_aberto(db.conectar())["id"]
     assert b"01 - SALA CCI" in cliente.get(f"/inventario/{eid1}").data and b"99 - SEM MAPA" in cliente.get(f"/inventario/{eid1}").data
     r = cliente.get("/inventario")
-    assert b"Salas e leitura" in r.data and "Aberto em".encode() in r.data and "Inventário 2026".encode() in r.data   # cartão do evento corrente, não a mensagem de vazio
+    assert b"Salas e leitura" in r.data and "Criado em".encode() in r.data and "Inventário 2026".encode() in r.data   # cartão do evento corrente, não a mensagem de vazio
     assert "Inventário".encode() in cliente.get("/").data                          # menu
     r = cliente.post("/inventario/abrir", data={"nome": "Outro", "usuarios": _ids("Fulano"), "escopo": "todas", "abrir_agora": "1"}, follow_redirects=True)
     assert b"Outro" in r.data                                          # chave única: abrir fecha o anterior, não recusa
@@ -913,7 +913,8 @@ def test_inventario_comissao_por_usuarios(cliente, dados, usuarios_exemplo):
     assert "Selecione integrantes válidos".encode() in r.data                                       # nome no lugar do ID
     eid = _abrir(cliente, comissao=["Beltrana"])
     r = cliente.get(f"/inventario/{eid}")
-    assert b"Comiss" in r.data and b'href="/inventario/%d/comissao"' % eid in r.data and b"Quem est" not in r.data
+    assert b"Comiss" in r.data and b"Quem est" not in r.data
+    assert b'href="/inventario/%d/comissao"' % eid in cliente.get("/administracao").data
     r = cliente.get(f"/inventario/{eid}/sala/01 - SALA CCI")
     assert "não faz parte da comissão".encode() in r.data and b'id="leitura" type="text" inputmode="none" autocomplete="off" enterkeyhint="done" placeholder="Aproxime o leitor\xe2\x80\xa6" disabled' in r.data
     r = cliente.get(f"/inventario/{eid}/comissao")
@@ -1083,8 +1084,7 @@ def test_inventario_excluir_evento(cliente, dados, monkeypatch, usuarios_exemplo
     eid = _abrir(cliente)
     cliente.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
     inventario.adicionar_foto(dados, eid, 1001, lambda c: "https://x/a.webp")
-    r = cliente.get(f"/inventario/{eid}")
-    assert b"Excluir evento" in r.data
+    assert b"Excluir" in cliente.get("/administracao").data
     r = cliente.get(f"/inventario/{eid}/excluir")
     assert r.status_code == 200 and b"1 leitura" in r.data and b"1 foto" in r.data and b'name="nome"' in r.data
     monkeypatch.setattr(fotos, "apagar", lambda url: (_ for _ in ()).throw(RuntimeError("bucket fora")))
@@ -1102,7 +1102,7 @@ def test_inventario_excluir_evento(cliente, dados, monkeypatch, usuarios_exemplo
     cliente.post("/sair"); logar(cliente, *usuarios_exemplo["operador"])
     assert cliente.get(f"/inventario/{eid}/excluir").status_code == 403
     assert cliente.post(f"/inventario/{eid}/excluir", data={"nome": "Inv"}).status_code == 403
-    assert b"Excluir evento" not in cliente.get(f"/inventario/{eid}").data
+    assert b'href="/administracao"' not in cliente.get(f"/inventario/{eid}").data
 
 
 def _xlsx_base():
@@ -1416,3 +1416,37 @@ def test_administracao_so_para_admin_e_usuarios_vira_aba(cliente, usuarios_exemp
         cliente.post("/sair"); logar(cliente, *usuarios_exemplo[funcao])
         assert cliente.get("/administracao").status_code == 403
         assert cliente.post("/inventario/1/abrir").status_code == 403 and cliente.post("/inventario/1/fechar").status_code == 403
+
+
+def test_tela_inventario_sem_administracao_e_com_estado(cliente, dados, usuarios_exemplo):
+    fulano, beltrana = _ids("Fulano", "Beltrana")
+    cliente.post("/inventario/abrir", data={"nome": "Inv A", "usuarios": [fulano, beltrana], "escopo": "todas"})
+    ea = inventario.evento_aberto(dados)["id"]
+    r = cliente.get("/inventario")
+    assert b"Abrir evento" not in r.data and b'name="usuarios"' not in r.data and b'href="/administracao"' in r.data
+    assert b"Inv A" in r.data and b">aberto<" in r.data
+    r = cliente.get(f"/inventario/{ea}")
+    assert b"Encerrar evento" not in r.data and b"Excluir evento" not in r.data and b'href="/administracao"' in r.data
+    cliente.post(f"/inventario/{ea}/fechar")
+    r = cliente.get(f"/inventario/{ea}")
+    assert "Inventário fechado".encode() in r.data
+    assert b'placeholder="Aproxime o leitor\xe2\x80\xa6" disabled' in cliente.get(f"/inventario/{ea}/sala/01 - SALA CCI").data   # leitura suspensa
+    r = cliente.post(f"/inventario/{ea}/sala/01 - SALA CCI/ler", json={"numero": "1001"})
+    assert r.status_code == 409 and "fechado" in r.get_json()["erro"]
+    r = cliente.get("/inventario")
+    assert b">fechado<" in r.data                                                      # comissão vê o fechado
+    cliente.post("/sair"); logar(cliente, *usuarios_exemplo["inventariante"])
+    r = cliente.get("/inventario")
+    assert b'href="/administracao"' not in r.data and b"Inv A" in r.data and b">fechado<" in r.data
+
+
+def test_inicio_mostra_inventario_fechado(cliente, dados, usuarios_exemplo):
+    beltrana = _ids("Beltrana")[0]
+    cliente.post("/inventario/abrir", data={"nome": "Inv A", "usuarios": [beltrana], "escopo": "todas"})
+    ea = inventario.evento_aberto(dados)["id"]
+    assert "Inventário em andamento".encode() in cliente.get("/").data
+    cliente.post(f"/inventario/{ea}/fechar")
+    html = cliente.get("/").get_data(as_text=True)
+    assert "Inventário fechado" in html and "Inventário em andamento" not in html
+    m = cliente.get("/").data.split(b'id="main-navigation"')[1].split(b"menu-footer")[0]
+    assert b"Inv A" in m                                                                 # menu mostra o corrente

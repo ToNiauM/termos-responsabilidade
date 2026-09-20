@@ -8,21 +8,15 @@
   <div class="ml-auto">
     {% if pode('inventario.painel_tela') %}<a class="br-button secondary" href="{{ url_for('inventario.painel_tela', id=e.id) }}"><i class="fas fa-chart-pie mr-1" aria-hidden="true"></i>Painel</a>{% endif %}
     {% if pode('inventario.relatorio_tela') %}<a class="br-button secondary ml-2" href="{{ url_for('inventario.relatorio_tela', id=e.id) }}"><i class="fas fa-table mr-1" aria-hidden="true"></i>Relatório</a>{% endif %}
-    {% if not e.encerrado_em %}
-    {% if pode('inventario.comissao') %}<a class="br-button secondary ml-2" href="{{ url_for('inventario.comissao', id=e.id) }}"><i class="fas fa-users mr-1" aria-hidden="true"></i>Comissão</a>{% endif %}
-    {% if pode('inventario.encerrar', 'POST') %}
-    <form method="post" action="{{ url_for('inventario.encerrar', id=e.id) }}" class="d-inline ml-2">{{ csrf_campo() }}
-      {% if confirmar == 'encerrar' %}<input type="hidden" name="confirmar" value="1"/><button class="br-button primary" type="submit"><i class="fas fa-check mr-1" aria-hidden="true"></i>Confirmar encerramento</button>
-      {% else %}<button class="br-button" type="submit"><i class="fas fa-lock mr-1" aria-hidden="true"></i>Encerrar evento</button>{% endif %}
-    </form>
-    {% endif %}
-    {% endif %}
-    {% if pode('inventario.excluir', 'POST') %}<a class="br-button danger ml-2" href="{{ url_for('inventario.excluir', id=e.id) }}"><i class="fas fa-trash mr-1" aria-hidden="true"></i>Excluir evento</a>{% endif %}
+    {% if pode('admin.tela') %}<a class="br-button secondary ml-2" href="{{ url_for('admin.tela') }}"><i class="fas fa-cogs mr-1" aria-hidden="true"></i>Administrar</a>{% endif %}
   </div>
 </div>
 {% if e.encerrado_em %}
 <div class="br-message warning mb-3"><div class="icon"><i class="fas fa-lock fa-lg" aria-hidden="true"></i></div>
   <div class="content"><span class="message-title">Evento encerrado</span><span class="message-body"> em {{ e.encerrado_em[8:10] }}/{{ e.encerrado_em[5:7] }}/{{ e.encerrado_em[:4] }}. Somente consulta.</span></div></div>
+{% elif e.estado == 'fechado' %}
+<div class="br-message warning mb-3"><div class="icon"><i class="fas fa-pause-circle fa-lg" aria-hidden="true"></i></div>
+  <div class="content"><span class="message-title">Inventário fechado.</span><span class="message-body"> A leitura está suspensa até o administrador reabrir; consulta liberada.</span></div></div>
 {% else %}
 {% if not na_comissao %}
 <div class="br-message info mb-3"><div class="icon"><i class="fas fa-user-slash fa-lg" aria-hidden="true"></i></div>
@@ -32,7 +26,7 @@
 {% set r = e.resumo %}
 <p class="text-gray-70">{{ r.salas_iniciadas }} de {{ r.salas }} salas iniciadas · {{ r.lidos }} de {{ r.bens }} bens localizados ({{ r.pct_bens }}%) · {{ r.divergentes }} divergentes · {{ r.sobras }} sobras · Comissão: {{ e.integrantes|join(', ') }}</p>
 {{ cabecalho_tabela('Salas do evento', 'salas') }}
-  <thead><tr><th scope="col">Sala</th><th scope="col">Centro</th><th scope="col" class="dsgov-numero">Bens</th><th scope="col" class="dsgov-numero">Localizados</th><th scope="col" class="dsgov-numero">Divergentes</th><th scope="col" class="dsgov-numero">Pendentes</th><th scope="col">Situação</th><th scope="col" class="dsgov-acoes">{% set conferir = na_comissao and not e.encerrado_em and pode('inventario.ler', 'POST') %}{{ 'Conferir' if conferir else 'Ver' }}</th></tr></thead>
+  <thead><tr><th scope="col">Sala</th><th scope="col">Centro</th><th scope="col" class="dsgov-numero">Bens</th><th scope="col" class="dsgov-numero">Localizados</th><th scope="col" class="dsgov-numero">Divergentes</th><th scope="col" class="dsgov-numero">Pendentes</th><th scope="col">Situação</th><th scope="col" class="dsgov-acoes">{% set conferir = na_comissao and e.estado == 'aberto' and pode('inventario.ler', 'POST') %}{{ 'Conferir' if conferir else 'Ver' }}</th></tr></thead>
   <tbody>{% for s in salas %}
   <tr><td>{{ s.localizacao }}</td><td>{{ s.ccustos or '—' }}</td><td class="dsgov-numero">{{ s.total }}</td><td class="dsgov-numero">{{ s.localizados }}</td><td class="dsgov-numero">{{ s.divergentes }}</td><td class="dsgov-numero">{{ s.pendentes }}</td>
     <td>{% if s.total and s.pendentes == 0 %}<span class="br-tag bg-success text-pure-0"><span>completa</span></span>{% elif s.localizados or s.divergentes %}<span class="br-tag bg-warning"><span>em andamento</span></span>{% else %}<span class="br-tag bg-gray-20"><span>não iniciada</span></span>{% endif %}</td>

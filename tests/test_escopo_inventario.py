@@ -227,7 +227,7 @@ def test_tela_de_eventos_nao_alude_a_evento_alheio(cliente, dados):
     cliente.post("/sair"); logar(cliente, "beltrana", SENHA_PADRAO)
     html = cliente.get("/inventario").get_data(as_text=True)
     assert "Nenhum inventário atribuído a você" in html
-    assert "Inventário Secreto" not in html and "bens localizados" not in html and "Abrir evento" not in html
+    assert "Inventário Secreto" not in html and "bens localizados" not in html and 'href="/administracao"' not in html
     assert f"/inventario/{eid}" not in html
     assert cliente.get(f"/inventario/{eid}").status_code == 403
 

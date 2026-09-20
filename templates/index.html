@@ -60,9 +60,9 @@
   {% endif %}
   {% if pode('inventario.eventos_tela') %}
   <div class="col-sm-6 col-lg-4 mb-3">
-    {% if inventario_aberto %}<a class="br-card h-100 dsgov-kpi" href="{{ url_for('inventario.evento_tela', id=inventario_aberto.id) }}"><div class="card-content">
-      <div class="valor">{{ inventario_aberto.resumo.pct_bens }}%</div>
-      <div class="text-down-01 text-gray-70">Inventário em andamento · {{ inventario_aberto.resumo.divergentes }} divergentes</div></div></a>
+    {% if inventario_corrente %}<a class="br-card h-100 dsgov-kpi{% if inventario_corrente.estado == 'fechado' %} dsgov-kpi-alerta{% endif %}" href="{{ url_for('inventario.evento_tela', id=inventario_corrente.id) }}"><div class="card-content">
+      <div class="valor">{{ inventario_corrente.resumo.pct_bens }}%</div>
+      <div class="text-down-01 text-gray-70">{% if inventario_corrente.estado == 'fechado' %}Inventário fechado{% else %}Inventário em andamento{% endif %} · {{ inventario_corrente.resumo.divergentes }} divergentes</div></div></a>
     {% else %}<a class="br-card h-100 dsgov-kpi" href="{{ url_for('inventario.eventos_tela') }}"><div class="card-content"><div class="valor">—</div><div class="text-down-01 text-gray-70">Nenhum inventário aberto</div></div></a>{% endif %}
   </div>
   {% endif %}
