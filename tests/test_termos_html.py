@@ -38,14 +38,16 @@ def test_individual_com_texto_alterado_e_nome_em_negrito():
              individual_compromissos="a\nb\nc", orgao_sigla="XYZ")
     html = th.corpo_individual("ANA SILVA", bens(), textos=t)
     assert "TESTE <b>Ana Silva</b> do XYZ." in html
-    assert html.count('style="text-align:justify;text-indent:0;margin:0 0 7pt">a</p>') == 1 and ">c</p>" in html
+    assert '<p class="semrecuo" style="text-align:justify;text-indent:0;margin:0 0 7pt">a</p>' in html
+    assert '<p class="semrecuo" style="text-align:justify;text-indent:0;margin:0 0 7pt">c</p>' in html
 
 
 def test_ccusto_com_dois_paragrafos_e_sigla():
     t = dict(textos.PADRAO, ccusto_paragrafos="Primeiro {ccustos}.\n\nSegundo do {orgao_sigla}.", orgao_sigla="XYZ")
     resp = {"ccustos": "CCI", "responsavel": "JAQUELINE", "matricula": "46", "funcao": "coordenadora"}
     html = th.corpo_ccusto("CCI", resp, bens(), textos=t)
-    assert "width:90%" in html and "Primeiro CCI." in html and "Segundo do XYZ." in html
+    assert '<p style="text-align:justify;text-indent:1.25cm;margin:0 0 7pt">Primeiro CCI.</p><p style="text-align:justify;text-indent:1.25cm;margin:0 0 7pt">Segundo do XYZ.</p>' in html
+    assert "width:90%" in html
     assert "coordenadora do(a) CCI</p>" in html and "do XYZ</p>" not in html   # assinatura sem a sigla do órgão (3e70a8b)
 
 
