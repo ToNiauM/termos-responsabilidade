@@ -31,23 +31,29 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    na tela). A antiga tela **Recorte** passou a se chamar **Análise**; `/recorte` e `/recorte/xlsx`
    continuam funcionando e redirecionam para os novos endereços.
    **Menu** em árvore, recortado pelas funções de quem entrou: Início, Termos de Responsabilidade (grupo),
-   Análise, Inventário (grupo), Cadastros (grupo), Textos, Atualizar base, Usuários e Ajuda. Grupo sem
+   Análise, Inventário (grupo), Cadastros (grupo), Textos, Atualizar base, Administração e Ajuda. Grupo sem
    nenhum item permitido não aparece; o grupo da tela aberta já vem expandido e só o item da tela fica
    marcado (o relatório de um evento encerrado não acende o relatório do evento aberto).
    **Ajuda** (`/ajuda`) é o guia do sistema: sumário e seções apenas das funções do usuário, incluindo
    perguntas frequentes. O ícone de interrogação ao lado do título das telas de trabalho abre o guia direto
    na seção correspondente; a própria Ajuda, o login, as telas de erro e os documentos não têm esse botão.
-   **Inventário** (menu próprio): abra um evento (nome, portaria, comissão; todas as salas com bens
-   ativos ou uma amostra), escolha o integrante e leia as plaquetas por sala com leitor de código de
-   barras, câmera do celular ou digitação. Bem lido na sala cadastrada = localizado; em outra sala =
-   divergente (o cadastro do SPW não muda); não lido = pendente; sem cadastro = sobra (com foto).
-   Bem baixado lido fica registrado (continua baixado). Conservação, quem usa, observação e foto por bem.
-   Relatório e `.xlsx` por evento. O evento fica aberto até ser encerrado; encerrar congela tudo.
+   **Administração › Inventários** (menu Administração, só admin): crie o evento (nome, portaria; nasce
+   fechado, salvo marcar "Abrir agora"), abra/feche pela chave — só um aberto por vez; abrir um evento
+   fecha o outro automaticamente ("Inventário X aberto; Y foi fechado.") —, finalize (permanente, congela
+   os bens) e defina a comissão (qualquer usuário ativo; quem ainda não tem a função Inventário a recebe
+   automaticamente ao entrar na comissão), além de excluir e ver o relatório de um evento finalizado.
+   A comissão pode ser editada enquanto o evento estiver fechado.
+   **Inventário** (menu próprio, tela de conferência): escolha o integrante e leia as plaquetas do evento
+   aberto por sala com leitor de código de barras, câmera do celular ou digitação. Bem lido na sala
+   cadastrada = localizado; em outra sala = divergente (o cadastro do SPW não muda); não lido = pendente;
+   sem cadastro = sobra (com foto). Bem baixado lido fica registrado (continua baixado). Conservação,
+   quem usa, observação e foto por bem. Relatório e `.xlsx` por evento. Um evento fechado mostra
+   "Inventário fechado" e não aceita leituras até ser reaberto; finalizar é definitivo e congela tudo.
    Cada evento tem **Painel** (KPIs e gráficos por situação, integrante, conservação, andar e sala —
    o andar é o texto antes do primeiro `-` no nome da sala), relatório com filtros/ordenação e `.xlsx`
    com opção *Incluir fotos* (`=IMAGEM`; exige Microsoft 365 — em Excel antigo aparece `#NOME?`). Na sala, é possível marcar bens como localizados em lote
-   (plaqueta ilegível) e desmarcar. Ao encerrar, os bens do evento são congelados
-   (`inventario_bens_encerrados`): o relatório de um evento encerrado não muda quando a base do SPW
+   (plaqueta ilegível) e desmarcar. Ao finalizar, os bens do evento são congelados
+   (`inventario_bens_encerrados`): o relatório de um evento finalizado não muda quando a base do SPW
    é atualizada.
    Fotos vão para o bucket R2 configurado em `secrets/.env` (variáveis `R2_*`); sem ele, fotos ficam
    desativadas. Cada bem aceita várias fotos por evento (a sala mostra todas; relatório e `.xlsx` só a
@@ -59,15 +65,15 @@ Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
    evento aberto, o próprio evento, *Painel* e *Relatório*.
    **Usuários e funções** (site): entrar com login (ou e-mail, se cadastrado) e senha. O e-mail é opcional e
    único. Cada usuário soma quantas funções quiser — não são perfis excludentes: *Administrador* (tudo:
-   usuários, abrir/encerrar/excluir inventário, exclusões e importação de cadastros), *Operador* (termos,
+   usuários, administração de inventários — chave Abrir/Fechar, Finalizar, comissão, excluir —, exclusões
+   e importação de cadastros), *Operador* (termos,
    cadastros, textos, atualizar base), *Consulta* (só vê o acervo; não emite termo), *Inventário* (lê bens,
    tira foto e registra sobra nos eventos em que está na comissão) e *Consulta de inventários* (acompanha
-   telas, painel, relatório e `.xlsx` de qualquer evento, aberto ou encerrado, sem poder ler bens). As funções
+   telas, painel, relatório e `.xlsx` de qualquer evento, aberto, fechado ou finalizado, sem poder ler bens). As funções
    se somam: por exemplo, Inventário + Consulta de inventários enxerga todos os eventos, mas só grava leitura,
-   foto e sobra no evento da própria comissão. A comissão de cada evento é escolhida pelo administrador entre
-   os usuários com Administrador ou Inventário, na tela do próprio evento; criar um usuário com a função
-   Inventário não o inclui automaticamente em nenhuma comissão — é preciso adicioná-lo depois, evento a
-   evento. A leitura grava o nome de quem está logado.
+   foto e sobra no evento da própria comissão. A comissão de cada evento é escolhida pelo administrador em
+   Administração › Inventários, entre qualquer usuário ativo; quem ainda não tem a função Inventário a
+   recebe automaticamente ao entrar na comissão. A leitura grava o nome de quem está logado.
    A entrada depende do acesso: quem enxerga o acervo cai no **Início**; quem só tem função de inventário é
    levado direto a **Inventário** (`/inventario`), sem lupa de pesquisa, Análise nem termos — nem por URL
    digitada (403). Dentro do módulo as duas funções se separam: quem tem só *Inventário* também não alcança
@@ -279,6 +285,7 @@ termo (centro de custo, individual, devolução) e por ano.
 | `painel.py`, `graficos.py` | cards de gráfico (ECharts embutido, tema DSGov) |
 | `inventario.py`, `fotos.py`, `app_inventario.py` | módulo de inventário (dados, fotos no R2, rotas) |
 | `usuarios.py`, `app_usuarios.py` | usuários, senhas, matriz de permissões e telas de login/usuários |
+| `app_admin.py` | Tela Administração (aba Inventários; a aba Usuários é `app_usuarios.py`) |
 | `scripts/apagar_termos_emitidos.sh`, `scripts/zerar_banco.sh` | limpeza do banco antes da produção (ver acima) |
 | `cofre.py` | cifra (Fernet) das senhas do SEI e do SPW guardadas por usuário; chave em `secrets/chaves.env` |
 | `scripts/atualizar_base.sh` | Chama o robô do SPW dentro do container `robo` via `docker compose exec` (`--teste` usa uma cópia da base); o cron chama o mesmo script |
