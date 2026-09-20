@@ -26,6 +26,11 @@ ajuda GET
 usuarios.login GET POST
 usuarios.sair POST
 usuarios.senha GET POST
+usuarios.acessos GET
+usuarios.salvar_acesso_sei POST
+usuarios.apagar_acesso_sei POST
+usuarios.salvar_acesso_spw POST
+usuarios.apagar_acesso_spw POST
 """)
 _registrar(ACERVO, """
 bem GET
@@ -89,6 +94,7 @@ usuarios.novo GET
 usuarios.incluir POST
 usuarios.editar GET POST
 usuarios.nova_senha POST
+usuarios.apagar_acessos POST
 base_atualizar_spw POST
 """)
 _registrar(EVENTOS, """

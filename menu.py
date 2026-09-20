@@ -36,7 +36,7 @@ def destino_atual(endpoint, args):
         return 'termos_emitidos_tela', {}
     if endpoint in {'gerar', 'gerar_individual'}:
         return ('centro_custos' if endpoint == 'gerar' else 'termos_individuais'), {}
-    if endpoint in {'usuarios.novo', 'usuarios.incluir', 'usuarios.editar', 'usuarios.nova_senha'}:
+    if endpoint in {'usuarios.novo', 'usuarios.incluir', 'usuarios.editar', 'usuarios.nova_senha', 'usuarios.apagar_acessos'}:
         return 'usuarios.lista', {}
     if endpoint in {'inventario.sala_tela', 'inventario.comissao', 'inventario.excluir'}:
         return 'inventario.evento_tela', {'id': args.get('id')}
@@ -105,7 +105,7 @@ AJUDA = {
     'centro_custos': 'termos', 'termos_individuais': 'termos', 'termo_devolucao': 'termos',
     'termos_emitidos_tela': 'termos',
     'cadastros': 'cadastros', 'textos_tela': 'textos', 'textos_salvar': 'textos', 'upload': 'atualizar-base',
-    'usuarios.lista': 'usuarios', 'usuarios.senha': 'conta',
+    'usuarios.lista': 'usuarios', 'usuarios.senha': 'conta', 'usuarios.acessos': 'conta',
     'inventario.painel_tela': 'consulta-inventarios', 'inventario.relatorio_tela': 'consulta-inventarios',
 }
 

@@ -12,13 +12,19 @@
   <div class="col-md-2 mb-2"><button class="br-button secondary" type="submit"><i class="fas fa-search mr-1" aria-hidden="true"></i>Filtrar</button></div>
 </div></form>
 {{ cabecalho_tabela('Usuários cadastrados', 'usuarios') }}
-  <thead><tr><th scope="col">Login</th><th scope="col">E-mail</th><th scope="col">Nome</th><th scope="col">Funções</th><th scope="col">Situação</th><th scope="col">Último acesso</th><th scope="col" class="dsgov-acoes">Ações</th></tr></thead>
+  <thead><tr><th scope="col">Login</th><th scope="col">E-mail</th><th scope="col">Nome</th><th scope="col">Funções</th><th scope="col">Situação</th><th scope="col">Acessos</th><th scope="col">Último acesso</th><th scope="col" class="dsgov-acoes">Ações</th></tr></thead>
   <tbody>{% for u in lista %}
   <tr><td><code>{{ u.login }}</code></td><td>{{ u.email or '—' }}</td><td>{{ u.nome }}</td><td>{{ u.funcoes|map('rotulo_funcao')|join(', ') }}</td>
     <td>{% if u.ativo %}<span class="br-tag bg-success text-pure-0"><span>ativo</span></span>{% else %}<span class="br-tag bg-gray-20"><span>inativo</span></span>{% endif %}
       {% if u.trocar_senha %}<span class="br-tag bg-warning ml-1"><span>senha temporária</span></span>{% endif %}</td>
+    <td>{% if u.sei_login and u.spw_login %}SEI · SPW{% elif u.sei_login %}SEI{% elif u.spw_login %}SPW{% else %}—{% endif %}</td>
     <td>{% if u.ultimo_acesso %}{{ u.ultimo_acesso[8:10] }}/{{ u.ultimo_acesso[5:7] }}/{{ u.ultimo_acesso[:4] }} {{ u.ultimo_acesso[11:16] }}{% else %}—{% endif %}</td>
-    <td class="dsgov-acoes"><a class="br-button circle small" href="{{ url_for('usuarios.editar', id=u.id, retorno=request.full_path) }}" aria-label="Editar {{ u.login }}"><i class="fas fa-edit" aria-hidden="true"></i></a></td></tr>
-  {% else %}<tr><td colspan="7">Nenhum usuário encontrado.</td></tr>{% endfor %}</tbody>
+    <td class="dsgov-acoes"><a class="br-button circle small" href="{{ url_for('usuarios.editar', id=u.id, retorno=request.full_path) }}" aria-label="Editar {{ u.login }}"><i class="fas fa-edit" aria-hidden="true"></i></a>
+      {% if u.sei_login or u.spw_login %}
+      <form method="post" action="{{ url_for('usuarios.apagar_acessos', id=u.id, retorno=request.full_path) }}" class="d-inline" onsubmit="return confirm('Apagar os acessos de {{ u.login }} ao SEI e ao SPW?');">{{ csrf_campo() }}
+        <button class="br-button circle small" type="submit" aria-label="Apagar acessos de {{ u.login }}"><i class="fas fa-user-slash" aria-hidden="true"></i><span class="sr-only">Apagar acessos</span></button>
+      </form>
+      {% endif %}</td></tr>
+  {% else %}<tr><td colspan="8">Nenhum usuário encontrado.</td></tr>{% endfor %}</tbody>
 </table></div>
 {% endblock %}

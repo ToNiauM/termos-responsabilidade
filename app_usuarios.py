@@ -98,6 +98,54 @@ def senha():
     return render_template("senha.html", erro=None, obrigatoria=bool(g.usuario["trocar_senha"]), trilha=[("Trocar senha", None)])
 
 
+@usuarios_bp.route("/meus-acessos")
+def acessos():
+    """Credenciais com que este usuário emite termos no SEI e pede a atualização da base pelo SPW; a
+    senha nunca volta para a tela, só a data em que foi cadastrada."""
+    conn = _conn()
+    return render_template("acessos.html", acesso_sei=usuarios.acesso_sei(conn, g.usuario["id"]),
+                           acesso_spw=usuarios.acesso_spw(conn, g.usuario["id"]), trilha=[("Meus acessos", None)])
+
+
+@usuarios_bp.route("/meus-acessos/sei", methods=["POST"])
+def salvar_acesso_sei():
+    usuarios.salvar_acesso_sei(_conn(), g.usuario["id"], request.form.get("sei_login"), request.form.get("sei_senha"),
+                               request.form.get("sei_unidade"))
+    flash("Acesso ao SEI salvo.", "success")
+    return redirect(url_for("usuarios.acessos"))
+
+
+@usuarios_bp.route("/meus-acessos/sei/apagar", methods=["POST"])
+def apagar_acesso_sei():
+    usuarios.apagar_acesso_sei(_conn(), g.usuario["id"])
+    flash("Acesso ao SEI apagado.", "success")
+    return redirect(url_for("usuarios.acessos"))
+
+
+@usuarios_bp.route("/meus-acessos/spw", methods=["POST"])
+def salvar_acesso_spw():
+    usuarios.salvar_acesso_spw(_conn(), g.usuario["id"], request.form.get("spw_login"), request.form.get("spw_senha"))
+    flash("Acesso ao SPW salvo.", "success")
+    return redirect(url_for("usuarios.acessos"))
+
+
+@usuarios_bp.route("/meus-acessos/spw/apagar", methods=["POST"])
+def apagar_acesso_spw():
+    usuarios.apagar_acesso_spw(_conn(), g.usuario["id"])
+    flash("Acesso ao SPW apagado.", "success")
+    return redirect(url_for("usuarios.acessos"))
+
+
+@usuarios_bp.route("/usuarios/<int:id>/apagar-acessos", methods=["POST"])
+def apagar_acessos(id):
+    """Admin remove os acessos ao SEI e ao SPW de alguém (ex.: desligamento); nunca vê nem define senhas."""
+    conn = _conn()
+    u = usuarios.por_id(conn, id) or abort(404)
+    usuarios.apagar_acessos(conn, id)
+    flash(f"Acessos de {u['login']} apagados.", "success")
+    return redirect(_retorno())
+
+
 def _retorno() -> str:
     return _proximo_seguro(request.args.get("retorno")) if request.args.get("retorno") else url_for("usuarios.lista")
 

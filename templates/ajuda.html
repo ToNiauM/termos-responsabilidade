@@ -62,6 +62,7 @@
   <p>Usuários são inativados, não excluídos. Nova senha gera uma senha temporária mostrada uma única vez, com troca obrigatória no acesso seguinte. Cinco tentativas erradas bloqueiam o login por 15 minutos.</p>
 {% elif s.id == 'conta' %}
   <p>Seu nome e suas funções aparecem no cabeçalho. Para trocar a senha, informe a atual e a nova, com pelo menos oito caracteres. Sair encerra a sessão. A sessão expira após 12 horas sem uso.</p>
+  <p>Em Meus acessos, cadastre seu usuário, senha e unidade do SEI: os termos que você emitir nascem no SEI em seu nome. Cadastre também seu usuário e senha do SPW para pedir a atualização da base pelo site. As senhas ficam cifradas e nunca são exibidas; o administrador só pode apagar os acessos.</p>
 {% elif s.id == 'perguntas' %}
   {% if pode('termo') %}<h3 class="text-up-01">Por que o termo está desatualizado?</h3><p>Entraram ou saíram bens desde a última emissão. A equipe com função Operador pode conferir e emitir outro; o anterior permanece no histórico.</p>{% endif %}
   {% if pode('cadastros') %}<h3 class="text-up-01">Um bem de uso pessoal aparece no termo do setor.</h3><p>Atribua o bem à pessoa em Cadastros → Pessoas para que passe ao termo individual.</p>{% endif %}

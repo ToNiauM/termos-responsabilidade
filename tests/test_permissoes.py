@@ -74,6 +74,7 @@ _ROTAS_GET = {
     "/textos": {"admin": 200, "operador": 200, "inventariante": 403, "consulta": 403},
     "/upload": {"admin": 200, "operador": 200, "inventariante": 403, "consulta": 403},
     "/inventario": {"admin": 200, "operador": 403, "inventariante": 200, "consulta": 403},
+    "/meus-acessos": {"admin": 200, "operador": 200, "inventariante": 200, "consulta": 200},
 }
 _ROTAS_POST = {
     "/gerar": {"admin": 302, "operador": 302, "inventariante": 403, "consulta": 403},
@@ -86,6 +87,7 @@ _ROTAS_POST = {
     "/termo/ccusto/CCI/enviar-sei": {"admin": 302, "operador": 302, "inventariante": 403, "consulta": 403},
     "/termos-emitidos/1/enviar-sei": {"admin": 404, "operador": 404, "inventariante": 403, "consulta": 403},
     "/atualizar-base/spw": {"admin": 302, "operador": 403, "inventariante": 403, "consulta": 403},
+    "/usuarios/1/apagar-acessos": {"admin": 302, "operador": 403, "inventariante": 403, "consulta": 403},
 }
 
 

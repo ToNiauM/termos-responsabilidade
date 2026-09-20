@@ -78,6 +78,7 @@ def test_ancora_da_tela_atual():
     assert menu.ancora_ajuda({'admin'}, 'responsaveis_editar', {'ccustos': 'CCI'}, True) == 'cadastros'
     assert menu.ancora_ajuda({'admin'}, 'termo', {'tipo': 'individual', 'chave': 'X'}, True) == 'termos'
     assert menu.ancora_ajuda({'admin'}, 'usuarios.senha', {}, True) == 'conta'
+    assert menu.ancora_ajuda({'admin'}, 'usuarios.acessos', {}, True) == 'conta'
     assert menu.ancora_ajuda({'inventariante'}, 'inventario.sala_tela', {'id': 1, 'localizacao': 'S'}, True) == 'inventario'
     assert menu.ancora_ajuda({'consulta_inventarios'}, 'inventario.eventos_tela', {}, True) == 'consulta-inventarios'
     assert menu.ancora_ajuda({'consulta_inventarios'}, 'inventario.painel_tela', {'id': 1}, True) == 'consulta-inventarios'
@@ -192,6 +193,7 @@ def test_telas_interativas_oferecem_ajuda_coerente(cliente, dados):
         ('/usuarios/novo', 'usuarios.novo', {}),
         (f'/usuarios/{beltrana_id}/editar', 'usuarios.editar', {'id': beltrana_id}),
         ('/senha', 'usuarios.senha', {}),
+        ('/meus-acessos', 'usuarios.acessos', {}),
         ('/inventario', 'inventario.eventos_tela', {}),
         (f'/inventario/{eid}', 'inventario.evento_tela', {'id': eid}),
         (f'/inventario/{eid}/sala/01 - SALA CCI', 'inventario.sala_tela', {'id': eid, 'localizacao': '01 - SALA CCI'}),

@@ -102,3 +102,62 @@ def test_email_no_cadastro_e_na_lista(cliente, dados):
     assert b'name="email"' in r.data and b'value="novo@cfc.org.br"' in r.data
     cliente.post(f"/usuarios/{uid}/editar", data={"nome": "Novo", "funcoes": ["operador"], "ativo": "1", "email": ""})
     assert usuarios.por_id(dados, uid)["email"] is None
+
+
+def test_meus_acessos_sei_salvar_manter_e_apagar(cliente, dados, chave):
+    r = cliente.get("/meus-acessos")
+    assert r.status_code == 200 and b"Meus acessos" in r.data and b'name="sei_login"' in r.data and b"Apagar" not in r.data
+    r = cliente.post("/meus-acessos/sei", data={"sei_login": "antonio.junior", "sei_senha": "", "sei_unidade": "GELIC"}, follow_redirects=True)
+    assert "Informe a senha do SEI.".encode() in r.data
+    r = cliente.post("/meus-acessos/sei", data={"sei_login": "antonio.junior", "sei_senha": "S3nha!", "sei_unidade": "gelic"}, follow_redirects=True)
+    assert b"Acesso ao SEI salvo." in r.data
+    uid = usuarios.por_login(dados, ADMIN_LOGIN)["id"]
+    assert usuarios.credencial_sei(dados, ADMIN_LOGIN)["SEI_SENHA"] == "S3nha!" and usuarios.acesso_sei(dados, uid)["unidade"] == "GELIC"
+    r = cliente.get("/meus-acessos")
+    assert b"S3nha" not in r.data and b"Senha cadastrada em" in r.data and b"Apagar" in r.data and b'value="antonio.junior"' in r.data
+    cliente.post("/meus-acessos/sei", data={"sei_login": "antonio.junior", "sei_senha": "", "sei_unidade": "GESERV"})
+    assert usuarios.credencial_sei(dados, ADMIN_LOGIN) == {"SEI_USUARIO": "antonio.junior", "SEI_SENHA": "S3nha!", "SEI_UNIDADE": "GESERV"}
+    r = cliente.post("/meus-acessos/sei/apagar", follow_redirects=True)
+    assert b"Acesso ao SEI apagado." in r.data and usuarios.acesso_sei(dados, uid) is None
+    assert b"Meus acessos" in cliente.get("/").data                                 # link no cabeçalho
+
+
+def test_meus_acessos_spw_salvar_e_apagar(cliente, dados, chave):
+    r = cliente.get("/meus-acessos")
+    assert r.status_code == 200 and b'name="spw_login"' in r.data
+    r = cliente.post("/meus-acessos/spw", data={"spw_login": "antonio.junior", "spw_senha": ""}, follow_redirects=True)
+    assert "Informe a senha do SPW.".encode() in r.data
+    r = cliente.post("/meus-acessos/spw", data={"spw_login": "antonio.junior", "spw_senha": "Spw!234"}, follow_redirects=True)
+    assert b"Acesso ao SPW salvo." in r.data and b"Spw!234" not in r.data
+    assert usuarios.credencial_spw(dados, ADMIN_LOGIN)["SPW_SENHA"] == "Spw!234"
+    r = cliente.get("/meus-acessos")
+    assert b"Spw!234" not in r.data and b"Senha cadastrada em" in r.data
+    cliente.post("/meus-acessos/spw", data={"spw_login": "antonio.junior", "spw_senha": ""})
+    assert usuarios.credencial_spw(dados, ADMIN_LOGIN)["SPW_SENHA"] == "Spw!234"    # senha vazia mantém a atual
+    r = cliente.post("/meus-acessos/spw/apagar", follow_redirects=True)
+    uid = usuarios.por_login(dados, ADMIN_LOGIN)["id"]
+    assert b"Acesso ao SPW apagado." in r.data and usuarios.acesso_spw(dados, uid) is None
+
+
+def test_lista_de_usuarios_mostra_acessos_e_admin_apaga_sem_ver_senha(cliente, dados, chave, usuarios_exemplo):
+    uid = usuarios.por_login(dados, "op")["id"]
+    usuarios.salvar_acesso_sei(dados, uid, "op.sei", "Outra!", "GECONT")
+    usuarios.salvar_acesso_spw(dados, uid, "op.spw", "Outra2!")
+    r = cliente.get("/usuarios")
+    html = r.data.decode()
+    assert "SEI · SPW" in html and "Apagar acessos" in html and "Outra!" not in html and "Outra2!" not in html
+    r = cliente.post(f"/usuarios/{uid}/apagar-acessos", follow_redirects=True)
+    assert "Acessos de op apagados.".encode() in r.data
+    assert usuarios.acesso_sei(dados, uid) is None and usuarios.acesso_spw(dados, uid) is None
+    assert cliente.get("/usuarios").data.count(b"Apagar acessos") == 0
+
+
+def test_meus_acessos_por_funcao(cliente, dados, usuarios_exemplo):
+    cliente.post("/sair")
+    assert logar(cliente, *usuarios_exemplo["consulta"]).status_code == 302
+    assert cliente.get("/meus-acessos").status_code == 200                          # qualquer função
+    assert cliente.post("/usuarios/1/apagar-acessos").status_code == 403            # só admin
+
+
+def test_meus_acessos_nao_existe_no_desktop(cliente_local):
+    assert cliente_local.get("/meus-acessos").status_code == 404
