@@ -258,6 +258,9 @@ class SEI:
         fr = self._frame_com("#txtNomeArvore")
         time.sleep(0.8)
         fr.fill("#txtNomeArvore", nome_arvore)
+        gravado = fr.input_value("#txtNomeArvore")
+        if gravado != nome_arvore:                          # o campo tem maxlength: nome de pessoa longo é cortado pelo SEI
+            rotulo = f"{tipo_nome} {gravado}"
         fr.click("label[for=optPublico]")
         fr.wait_for_function("() => document.getElementById('optPublico').checked")
         with self.ctx.expect_page(timeout=self.t * 1000) as nova:
@@ -369,7 +372,7 @@ def enviar_termo(conn, pedido: dict, abrir=None, env: dict | None = None) -> dic
         if not env:
             raise RoboErro("Credencial do SEI não informada ao robô.")
         tipo_nome = textos.obter(conn)[f"sei_tipo_{termo['tipo']}"]
-        nome_arvore = f"{termo['numero_termo']} - {termo['unidade_sei']}"
+        nome_arvore = f"{termo['numero_termo']} - {termo['chave']}"      # "01/2026 - GELAI" (centro de custo) ou "01/2026 - NOME DA PESSOA"
         rotulo = f"{tipo_nome} {nome_arvore}"
         nome_bloco = f"Termos {termo['unidade_sei']}"
         db.marcar_passo(conn, pid, "login")

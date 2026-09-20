@@ -208,8 +208,9 @@ def test_tipo_de_documento_vem_dos_textos_e_devolucao_usa_a_pessoa(dados):
     pid = db.enfileirar_pedido(dados, "sei", termo_id=t["id"], html="<p>d</p>")
     falso = SEIFalso()
     robo_sei.enviar_termo(dados, db.pedido(dados, pid), abrir=_abrir(falso), env=ENV)
-    assert ("documento_na_arvore", "Termo de Devolução 01/2026 - GECONT") in falso.chamadas
-    assert ("incluir_em_bloco", "1557099", "Termos GECONT") in falso.chamadas
+    assert ("documento_na_arvore", "Termo de Devolução 01/2026 - ANA SILVA") in falso.chamadas   # nome da pessoa, não a unidade
+    assert ("incluir_documento", "Termo de Devolução", "01/2026 - ANA SILVA", len("<p>d</p>")) in falso.chamadas
+    assert ("incluir_em_bloco", "1557099", "Termos GECONT") in falso.chamadas                    # bloco continua pela unidade
 
 
 def test_arvore_none_nao_derruba_documento_na_arvore(monkeypatch):
