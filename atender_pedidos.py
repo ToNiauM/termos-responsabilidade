@@ -19,6 +19,8 @@ import config
 import db
 import importar_spw
 import robo_sei
+import segredos
+import usuarios
 
 INTERVALO_S = 3.0
 # None = usa config.pasta_dados() no momento do uso (respeita TERMOS_DADOS nos testes); os testes
@@ -57,14 +59,49 @@ def _registrar(texto: str) -> None:
         pass
 
 
-def executar_spw(conn, pedido: dict) -> dict:
+def executar_sei(conn, pedido: dict, enviar=None) -> dict:
+    """Monta a credencial de quem pediu (usuarios.credencial_sei) + URL/órgão do sei.env e chama o robô."""
+    enviar = enviar or robo_sei.enviar_termo
+    try:
+        env = segredos.ler_env(robo_sei.ARQUIVO_ENV, robo_sei.CHAVES_ENV)
+        credencial = usuarios.credencial_sei(conn, pedido.get("criado_por"))
+    except (segredos.SegredoAusente, db.ErroDeNegocio) as e:
+        db.marcar_passo(conn, pedido["id"], "erro", str(e)[:500])
+        return {"passo": "erro", "mensagem": str(e)}
+    if not credencial:
+        mensagem = "Quem pediu a emissão não tem acesso ao SEI cadastrado; cadastre em Meus acessos e emita de novo."
+        db.marcar_passo(conn, pedido["id"], "erro", mensagem)
+        return {"passo": "erro", "mensagem": mensagem}
+    return enviar(conn, pedido, env={**env, **credencial})
+
+
+def executar_spw(conn, pedido: dict, executar=None) -> dict:
+    """Sem `criado_por` (cron / ./atualizar_base.sh) usa o spw.env inteiro, como hoje. Pela fila do site,
+    troca SPW_USUARIO/SPW_SENHA pela credencial de quem pediu (usuarios.credencial_spw), mantendo as
+    URLs de spw.env."""
+    executar = executar or importar_spw.executar
     db.marcar_passo(conn, pedido["id"], "rodando")
-    r = importar_spw.executar(conn)
+    criado_por = pedido.get("criado_por")
+    if not criado_por:
+        r = executar(conn, env=None)
+    else:
+        try:
+            env_arquivo = importar_spw.ler_env()
+            credencial = usuarios.credencial_spw(conn, criado_por)
+        except (segredos.SegredoAusente, db.ErroDeNegocio, importar_spw.RoboErro) as e:
+            mensagem = str(e)
+            db.marcar_passo(conn, pedido["id"], "erro", mensagem[:500])
+            return {"resultado": "erro", "mensagem": mensagem}
+        if not credencial:
+            mensagem = "Quem pediu a atualização não tem acesso ao SPW cadastrado; cadastre em Meus acessos e peça de novo."
+            db.marcar_passo(conn, pedido["id"], "erro", mensagem)
+            return {"resultado": "erro", "mensagem": mensagem}
+        r = executar(conn, env={**env_arquivo, **credencial})
     db.marcar_passo(conn, pedido["id"], "erro" if r["resultado"] == "erro" else "concluido", r["mensagem"])
     return r
 
 
-EXECUTORES = {"sei": robo_sei.enviar_termo, "spw": executar_spw}
+EXECUTORES = {"sei": executar_sei, "spw": executar_spw}
 
 
 def atender_um(conn, executores: dict | None = None, lock: Path | None = None) -> dict | None:

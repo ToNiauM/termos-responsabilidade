@@ -2,6 +2,10 @@
 "Termos {UNIDADE}". Roda dentro do container `robo` do compose (alvo `robo` do Dockerfile, com
 Playwright), chamado por atender_pedidos.py; a suíte usa um SEI falso.
 
+A credencial (usuário, senha e unidade) vem do pedido — de quem clicou em Emitir, montada por
+atender_pedidos.executar_sei com usuarios.credencial_sei — e não deste módulo; sei.env só guarda a
+URL de login e o órgão (CHAVES_ENV), comuns a todo mundo.
+
 Seletores provados em 2026-09-20 (docs/superpowers/notes/2026-09-20-spike-sei-escrita/README.md).
 `playwright` é importado dentro de `abrir_sei`: o módulo importa sem ele.
 """
@@ -18,7 +22,7 @@ import textos
 BASE = "https://sei.cfc.org.br/sei/"
 HOSTS = {"sei.cfc.org.br", "sip.cfc.org.br"}
 ARQUIVO_ENV = segredos.PASTA / "sei.env"
-CHAVES_ENV = ("SEI_USUARIO", "SEI_SENHA", "SEI_LOGIN_URL", "SEI_ORGAO")
+CHAVES_ENV = ("SEI_LOGIN_URL", "SEI_ORGAO")
 PASTA_SEI = "sei"                     # dentro de config.pasta_dados(): erro.png
 TIMEOUT_S = 30
 RE_ROTULO = re.compile(r"^(?P<rotulo>.*?)\s*\((?P<numero>\d{6,8})\)\s*$")
@@ -341,7 +345,8 @@ def enviar_termo(conn, pedido: dict, abrir=None, env: dict | None = None) -> dic
     try:
         if termo is None:
             raise RoboErro("Termo emitido não existe mais.")
-        env = env or segredos.ler_env(ARQUIVO_ENV, CHAVES_ENV)
+        if not env:
+            raise RoboErro("Credencial do SEI não informada ao robô.")
         tipo_nome = textos.obter(conn)[f"sei_tipo_{termo['tipo']}"]
         nome_arvore = f"{termo['numero_termo']} - {termo['unidade_sei']}"
         rotulo = f"{tipo_nome} {nome_arvore}"
@@ -351,7 +356,7 @@ def enviar_termo(conn, pedido: dict, abrir=None, env: dict | None = None) -> dic
             try:
                 resultado_login = sei.login(env)
                 if not resultado_login.get("autenticado"):
-                    raise RoboErro("O SEI recusou usuário ou senha.")
+                    raise RoboErro("O SEI recusou seu usuário ou senha; atualize em Meus acessos.")
                 unidade = env.get("SEI_UNIDADE", "").strip()
                 if unidade and unidade != resultado_login.get("unidade"):
                     sei.trocar_unidade(unidade)

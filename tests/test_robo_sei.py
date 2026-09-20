@@ -170,7 +170,7 @@ def test_processo_que_nao_abre_nao_cria_nada(dados):
 def test_login_recusado_tipo_inexistente_e_timeout(dados):
     p, _ = _pedido(dados)
     r = robo_sei.enviar_termo(dados, p, abrir=_abrir(SEIFalso(autenticado=False)), env=ENV)
-    assert r["passo"] == "erro" and r["mensagem"] == "O SEI recusou usuário ou senha."
+    assert r["passo"] == "erro" and r["mensagem"] == "O SEI recusou seu usuário ou senha; atualize em Meus acessos."
     db.marcar_passo(dados, p["id"], "aguardando")
     r = robo_sei.enviar_termo(dados, p, abrir=_abrir(SEIFalso(tipo_existe=False)), env=ENV)
     assert "Tipo de documento 'Termo de Responsabilidade' não existe no SEI; corrija em Textos." == r["mensagem"]
@@ -180,11 +180,10 @@ def test_login_recusado_tipo_inexistente_e_timeout(dados):
     assert db.termo_emitido(dados, p["termo_id"])["documento_sei"] == "1557099"          # criado antes do timeout
 
 
-def test_env_ausente_vira_erro_legivel(dados, tmp_path, monkeypatch):
+def test_env_ausente_vira_erro_legivel(dados):
     p, _ = _pedido(dados)
-    monkeypatch.setattr(robo_sei, "ARQUIVO_ENV", tmp_path / "sei.env")
     r = robo_sei.enviar_termo(dados, p, abrir=_abrir(SEIFalso()))
-    assert r["passo"] == "erro" and r["mensagem"].startswith("secrets/sei.env não encontrado ou incompleto")
+    assert r["passo"] == "erro" and r["mensagem"] == "Credencial do SEI não informada ao robô."
 
 
 def test_tipo_de_documento_vem_dos_textos_e_devolucao_usa_a_pessoa(dados):

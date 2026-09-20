@@ -11,6 +11,16 @@ from tests.test_db import CABECALHO
 from tests.test_permissoes import NEGADO
 
 
+def _acesso_admin(dados, chave):
+    import usuarios
+    usuarios.salvar_acesso_sei(dados, usuarios.por_login(dados, ADMIN_LOGIN)["id"], "antonio.junior", "S3nha!", "GELIC")
+
+
+def _acesso_spw_admin(dados, chave):
+    import usuarios
+    usuarios.salvar_acesso_spw(dados, usuarios.por_login(dados, ADMIN_LOGIN)["id"], "antonio.junior", "S3nha!")
+
+
 def test_home_e_busca_de_bem(cliente):
     assert cliente.get("/").status_code == 200
     r = cliente.get("/bem?numero=1002")
@@ -1147,7 +1157,17 @@ def test_upload_lista_execucoes_do_robo(cliente, dados):
     assert "sem mudança" in html and "bg-danger" in html
 
 
-def test_atualizar_com_spw_enfileira_e_mostra_andamento(cliente, dados):
+def test_atualizar_com_spw_sem_acesso_avisa(cliente, dados, chave):
+    r = cliente.post("/atualizar-base/spw", follow_redirects=True)
+    assert "Cadastre seu acesso ao SPW em Meus acessos para atualizar.".encode() in r.data
+    assert db.pedido_spw_ativo(dados) is None
+    _acesso_spw_admin(dados, chave)
+    assert cliente.post("/atualizar-base/spw").status_code == 302
+    assert db.pedido_spw_ativo(dados) is not None
+
+
+def test_atualizar_com_spw_enfileira_e_mostra_andamento(cliente, dados, chave):
+    _acesso_spw_admin(dados, chave)
     r = cliente.get("/upload")
     assert b"Atualizar com SPW" in r.data and b'action="/atualizar-base/spw"' in r.data and "robô".encode() not in r.data
     r = cliente.post("/atualizar-base/spw")
@@ -1198,7 +1218,8 @@ def test_botao_emitir_no_sei_na_pagina_do_termo(cliente):
     assert "robô".encode() not in r.data
 
 
-def test_emitir_registra_numera_e_enfileira(cliente):
+def test_emitir_registra_numera_e_enfileira(cliente, dados, chave):
+    _acesso_admin(dados, chave)
     _processo_ccusto(cliente)
     r = cliente.post("/termo/ccusto/CCI/enviar-sei")
     assert r.status_code == 302 and r.headers["Location"].endswith("/termos-emitidos/1")
@@ -1226,7 +1247,18 @@ def test_emitir_sem_processo_ou_sem_unidade_avisa(cliente):
     assert db.termos_emitidos(db.conectar()) == []   # sem unidade: nenhum registro fantasma, sem documento
 
 
-def test_estados_da_pagina_do_termo_emitido(cliente, dados):
+def test_emitir_sem_acesso_ao_sei_nao_registra(cliente, dados, chave):
+    _processo_ccusto(cliente)
+    r = cliente.post("/termo/ccusto/CCI/enviar-sei", follow_redirects=True)
+    assert "Cadastre seu acesso ao SEI em Meus acessos para emitir.".encode() in r.data
+    assert db.termos_emitidos(dados) == [] and db.pedido_do_termo(dados, 1) is None
+    _acesso_admin(dados, chave)
+    assert cliente.post("/termo/ccusto/CCI/enviar-sei").status_code == 302
+    assert db.pedido_do_termo(dados, 1)["criado_por"] == ADMIN_LOGIN
+
+
+def test_estados_da_pagina_do_termo_emitido(cliente, dados, chave):
+    _acesso_admin(dados, chave)
     _processo_ccusto(cliente)
     cliente.post("/termo/ccusto/CCI/enviar-sei")
     p = db.pedido_do_termo(dados, 1)
@@ -1256,7 +1288,8 @@ def test_estados_da_pagina_do_termo_emitido(cliente, dados):
     assert b"Enviar email" in r.data and b"mailto:" in r.data and b"Emitir Termo no SEI" not in r.data
 
 
-def test_erro_preenchido_a_mao_volta_ao_estado_manual(cliente, dados):
+def test_erro_preenchido_a_mao_volta_ao_estado_manual(cliente, dados, chave):
+    _acesso_admin(dados, chave)
     _processo_ccusto(cliente)
     cliente.post("/termo/ccusto/CCI/enviar-sei")
     p = db.pedido_do_termo(dados, 1)
@@ -1268,7 +1301,8 @@ def test_erro_preenchido_a_mao_volta_ao_estado_manual(cliente, dados):
     assert b"Enviar email" in r.data and b'class="br-button primary mr-3"' in r.data
 
 
-def test_erro_bloco_permite_digitar_o_bloco_a_mao(cliente, dados):
+def test_erro_bloco_permite_digitar_o_bloco_a_mao(cliente, dados, chave):
+    _acesso_admin(dados, chave)
     _processo_ccusto(cliente)
     cliente.post("/termo/ccusto/CCI/enviar-sei")
     p = db.pedido_do_termo(dados, 1)
@@ -1282,7 +1316,8 @@ def test_erro_bloco_permite_digitar_o_bloco_a_mao(cliente, dados):
     assert "Não foi possível emitir no SEI.".encode() not in r.data
 
 
-def test_pagina_sem_pedido_mantem_campos_manuais_e_numero_editavel(cliente, dados):
+def test_pagina_sem_pedido_mantem_campos_manuais_e_numero_editavel(cliente, dados, chave):
+    _acesso_admin(dados, chave)
     _processo_ccusto(cliente)
     j = cliente.post("/termo/ccusto/CCI/registrar").get_json()
     r = cliente.get(f"/termos-emitidos/{j['id']}")

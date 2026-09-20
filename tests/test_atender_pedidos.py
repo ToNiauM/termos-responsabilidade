@@ -109,6 +109,73 @@ def test_executar_spw_usa_importar_spw_e_grava_passos(dados, monkeypatch):
     assert db.pedido(dados, pid)["passo"] == "erro" and db.pedido(dados, pid)["mensagem"] == "SPW fora do ar"
 
 
+def test_executar_sei_monta_env_de_quem_pediu(dados, chave, tmp_path, monkeypatch):
+    import robo_sei, segredos, usuarios
+    semear(dados)
+    (tmp_path / "sei.env").write_text("SEI_LOGIN_URL=https://sei.cfc.org.br/sei/\nSEI_ORGAO=CFC\n")
+    monkeypatch.setattr(robo_sei, "ARQUIVO_ENV", tmp_path / "sei.env")
+    uid = usuarios.criar(dados, "maria", "Maria", "Senha!234", ["operador"])
+    usuarios.salvar_acesso_sei(dados, uid, "maria.silva", "S3nha", "GECONT")
+    db.incluir_processo(dados, "ccusto", "T", "1111")
+    t = db.preparar_envio_sei(dados, db.registrar_emissao(dados, "ccusto", "CCI", db.bens_do_centro(dados, "CCI"))["id"])
+    pid = db.enfileirar_pedido(dados, "sei", termo_id=t["id"], html="<p>x</p>", criado_por="maria")
+    recebido = {}
+    def enviar(conn, pedido, env=None):
+        recebido.update(env); db.marcar_passo(conn, pedido["id"], "concluido", "ok"); return {"passo": "concluido"}
+    ap.executar_sei(dados, db.pedido(dados, pid), enviar=enviar)
+    assert recebido == {"SEI_LOGIN_URL": "https://sei.cfc.org.br/sei/", "SEI_ORGAO": "CFC", "SEI_USUARIO": "maria.silva", "SEI_SENHA": "S3nha", "SEI_UNIDADE": "GECONT"}
+    # sem credencial (acesso apagado depois de clicar)
+    usuarios.apagar_acesso_sei(dados, uid)
+    pid2 = db.enfileirar_pedido(dados, "sei", termo_id=t["id"], html="<p>x</p>", criado_por="maria")
+    chamado = []
+    ap.executar_sei(dados, db.pedido(dados, pid2), enviar=lambda *a, **k: chamado.append(1))
+    p = db.pedido(dados, pid2)
+    assert p["passo"] == "erro" and p["mensagem"] == "Quem pediu a emissão não tem acesso ao SEI cadastrado; cadastre em Meus acessos e emita de novo." and not chamado
+    # sem chave do cofre; caminho com o mesmo nome "chaves.env" (mensagem cita o nome real, como test_cofre.py),
+    # mas numa pasta que não existe: a fixture `chave` já criou tmp_path/chaves.env de verdade
+    usuarios.salvar_acesso_sei(dados, uid, "maria.silva", "S3nha", "GECONT")
+    import cofre
+    monkeypatch.setattr(cofre, "ARQUIVO_CHAVE", tmp_path / "sem-chave" / "chaves.env")
+    pid3 = db.enfileirar_pedido(dados, "sei", termo_id=t["id"], html="<p>x</p>", criado_por="maria")
+    ap.executar_sei(dados, db.pedido(dados, pid3), enviar=lambda *a, **k: chamado.append(1))
+    assert db.pedido(dados, pid3)["mensagem"].startswith("secrets/chaves.env não encontrado") and not chamado
+
+
+def test_executar_spw_usa_credencial_de_quem_pediu(dados, chave, tmp_path, monkeypatch):
+    import importar_spw, usuarios
+    semear(dados)
+    (tmp_path / "spw.env").write_text(
+        "SPW_USUARIO=robo\nSPW_SENHA=robo123\nSPW_LOGIN_URL=https://spw.cfc.org.br/login\nSPW_CONSULTA_URL=https://spw.cfc.org.br/consulta\n")
+    monkeypatch.setattr(importar_spw, "ARQUIVO_ENV", tmp_path / "spw.env")
+    uid = usuarios.criar(dados, "maria", "Maria", "Senha!234", ["operador"])
+    usuarios.salvar_acesso_spw(dados, uid, "maria.spw", "S3nha")
+    pid = db.enfileirar_pedido(dados, "spw", criado_por="maria")
+    recebido = {}
+    def executar(conn, env=None):
+        recebido.update(env or {})
+        return {"resultado": "importado", "mensagem": "7 bens", "importacao_id": 1}
+    ap.executar_spw(dados, db.pedido(dados, pid), executar=executar)
+    assert recebido == {"SPW_USUARIO": "maria.spw", "SPW_SENHA": "S3nha",
+                        "SPW_LOGIN_URL": "https://spw.cfc.org.br/login", "SPW_CONSULTA_URL": "https://spw.cfc.org.br/consulta"}
+    # sem credencial (acesso apagado depois de clicar)
+    usuarios.apagar_acesso_spw(dados, uid)
+    pid2 = db.enfileirar_pedido(dados, "spw", criado_por="maria")
+    chamado = []
+    ap.executar_spw(dados, db.pedido(dados, pid2), executar=lambda *a, **k: chamado.append(1))
+    p = db.pedido(dados, pid2)
+    assert p["passo"] == "erro" and p["mensagem"] == "Quem pediu a atualização não tem acesso ao SPW cadastrado; cadastre em Meus acessos e peça de novo." and not chamado
+    # sem criado_por (cron / ./atualizar_base.sh): repassa env=None; quem lê o spw.env inteiro é o
+    # baixar_e_ler() de dentro de importar_spw.executar de verdade, não este módulo
+    pid3 = db.enfileirar_pedido(dados, "spw")
+    recebido2 = []
+    def executar2(conn, env=None):
+        recebido2.append(env)
+        return {"resultado": "sem_mudanca", "mensagem": "nada mudou", "importacao_id": None}
+    ap.executar_spw(dados, db.pedido(dados, pid3), executar=executar2)
+    assert recebido2 == [None]
+    assert db.pedido(dados, pid3)["passo"] == "concluido"
+
+
 def test_travar_e_exclusivo(tmp_path):
     caminho = tmp_path / "robo.lock"
     with ap.travar(caminho):

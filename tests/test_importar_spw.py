@@ -83,6 +83,22 @@ def test_executar_importa_depois_ve_sem_mudanca(dados):
     assert r["resultado"] == "importado" and len(db.importacoes(dados)) == 2
 
 
+def test_executar_repassa_env_a_baixar(dados):
+    """Fila do site: env é a credencial de quem pediu; baixar(env) recebe exatamente esse dict."""
+    semear(dados)
+    recebido = []
+    env = {"SPW_USUARIO": "maria.spw", "SPW_SENHA": "S3nha"}
+    r = robo.executar(dados, baixar=lambda e: (recebido.append(e), linhas(*BASE))[1], env=env)
+    assert recebido == [env] and r["resultado"] == "importado"
+
+
+def test_executar_sem_env_chama_baixar_sem_argumento(dados):
+    """cron / ./atualizar_base.sh: sem env, baixar() é chamado como hoje, sem argumento nenhum."""
+    semear(dados)
+    r = robo.executar(dados, baixar=lambda: linhas(*BASE))
+    assert r["resultado"] == "importado"
+
+
 def test_executar_erro_de_negocio_nao_altera_bens(dados):
     semear(dados)                                                # 1002 atribuído a ANA SILVA
     # troca 1002 por um bem novo: 4 linhas (>= 3,6 = 4*0,9) não aciona o piso de C1, mas ainda

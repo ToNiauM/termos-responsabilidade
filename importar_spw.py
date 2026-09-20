@@ -35,7 +35,10 @@ class RoboErro(Exception):
     """Erro previsto do robô; a mensagem vai para robo_execucoes e para o Início."""
 
 
-def ler_env(caminho: Path = ARQUIVO_ENV) -> dict:
+def ler_env(caminho: Path | None = None) -> dict:
+    """`caminho` omitido usa o ARQUIVO_ENV do módulo NA HORA da chamada (não travado na importação),
+    para os testes poderem trocá-lo com monkeypatch.setattr(importar_spw, "ARQUIVO_ENV", ...)."""
+    caminho = caminho or ARQUIVO_ENV
     try:
         return segredos.ler_env(caminho, CHAVES_ENV)
     except segredos.SegredoAusente as e:
@@ -76,14 +79,16 @@ def linhas_para_xlsx(linhas: list[list]) -> io.BytesIO:
     return buf
 
 
-def executar(conn, baixar=None, agora=None) -> dict:
+def executar(conn, baixar=None, agora=None, env: dict | None = None) -> dict:
     """Fluxo completo de uma execução; nunca levanta: devolve {"resultado", "mensagem", "importacao_id"}.
-    baixar() devolve as linhas do export (cabeçalho primeiro); os testes injetam listas prontas."""
+    baixar(env) devolve as linhas do export (cabeçalho primeiro); os testes injetam listas prontas.
+    `env` vem do trabalhador: pela fila do site é a credencial de quem pediu (atender_pedidos.executar_spw);
+    sem `env` (cron / ./atualizar_base.sh) baixar() é chamado sem argumento e lê spw.env inteiro sozinho."""
     baixar = baixar or baixar_e_ler
     agora = agora or db._agora
     iniciado = agora()
     try:
-        linhas = baixar()
+        linhas = baixar(env) if env is not None else baixar()
         cabecalho = [db._texto(c) for c in (linhas[0] if linhas else [])]
         faltando = [c for c in db.COLUNAS_EXPORT if c not in cabecalho]
         if faltando:
@@ -182,9 +187,9 @@ def ler_xls(caminho: Path) -> list[list]:
     raise RoboErro("export do SPW sem a linha de cabeçalho 'Número Bem'")
 
 
-def baixar_e_ler() -> list[list]:
+def baixar_e_ler(env: dict | None = None) -> list[list]:
     pasta = config.pasta_dados() / PASTA_SPW
-    return ler_xls(baixar_export(ler_env(), pasta / "ultimo.xls"))
+    return ler_xls(baixar_export(env or ler_env(), pasta / "ultimo.xls"))
 
 
 def main() -> int:

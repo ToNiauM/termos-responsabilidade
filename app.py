@@ -441,7 +441,20 @@ def _exigir_fila():
         abort(403)
 
 
+def _exigir_acesso_sei(conn) -> None:
+    """O termo nasce no SEI em nome de quem clicou: sem acesso cadastrado (Meus acessos), nem registra."""
+    usuario = getattr(g, "usuario", None)
+    if not (usuario and usuarios.acesso_sei(conn, usuario["id"])):
+        raise db.ErroDeNegocio("Cadastre seu acesso ao SEI em Meus acessos para emitir.")
+
+
+def _exigir_acesso_spw(conn) -> None:
+    if not (getattr(g, "usuario", None) and usuarios.acesso_spw(conn, g.usuario["id"])):
+        raise db.ErroDeNegocio("Cadastre seu acesso ao SPW em Meus acessos para atualizar.")
+
+
 def _enfileirar_emissao(conn, termo_id: int) -> None:
+    _exigir_acesso_sei(conn)
     t = db.preparar_envio_sei(conn, termo_id)
     usuario = getattr(g, "usuario", None) or {}
     db.enfileirar_pedido(conn, "sei", termo_id=t["id"], html=_html_do_registro(conn, t), criado_por=usuario.get("login"))
@@ -455,6 +468,7 @@ def termo_enviar_sei(tipo, chave):
     if (volta := _exigir_processo(conn, tipo, chave)):
         return volta
     db.unidade_sei(conn, tipo, chave)   # valida antes de registrar: sem unidade, nenhum termo fantasma fica gravado
+    _exigir_acesso_sei(conn)
     _, _, bens, _ = _bens_do_termo(conn, tipo, chave)
     t = db.registrar_emissao(conn, tipo, chave, bens)
     _enfileirar_emissao(conn, t["id"])
@@ -578,8 +592,10 @@ def upload():
 def base_atualizar_spw():
     """Atualizar com SPW: enfileira a atualização; quem atende é o mesmo trabalhador da emissão no SEI."""
     _exigir_fila()
+    conn = obter_conn()
+    _exigir_acesso_spw(conn)
     usuario = getattr(g, "usuario", None) or {}
-    db.enfileirar_pedido(obter_conn(), "spw", criado_por=usuario.get("login"))
+    db.enfileirar_pedido(conn, "spw", criado_por=usuario.get("login"))
     flash("Atualização com o SPW iniciada.", "success")
     return redirect(url_for("upload"))
 
