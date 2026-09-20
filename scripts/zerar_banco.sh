@@ -12,7 +12,7 @@
 #   ./zerar_banco.sh --sim               # zera sem perguntar
 #   ./zerar_banco.sh --inventario        # inclui o inventário (pode combinar com --sim)
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."      # raiz do projeto
 DB=dados/termos.db
 SQLITE=/usr/bin/sqlite3
 

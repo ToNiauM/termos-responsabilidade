@@ -1,4 +1,4 @@
-# Servir o sistema na web (patrimonio.sistemascfc.org). O programa de desktop (main.py/build.bat) não usa este arquivo.
+# Servir o sistema na web (patrimonio.sistemascfc.org). O programa de desktop (main.py/scripts/build.bat) não usa este arquivo.
 #
 # Dois alvos:
 #   web  -> a imagem do site (Flask + waitress), como sempre foi.

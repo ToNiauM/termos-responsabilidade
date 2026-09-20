@@ -4,7 +4,7 @@ Roda dentro do container `robo` do compose (alvo `robo` do Dockerfile, com Playw
 
     docker compose up -d robo
 
-Lock dados/robo.lock compartilhado com atualizar_base.sh (mesmo arquivo em host e container, pelo volume
+Lock dados/robo.lock compartilhado com scripts/atualizar_base.sh (mesmo arquivo em host e container, pelo volume
 ./dados:/app/dados). Log de exceções em dados/robo_pedidos.log. Sem este processo o site funciona: os
 pedidos ficam "aguardando a vez" e a tela avisa depois de 2 minutos.
 """
@@ -76,7 +76,7 @@ def executar_sei(conn, pedido: dict, enviar=None) -> dict:
 
 
 def executar_spw(conn, pedido: dict, executar=None) -> dict:
-    """Sem `criado_por` (cron / ./atualizar_base.sh) usa o spw.env inteiro, como hoje. Pela fila do site,
+    """Sem `criado_por` (cron / scripts/atualizar_base.sh) usa o spw.env inteiro, como hoje. Pela fila do site,
     troca SPW_USUARIO/SPW_SENHA pela credencial de quem pediu (usuarios.credencial_spw), mantendo as
     URLs de spw.env."""
     executar = executar or importar_spw.executar

@@ -8,7 +8,7 @@
 #   ./apagar_termos_emitidos.sh          # mostra o que vai apagar e pede confirmação
 #   ./apagar_termos_emitidos.sh --sim    # apaga sem perguntar
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."      # raiz do projeto
 DB=dados/termos.db
 SQLITE=/usr/bin/sqlite3
 

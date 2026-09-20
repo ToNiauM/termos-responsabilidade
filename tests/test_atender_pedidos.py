@@ -164,7 +164,7 @@ def test_executar_spw_usa_credencial_de_quem_pediu(dados, chave, tmp_path, monke
     ap.executar_spw(dados, db.pedido(dados, pid2), executar=lambda *a, **k: chamado.append(1))
     p = db.pedido(dados, pid2)
     assert p["passo"] == "erro" and p["mensagem"] == "Quem pediu a atualização não tem acesso ao SPW cadastrado; cadastre em Meus acessos e peça de novo." and not chamado
-    # sem criado_por (cron / ./atualizar_base.sh): repassa env=None; quem lê o spw.env inteiro é o
+    # sem criado_por (cron / scripts/atualizar_base.sh): repassa env=None; quem lê o spw.env inteiro é o
     # baixar_e_ler() de dentro de importar_spw.executar de verdade, não este módulo
     pid3 = db.enfileirar_pedido(dados, "spw")
     recebido2 = []

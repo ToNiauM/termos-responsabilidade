@@ -29,7 +29,6 @@ secrets/
 
 # Scripts
 
-backup.sh
+scripts/backup.sh
 
 # Planilha de dados reais deixada solta na raiz
-INVENTARIO_SEPAT .xlsx

@@ -25,7 +25,7 @@ services:
   # Trabalhador da fila robo_pedidos (emissão no SEI e atualização com o SPW), com Playwright
   # (alvo robo do Dockerfile). Sobe permanente com `docker compose up -d`; sem ele o site
   # continua funcionando, só que os pedidos ficam "aguardando a vez" (ver README, Emissão no SEI).
-  # O --teste de importar_spw.py roda dentro deste container via `docker compose exec` (atualizar_base.sh).
+  # O --teste de importar_spw.py roda dentro deste container via `docker compose exec` (scripts/atualizar_base.sh).
   robo:
     build:
       context: .

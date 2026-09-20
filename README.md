@@ -139,7 +139,7 @@ Migração inicial a partir das planilhas antigas: `python importar_planilhas.py
 ## Gerar o executável (Windows)
 
     python -m venv .venv && .venv\Scripts\activate && pip install -r requirements.txt
-    build.bat
+    scripts\build.bat             # a partir da raiz do projeto
 
 Sai em `dist\TermosCFC\`. Distribua a pasta inteira (zip). Requer o WebView2 Runtime (já vem no
 Windows 10/11 atualizados); sem ele o programa abre no navegador padrão.
@@ -203,7 +203,7 @@ chave e guarde-a:
     # CHAVE_SENHAS=...
     chmod 600 secrets/chaves.env
 
-As duas imagens (`web` e `robo`) montam `./secrets` (somente leitura). **`backup.sh` não copia `chaves.env`** —
+As duas imagens (`web` e `robo`) montam `./secrets` (somente leitura). **`scripts/backup.sh` não copia `chaves.env`** —
 ele só leva `termos.db` para o bucket R2; guarde a chave à parte, à mão, em outro lugar (por exemplo, no
 gerenciador de senhas do administrador). Sem ela as senhas cifradas em `termos.db` são inúteis; quem restaura um
 backup sem a chave junto precisa pedir que cada operador cadastre o acesso de novo. Com isso, `secrets/sei.env`
@@ -217,7 +217,7 @@ cadastrado, o site recusa antes de enfileirar ("Cadastre seu acesso ao SEI em Me
 a atual). O administrador, na lista de usuários, só vê se há acesso cadastrado (coluna "Acessos") e pode apagá-lo
 (*Apagar acessos*) — nunca vê a senha.
 
-O cron da madrugada (`./atualizar_base.sh`) continua usando `secrets/spw.env` completo, sem depender de acesso de
+O cron da madrugada (`scripts/atualizar_base.sh`) continua usando `secrets/spw.env` completo, sem depender de acesso de
 ninguém (ver "Robô do SPW" abaixo).
 
 ### Robô do SPW
@@ -229,16 +229,16 @@ falhou` e Atualizar base lista as últimas execuções. Segredos em `secrets/spw
 `SPW_LOGIN_URL`, `SPW_CONSULTA_URL`, chmod 600). Pelo site, *Atualizar com SPW* usa a credencial de quem clicou
 (ver "Acessos por usuário" acima); o cron continua com `spw.env`.
 
-`atualizar_base.sh` não roda mais o robô diretamente: ele entra no container já de pé com `docker compose exec`
+`scripts/atualizar_base.sh` não roda mais o robô diretamente: ele entra no container já de pé com `docker compose exec`
 (e sai com um aviso claro se o `robo` não estiver rodando):
 
-    ./atualizar_base.sh            # docker compose exec -T robo python importar_spw.py; sai 0/1
-    ./atualizar_base.sh --teste    # mesma coisa numa cópia em dados/robo-teste, sem tocar na base real
+    scripts/atualizar_base.sh            # docker compose exec -T robo python importar_spw.py; sai 0/1
+    scripts/atualizar_base.sh --teste    # mesma coisa numa cópia em dados/robo-teste, sem tocar na base real
 
 Crontab (`crontab -e`, usuário dono de `dados/termos.db`); o script já grava em `dados/robo_spw.log` (o container
 `robo` precisa estar de pé — `docker compose up -d` — para o cron funcionar):
 
-    0 3 * * 1-5 /opt/web/termos-responsabilidade/atualizar_base.sh >/dev/null 2>>/opt/web/termos-responsabilidade/dados/robo_spw.log
+    0 3 * * 1-5 /opt/web/termos-responsabilidade/scripts/atualizar_base.sh >/dev/null 2>>/opt/web/termos-responsabilidade/dados/robo_spw.log
 
 O robô não importa se o export vier com menos de 90% dos bens da base (protege contra export vazio ou truncado);
 nesse caso registra erro e a baixa em massa, se for real, passa por Atualizar base. Um upload manual entre
@@ -252,10 +252,10 @@ estão fixas no `Dockerfile`), mas os scripts de spike em `docs/superpowers/note
 
 ### Limpar o banco antes de entrar em produção
 
-    ./apagar_termos_emitidos.sh   # só termos emitidos, seus bens e a fila de emissão (numeração recomeça do 01)
-    ./zerar_banco.sh              # histórico de cargas (importações, execuções do robô) e emissões — mantém bens,
+    scripts/apagar_termos_emitidos.sh   # só termos emitidos, seus bens e a fila de emissão (numeração recomeça do 01)
+    scripts/zerar_banco.sh              # histórico de cargas (importações, execuções do robô) e emissões — mantém bens,
                                   # atribuições, pessoas, centros de custo, localizações, processos, textos, usuários
-    ./zerar_banco.sh --inventario # idem, apagando também o inventário (eventos, leituras, fotos, sobras)
+    scripts/zerar_banco.sh --inventario # idem, apagando também o inventário (eventos, leituras, fotos, sobras)
 
 Os dois listam o que vai apagar, pedem confirmação (ou `--sim`) e deixam uma cópia em `dados/termos-antes-de-*.db`.
 Documentos já criados no SEI não são tocados. A numeração dos termos é automática: por unidade do SEI, por tipo de
@@ -272,16 +272,16 @@ termo (centro de custo, individual, devolução) e por ano.
 | `textos.py` | textos padrão dos termos e marcadores |
 | `Script_Termo_Individual.py`, `Termo_de_Responsabilidade.py`, `termo_devolucao.py` | geradores `.docx` |
 | `config.py` | pasta de dados (`TERMOS_DADOS` sobrepõe) |
-| `main.py`, `build.bat` | programa de desktop e build |
+| `main.py`, `scripts/build.bat` | programa de desktop e build |
 | `Dockerfile` | dois alvos: `web` (site) e `robo` (`FROM web`, + Playwright e xlrd, atende `robo_pedidos`) |
 | `compose.yml` | serviços `web` (site, porta 12012) e `robo` (trabalhador da fila, sem porta) |
 | `templates/`, `static/dsgov/` | telas DSGov 3.7.0 (offline) |
 | `painel.py`, `graficos.py` | cards de gráfico (ECharts embutido, tema DSGov) |
 | `inventario.py`, `fotos.py`, `app_inventario.py` | módulo de inventário (dados, fotos no R2, rotas) |
 | `usuarios.py`, `app_usuarios.py` | usuários, senhas, matriz de permissões e telas de login/usuários |
-| `apagar_termos_emitidos.sh`, `zerar_banco.sh` | limpeza do banco antes da produção (ver acima) |
+| `scripts/apagar_termos_emitidos.sh`, `scripts/zerar_banco.sh` | limpeza do banco antes da produção (ver acima) |
 | `cofre.py` | cifra (Fernet) das senhas do SEI e do SPW guardadas por usuário; chave em `secrets/chaves.env` |
-| `atualizar_base.sh` | Chama o robô do SPW dentro do container `robo` via `docker compose exec` (`--teste` usa uma cópia da base); o cron chama o mesmo script |
+| `scripts/atualizar_base.sh` | Chama o robô do SPW dentro do container `robo` via `docker compose exec` (`--teste` usa uma cópia da base); o cron chama o mesmo script |
 | `importar_spw.py` | Robô do SPW: exporta, converte e importa os bens (roda no container `robo`, por cron) |
 | `requirements-robo.txt` | Não é usado pela imagem `robo` (dependências fixas no `Dockerfile`); ainda serve os scripts de spike em `docs/superpowers/notes/` |
 | `robo_sei.py` | Robô do SEI: login, cria o documento no processo e inclui no bloco de assinatura |

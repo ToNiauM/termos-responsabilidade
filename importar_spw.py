@@ -5,7 +5,7 @@ Roda dentro do container `robo` do compose (alvo `robo` do Dockerfile, com Playw
 
     docker compose exec -T robo python importar_spw.py
 
-(é o que atualizar_base.sh chama; cron dias úteis, 4h, ver README "Robô do SPW"). Segredos em
+(é o que scripts/atualizar_base.sh chama; cron dias úteis, 4h, ver README "Robô do SPW"). Segredos em
 secrets/spw.env, montado em /app/secrets (SPW_USUARIO, SPW_SENHA, SPW_LOGIN_URL, SPW_CONSULTA_URL).
 Resultado de cada execução fica em robo_execucoes e aparece no Início. playwright e xlrd são importados
 dentro das funções: os testes rodam sem eles.
@@ -87,7 +87,7 @@ def executar(conn, baixar=None, agora=None, env: dict | None = None) -> dict:
     """Fluxo completo de uma execução; nunca levanta: devolve {"resultado", "mensagem", "importacao_id"}.
     baixar(env) devolve as linhas do export (cabeçalho primeiro); os testes injetam listas prontas.
     `env` vem do trabalhador: pela fila do site é a credencial de quem pediu (atender_pedidos.executar_spw);
-    sem `env` (cron / ./atualizar_base.sh) baixar() é chamado sem argumento e lê spw.env inteiro sozinho."""
+    sem `env` (cron / scripts/atualizar_base.sh) baixar() é chamado sem argumento e lê spw.env inteiro sozinho."""
     baixar = baixar or baixar_e_ler
     agora = agora or db._agora
     iniciado = agora()

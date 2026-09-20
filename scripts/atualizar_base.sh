@@ -5,7 +5,7 @@
 # O robô roda dentro do container `robo` (docker compose exec); o script só entra nele.
 # A mesma linha vai para dados/robo_spw.log. Sai com 0 (importado/sem mudança) ou 1 (erro).
 set -uo pipefail
-cd "$(dirname "$(readlink -f "$0")")"
+cd "$(dirname "$(readlink -f "$0")")/.."
 
 if ! docker compose ps --status running --services 2>/dev/null | grep -qx robo; then
   echo "O container robo não está rodando. Suba com: docker compose up -d" >&2

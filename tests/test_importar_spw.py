@@ -93,7 +93,7 @@ def test_executar_repassa_env_a_baixar(dados):
 
 
 def test_executar_sem_env_chama_baixar_sem_argumento(dados):
-    """cron / ./atualizar_base.sh: sem env, baixar() é chamado como hoje, sem argumento nenhum."""
+    """cron / scripts/atualizar_base.sh: sem env, baixar() é chamado como hoje, sem argumento nenhum."""
     semear(dados)
     r = robo.executar(dados, baixar=lambda: linhas(*BASE))
     assert r["resultado"] == "importado"
