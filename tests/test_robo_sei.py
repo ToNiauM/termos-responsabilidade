@@ -208,8 +208,8 @@ def test_tipo_de_documento_vem_dos_textos_e_devolucao_usa_a_pessoa(dados):
     pid = db.enfileirar_pedido(dados, "sei", termo_id=t["id"], html="<p>d</p>")
     falso = SEIFalso()
     robo_sei.enviar_termo(dados, db.pedido(dados, pid), abrir=_abrir(falso), env=ENV)
-    assert ("documento_na_arvore", "Termo de Devolução 01/2026 - ANA SILVA") in falso.chamadas   # nome da pessoa, não a unidade
-    assert ("incluir_documento", "Termo de Devolução", "01/2026 - ANA SILVA", len("<p>d</p>")) in falso.chamadas
+    assert ("documento_na_arvore", "Termo de Devolução 01/2026 - ANA") in falso.chamadas   # primeiro nome da pessoa, não a unidade
+    assert ("incluir_documento", "Termo de Devolução", "01/2026 - ANA", len("<p>d</p>")) in falso.chamadas
     assert ("incluir_em_bloco", "1557099", "Termos GECONT") in falso.chamadas                    # bloco continua pela unidade
 
 
@@ -221,6 +221,22 @@ def test_arvore_none_nao_derruba_documento_na_arvore(monkeypatch):
     monkeypatch.setattr(sei, "arvore", lambda: next(respostas))
     assert sei.documento_na_arvore("Termo de Responsabilidade 01/2026 - CCI") is None
     assert sei.documento_na_arvore("Termo de Responsabilidade 01/2026 - CCI") == "1557099"
+
+
+def test_rotulo_repetido_nao_e_reaproveitado_e_novo_no_e_o_que_surgiu(monkeypatch):
+    """Dois Antônios (unidades diferentes, ambos 01/2026) dão o mesmo rótulo no mesmo processo: o robô não pode
+    reaproveitar por rótulo, e o documento recém-criado é o nó que não existia antes do Salvar."""
+    sei = robo_sei.SEI.__new__(robo_sei.SEI)
+    antes = [{"id": "1", "texto": "Termo de Responsabilidade 01/2026 - ANTÔNIO (1557101)"},
+             {"id": "2", "texto": "Termo de Responsabilidade 01/2026 - ANTÔNIO (1557102)"}]
+    monkeypatch.setattr(sei, "arvore", lambda: {"anchors": antes})
+    assert sei.documento_na_arvore("Termo de Responsabilidade 01/2026 - ANTÔNIO") is None
+    numeros = sei.numeros_na_arvore()
+    assert numeros == {"1557101", "1557102"}
+    depois = antes + [{"id": "3", "texto": "Termo de Responsabilidade 01/2026 - ANTÔNIO (1557103)"}]
+    monkeypatch.setattr(sei, "arvore", lambda: {"anchors": depois})
+    assert sei.documento_novo_na_arvore("Termo de Responsabilidade 01/2026 - ANTÔNIO", numeros) == "1557103"
+    assert sei.documento_novo_na_arvore("Termo de Devolução 01/2026 - ANTÔNIO", numeros) is None   # rótulo diferente: não é o nosso
 
 
 def test_modulo_importa_sem_playwright():

@@ -223,12 +223,27 @@ class SEI:
         esperar(self._arvore_bruta, self.t, erro="árvore do processo não carregou")
         return {"titulo_confere": True, "nos": len(self._anchors())}
 
-    def documento_na_arvore(self, rotulo: str) -> str | None:
+    def _numeros_com_rotulo(self, rotulo: str) -> list[str]:
+        out = []
         for a in self._anchors():
             m = RE_ROTULO.match(a["texto"])
             if m and m.group("rotulo") == rotulo:
-                return m.group("numero")
-        return None
+                out.append(m.group("numero"))
+        return out
+
+    def documento_na_arvore(self, rotulo: str) -> str | None:
+        """Documento já existente com esse rótulo — só quando é único (dois "01/2026 - ANTÔNIO" de unidades
+        diferentes têm o mesmo rótulo; aí não dá para saber qual é o nosso e é melhor criar outro)."""
+        numeros = self._numeros_com_rotulo(rotulo)
+        return numeros[0] if len(numeros) == 1 else None
+
+    def numeros_na_arvore(self) -> set[str]:
+        return {m.group("numero") for a in self._anchors() if (m := RE_ROTULO.match(a["texto"]))}
+
+    def documento_novo_na_arvore(self, rotulo: str, antes: set[str]) -> str | None:
+        """O documento recém-criado: tem o nosso rótulo e não estava na árvore antes do Salvar."""
+        novos = [n for n in self._numeros_com_rotulo(rotulo) if n not in antes]
+        return novos[0] if novos else None
 
     def _selecionar_raiz(self):
         r = esperar(self.arvore, self.t, erro="árvore do processo não carregou")
@@ -263,6 +278,7 @@ class SEI:
             rotulo = f"{tipo_nome} {gravado}"
         fr.click("label[for=optPublico]")
         fr.wait_for_function("() => document.getElementById('optPublico').checked")
+        antes = self.numeros_na_arvore()
         with self.ctx.expect_page(timeout=self.t * 1000) as nova:
             fr.click("#btnSalvar")
         ed = nova.value
@@ -277,7 +293,7 @@ class SEI:
         ed.locator("a[title^='Salvar']:visible").first.click()
         time.sleep(2.5)
         ed.close()
-        return esperar(lambda: self.documento_na_arvore(rotulo), self.t, intervalo=1.0,
+        return esperar(lambda: self.documento_novo_na_arvore(rotulo, antes), self.t, intervalo=1.0,
                        erro="documento salvo não apareceu na árvore")
 
     def _linha_do_documento(self, fr, numero: str) -> str | None:
@@ -372,7 +388,8 @@ def enviar_termo(conn, pedido: dict, abrir=None, env: dict | None = None) -> dic
         if not env:
             raise RoboErro("Credencial do SEI não informada ao robô.")
         tipo_nome = textos.obter(conn)[f"sei_tipo_{termo['tipo']}"]
-        nome_arvore = f"{termo['numero_termo']} - {termo['chave']}"      # "01/2026 - GELAI" (centro de custo) ou "01/2026 - NOME DA PESSOA"
+        quem = termo["chave"] if termo["tipo"] == "ccusto" else termo["chave"].split()[0]
+        nome_arvore = f"{termo['numero_termo']} - {quem}"                # "01/2026 - GELAI" (centro de custo) ou "01/2026 - ANTÔNIO" (primeiro nome)
         rotulo = f"{tipo_nome} {nome_arvore}"
         nome_bloco = f"Termos {termo['unidade_sei']}"
         db.marcar_passo(conn, pid, "login")
