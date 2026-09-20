@@ -20,6 +20,7 @@ from openpyxl import Workbook
 
 import config
 import db
+import segredos
 
 RAIZ = Path(__file__).resolve().parent
 ARQUIVO_ENV = RAIZ / "secrets" / "spw.env"
@@ -33,17 +34,11 @@ class RoboErro(Exception):
 
 
 def ler_env(caminho: Path = ARQUIVO_ENV) -> dict:
-    if not Path(caminho).exists():
-        raise RoboErro(f"secrets/spw.env não encontrado ou incompleto ({caminho})")
-    env = {}
-    for linha in Path(caminho).read_text(encoding="utf-8").splitlines():
-        if "=" in linha and not linha.lstrip().startswith("#"):
-            chave, valor = linha.split("=", 1)
-            env[chave.strip()] = valor.strip()
-    faltando = [c for c in CHAVES_ENV if not env.get(c)]
-    if faltando:
-        raise RoboErro(f"secrets/spw.env não encontrado ou incompleto ({caminho}): falta " + ", ".join(faltando))
-    return env
+    try:
+        return segredos.ler_env(caminho, CHAVES_ENV)
+    except segredos.SegredoAusente as e:
+        msg = str(e).replace(caminho.name, "spw.env")
+        raise RoboErro(msg)
 
 
 # o ramo numérico (repr(float(v))) é proposital: faz o float do xlrd e o int do openpyxl darem o
