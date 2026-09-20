@@ -239,8 +239,15 @@ class SEI:
     def incluir_documento(self, tipo_nome: str, nome_arvore: str, html: str, rotulo: str) -> str:
         fr = self._selecionar_raiz()
         time.sleep(0.8)
-        fr.locator("a:has(img[title='Incluir Documento'])").first.click()
-        fr = self._frame_com("#ancExibirSeries")
+        for tentativa in (1, 2):                            # o clique se perde se o painel ainda estava recarregando (como no bloco)
+            fr.locator("a:has(img[title='Incluir Documento'])").first.click()
+            try:
+                fr = self._frame_com("#ancExibirSeries", 10)
+                break
+            except RoboErro:
+                if tentativa == 2:
+                    raise
+                fr = self._frame_com("img[title='Incluir Documento']")
         time.sleep(0.8)
         fr.click("#ancExibirSeries")                       # "Exibir todos os tipos" (a lista inicial é parcial)
         time.sleep(1.0)
