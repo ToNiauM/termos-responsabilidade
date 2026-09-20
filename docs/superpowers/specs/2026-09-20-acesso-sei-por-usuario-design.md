@@ -139,4 +139,25 @@ não existem.
 
 ## 11. Evidências
 
-(a preencher na publicação)
+Publicado em 2026-09-20 (~14:52), main=`1591b5f` (merge ff do ramo `acesso-sei`, apagado depois).
+
+- Commits: `08dd025` cofre · `5a20c65` acesso por usuário em `usuarios.py` · `56883f4` tela Meus acessos · `607c800` fluxo
+  (emissão/atualização usam a credencial de quem clicou) · `7495fcf` sufixo "atualize em Meus acessos" no login recusado
+  do SPW · `90374e4` README · `1591b5f` correções da revisão final (web monta `./secrets:ro`, mensagem do cofre neutra,
+  README do backup da chave, `sei_unidade` fora de `_COLUNAS_CONTA`, `MSG_LOGIN_RECUSADO`).
+- Suíte: `.venv/bin/pytest -q` → 3381 passed (antes: 3171).
+- Publicação: `secrets/chaves.env` gerado (chmod 600); `secrets/sei.env` podado para `SEI_LOGIN_URL` e `SEI_ORGAO`
+  (cópia anterior em `secrets/sei.env.antes-acessos-2026-09-20`, chmod 600 — apagar depois que o acesso do Antônio
+  estiver cadastrado e uma emissão real tiver funcionado); `./backup.sh` ok (`termos-2026-09-20-1450.db.gz`);
+  `docker compose up -d --build`; `/app/secrets/chaves.env` visível nos dois containers e `cofre.cifrar/decifrar`
+  funcionando em `web` e em `robo`; `/login` 200; `/meus-acessos` sem sessão → 302; `dados/robo_pedidos.log`
+  "trabalhador iniciado" 14:52:36; colunas `sei_*`/`spw_*` criadas em `usuarios`.
+- Revisão final (opus) achou o crítico que o plano não previa: o serviço `web` não montava `secrets/` — corrigido
+  antes do merge (§3 atualizado). `backup.sh` **não** copia a chave (decisão: chave no mesmo bucket do banco cifrado
+  anularia a cifra); guardá-la à parte fica com o administrador.
+
+Pendências (do usuário):
+- Cada operador cadastra o próprio acesso em *Meus acessos* (Antônio: `antonio.junior`/GELIC e o do SPW). Até lá,
+  Emitir Termo no SEI e Atualizar com SPW pelo site recusam com a mensagem de orientação.
+- Blocos "Termos {CC}" precisam existir na unidade de cada emissor.
+- Guardar `secrets/chaves.env` fora do servidor (gerenciador de senhas).
