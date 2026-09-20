@@ -1,0 +1,190 @@
+[
+ {
+  "cc": "COMUNICA",
+  "bens": 220,
+  "html": 100778,
+  "numero_sei": "1557091",
+  "t_doc": 10.8,
+  "bloco_linha": "1557091 Termo de Responsabilidade 20/09/2026 69766",
+  "t_total": 15.7,
+  "ok": true
+ },
+ {
+  "cc": "DGFIN",
+  "bens": 25,
+  "ja_existia": true,
+  "numero_sei": "1557090",
+  "t_doc": 0.0,
+  "bloco_linha": "1557090 Termo de Responsabilidade 20/09/2026 69766 (já estava)",
+  "t_total": 2.2,
+  "ok": true
+ },
+ {
+  "cc": "DGOV",
+  "bens": 100,
+  "html": 48381,
+  "numero_sei": "1557092",
+  "t_doc": 10.2,
+  "bloco_linha": "1557092 Termo de Responsabilidade 20/09/2026 69766",
+  "t_total": 15.1,
+  "ok": true
+ },
+ {
+  "cc": "EGC",
+  "bens": 50,
+  "html": 26035,
+  "numero_sei": "1557093",
+  "t_doc": 10.2,
+  "bloco_linha": "1557093 Termo de Responsabilidade 20/09/2026 69766",
+  "t_total": 15.1,
+  "ok": true
+ },
+ {
+  "cc": "GAB-PRES",
+  "bens": 146,
+  "html": 69698,
+  "numero_sei": "1557094",
+  "t_doc": 10.6,
+  "bloco_linha": "1557094 Termo de Responsabilidade 20/09/2026 69766",
+  "t_total": 15.7,
+  "ok": true
+ },
+ {
+  "cc": "GECER",
+  "bens": 3,
+  "ja_existia": true,
+  "numero_sei": "1557089",
+  "t_doc": 0.0,
+  "bloco_linha": "1557089 Termo de Responsabilidade 20/09/2026 69766 (já estava)",
+  "t_total": 2.2,
+  "ok": true
+ },
+ {
+  "cc": "GECONT",
+  "bens": 61,
+  "html": 30860,
+  "numero_sei": "1557095",
+  "t_doc": 10.7,
+  "bloco_linha": "1557095 Termo de Responsabilidade 20/09/2026 69766",
+  "t_total": 15.5,
+  "ok": true
+ },
+ {
+  "cc": "GEDEP",
+  "bens": 25,
+  "html": 14673,
+  "numero_sei": "1557096",
+  "t_doc": 10.5,
+  "bloco_linha": "1557096 Termo de Responsabilidade 20/09/2026 69766",
+  "t_total": 15.4,
+  "ok": true
+ },
+ {
+  "cc": "GELAI",
+  "bens": 72,
+  "html": 35391,
+  "numero_sei": "1557097",
+  "t_doc": 10.4,
+  "bloco_linha": "1557097 Termo de Responsabilidade 20/09/2026 69766",
+  "t_total": 15.3,
+  "ok": true
+ },
+ {
+  "cc": "GELIC",
+  "bens": 37,
+  "html": 19950,
+  "numero_sei": "1557098",
+  "t_doc": 11.5,
+  "bloco_linha": "1557098 Termo de Responsabilidade 20/09/2026 69766",
+  "t_total": 16.4,
+  "ok": true
+ },
+ {
+  "cc": "GESERV",
+  "bens": 1464,
+  "html": 660632,
+  "numero_sei": "1557099",
+  "t_doc": 11.0,
+  "erro": "RuntimeError: nenhum frame com #selBloco"
+ },
+ {
+  "cc": "GEX-CSIS",
+  "bens": 123,
+  "html": 58433,
+  "numero_sei": "1557100",
+  "t_doc": 11.6,
+  "bloco_linha": "1557100 Termo de Responsabilidade 20/09/2026 69766",
+  "t_total": 16.6,
+  "ok": true
+ },
+ {
+  "cc": "GEX-DPROF",
+  "bens": 266,
+  "html": 123613,
+  "numero_sei": "1557101",
+  "t_doc": 10.5,
+  "bloco_linha": "1557101 Termo de Responsabilidade 20/09/2026 69766",
+  "t_total": 15.4,
+  "ok": true
+ },
+ {
+  "cc": "GEX-FIS",
+  "bens": 134,
+  "html": 64450,
+  "numero_sei": "1557103",
+  "t_doc": 10.1,
+  "bloco_linha": "1557103 Termo de Responsabilidade 20/09/2026 69766",
+  "t_total": 15.0,
+  "ok": true
+ },
+ {
+  "cc": "GEX-GAFI",
+  "bens": 26,
+  "html": 15207,
+  "numero_sei": "1557104",
+  "t_doc": 10.7,
+  "bloco_linha": "1557104 Termo de Responsabilidade 20/09/2026 69766",
+  "t_total": 15.6,
+  "ok": true
+ },
+ {
+  "cc": "GEX-GEST",
+  "bens": 81,
+  "html": 39803,
+  "numero_sei": "1557105",
+  "t_doc": 10.9,
+  "bloco_linha": "1557105 Termo de Responsabilidade 20/09/2026 69766",
+  "t_total": 15.9,
+  "ok": true
+ },
+ {
+  "cc": "GEX-ITEC",
+  "bens": 298,
+  "html": 134460,
+  "erro": "RuntimeError: documento não apareceu na árvore"
+ },
+ {
+  "cc": "GEX-LIC",
+  "bens": 56,
+  "html": 28994,
+  "erro": "TypeError: 'NoneType' object is not subscriptable"
+ },
+ {
+  "cc": "GEX-REIP",
+  "bens": 61,
+  "html": 31095,
+  "erro": "TypeError: 'NoneType' object is not subscriptable"
+ },
+ {
+  "cc": "GEX-RNOR",
+  "bens": 105,
+  "html": 50816,
+  "erro": "TypeError: 'NoneType' object is not subscriptable"
+ },
+ {
+  "cc": "PROJUR",
+  "bens": 76,
+  "html": 37571,
+  "erro": "TypeError: 'NoneType' object is not subscriptable"
+ }
+]

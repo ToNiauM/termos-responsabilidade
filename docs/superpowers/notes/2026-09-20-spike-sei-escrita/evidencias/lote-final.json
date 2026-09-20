@@ -1,0 +1,62 @@
+[
+ {
+  "cc": "GESERV",
+  "bens": 1464,
+  "ja_existia": true,
+  "numero_sei": "1557099",
+  "t_doc": 0.0,
+  "bloco_linha": "1557099 Termo de Responsabilidade 20/09/2026 69766 (já estava)",
+  "t_total": 3.8,
+  "ok": true
+ },
+ {
+  "cc": "GEX-ITEC",
+  "bens": 298,
+  "ja_existia": true,
+  "numero_sei": "1557106",
+  "t_doc": 0.0,
+  "bloco_linha": "1557106 Termo de Responsabilidade 20/09/2026 69766 (já estava)",
+  "t_total": 2.1,
+  "ok": true
+ },
+ {
+  "cc": "GEX-LIC",
+  "bens": 56,
+  "ja_existia": true,
+  "numero_sei": "1557108",
+  "t_doc": 0.0,
+  "bloco_linha": "1557108 Termo de Responsabilidade 20/09/2026 69766",
+  "t_total": 4.9,
+  "ok": true
+ },
+ {
+  "cc": "GEX-REIP",
+  "bens": 61,
+  "ja_existia": true,
+  "numero_sei": "1557109",
+  "t_doc": 0.0,
+  "bloco_linha": "1557109 Termo de Responsabilidade 20/09/2026 69766",
+  "t_total": 5.6,
+  "ok": true
+ },
+ {
+  "cc": "GEX-RNOR",
+  "bens": 105,
+  "ja_existia": true,
+  "numero_sei": "1557110",
+  "t_doc": 0.0,
+  "bloco_linha": "1557110 Termo de Responsabilidade 20/09/2026 69766",
+  "t_total": 5.0,
+  "ok": true
+ },
+ {
+  "cc": "PROJUR",
+  "bens": 76,
+  "ja_existia": true,
+  "numero_sei": "1557111",
+  "t_doc": 0.0,
+  "bloco_linha": "1557111 Termo de Responsabilidade 20/09/2026 69766",
+  "t_total": 4.9,
+  "ok": true
+ }
+]

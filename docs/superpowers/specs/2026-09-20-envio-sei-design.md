@@ -1,10 +1,10 @@
 # Envio ao SEI — documento no processo, bloco de assinatura e "Atualizar agora"
 
 **Data:** 2026-09-20.
-**Estado:** desenho aprovado em conversa; **depende do spike da §10** antes do plano.
+**Estado:** desenho aprovado em conversa; spike da §10 concluído em 2026-09-20 (PASS) — pronto para o plano.
 **Base:** `main`, commit `20fac60`, depois da spec da administração de inventários (ainda não implementada).
-**Plano:** `../plans/2026-09-20-envio-sei.md` (a escrever depois do spike).
-**Spike:** `../notes/2026-09-20-spike-sei-escrita/` (a produzir).
+**Plano:** `../plans/2026-09-20-envio-sei.md` (a escrever).
+**Spike:** `../notes/2026-09-20-spike-sei-escrita/README.md` (21 termos reais criados e incluídos em bloco no processo de rascunho).
 
 ## 1. Resultado e limites
 
@@ -46,6 +46,9 @@ robô lá.
 | E-mail | O `mailto:` de hoje basta | Sem dependência nova |
 | Atualizar base pelo site | Sim, botão "Atualizar agora" pela mesma fila | Quase de graça com a fila pronta |
 | Arquitetura | Fila em `termos.db` + trabalhador no host (`.venv-robo`, systemd) | Banco e venv já compartilhados; sem Chromium na imagem |
+| Conteúdo no editor | Substitui **todo** o modelo do tipo (o SEI já traz um texto padrão) pelo termo gerado | Decisão do usuário durante o spike |
+| Formatação | Parágrafos justificados (recuo 1,25 cm; abertura/centro/direita sem recuo) e tabela com **90%** de largura, tudo em `style=` inline no gerador | O editor do SEI descarta CSS e classes; decisão do usuário (2026-09-20) |
+| Bloco: estado e unidade | Irrelevantes; o robô casa só o nome na lista `#selBloco` | Decisão do usuário |
 
 ## 3. Dados (`db.py`, migrações em `criar_esquema`)
 
@@ -101,6 +104,11 @@ Textos (`textos.py`): grupo novo "Envio ao SEI" com `sei_tipo_ccusto`, `sei_tipo
 para os dois primeiros e "Termo de Devolução" para o terceiro; o spike confirma os nomes reais). Editável em
 Textos como os demais.
 
+Gerador (`termos_html.py`): `_p`, `_abertura` e as tabelas passam a emitir estilo inline — parágrafo comum
+`text-align:justify;text-indent:1.25cm;margin:0 0 7pt`, `semrecuo` idem sem recuo, `centro`/`direita`/`assinatura`
+como no CSS de hoje — e as três tabelas ficam com `width:90%`. O `termo_base.html` continua com o CSS (o `.docx`
+e a tela não mudam de aparência); só deixa de ser a única fonte do alinhamento.
+
 Cadastros: `unidade_sei` entra no formulário de Responsáveis e de Pessoas e como coluna opcional na
 importação de planilha (`importar_planilhas.py`), sem quebrar planilhas antigas.
 
@@ -152,24 +160,33 @@ o card do Início reflete como hoje. O cron das 3h continua.
 Roda só no host, no `.venv-robo`. Mesma separação do SPW: Playwright e seletores só na classe `SEI`;
 orquestração pura e testável.
 
-### 5.1 Classe `SEI`
+### 5.1 Classe `SEI` (seletores provados no spike)
 
-Login, `abrir_processo`, acesso aos frames (`ifrArvore`, `ifrVisualizacao`) copiados de
-`/opt/web/pca-cfc/apps/pca/sei/coletor.py`, que já provou funcionar no SEI do CFC (hosts permitidos,
-diálogo de senha inválida, espera pela árvore). Métodos novos, cujos seletores o spike define:
+Login, `abrir_processo`, acesso aos frames copiados de `/opt/web/pca-cfc/apps/pca/sei/coletor.py`; o esqueleto
+das ações novas está em `../notes/2026-09-20-spike-sei-escrita/sei_acoes.py`. Os iframes do SEI têm URL pouco
+confiável: localizar frames **pelo conteúdo** (`frame_com(seletor)`), não pela URL.
 
-- `incluir_documento(tipo_nome, nome_arvore, html) -> str`: *Incluir Documento* → escolhe o tipo pelo nome
-  exato (erro `RoboErro("Tipo de documento 'X' não existe no SEI")` se não estiver na lista) → formulário com
-  texto inicial "Nenhum", nome na árvore/número conforme o spike, nível de acesso Público → salvar → no editor
-  (janela nova), injeta o HTML e salva → volta ao processo e confirma que a árvore ganhou um nó com o rótulo
-  esperado → devolve o número SEI do documento (o protocolo de sete dígitos).
-- `incluir_em_bloco(numero_documento, nome_bloco) -> str`: com o documento selecionado, *Incluir em Bloco de
-  Assinatura* → escolhe o bloco pelo nome exato (erro `RoboErro("Bloco 'Termos GESERV' não existe")`) →
-  incluir → confirma que o bloco lista o documento → devolve o número do bloco.
-- `documento_na_arvore(nome_arvore) -> str | None`: acha um documento pelo rótulo (usado na retomada, §5.3).
+- `abrir_processo(numero)`: pesquisa rápida → título `SEI - <numero>` → espera a árvore; se houver pastas fechadas
+  (nó `anchorAGUARDE`, acontece a partir de ~20 documentos), clica em `img[title='Abrir todas as Pastas']` e espera a
+  contagem de nós estabilizar. Toda busca por rótulo passa por isso.
+- `documento_na_arvore(rotulo) -> (id, numero) | None`: casa `^<rotulo>\s*\((\d{6,8})\)$` nos nós da árvore.
+- `incluir_documento(tipo_nome, nome_arvore, html) -> numero`: raiz selecionada → `a:has(img[title='Incluir Documento'])`
+  → lista de tipos `a[onclick^='escolher']` com texto exato (`RoboErro` se não houver) → formulário: `#optNenhum` já
+  marcado, **`#txtNomeArvore` = "NN/AAAA - UNIDADE"** (o tipo não tem campo Número), Público via
+  `label[for=optPublico]` + espera de `#optPublico.checked` → `#btnSalvar` abre popup (`expect_page`) → espera
+  `CKEDITOR` e `iframe[title="Corpo do Texto"]` → instância `txaEditor_NNNN` do container desse iframe →
+  `setData(html)` + `fire('change')` → `a[title^='Salvar']:visible` → fecha o popup → espera o rótulo na árvore
+  (com abertura de pastas) e devolve o número.
+- `incluir_em_bloco(numero, nome_bloco) -> numero_bloco`: seleciona o documento na árvore → **espera o
+  `ifrVisualizacao` terminar de carregar** (documentos grandes engolem o clique) →
+  `a:has(img[title='Incluir em Bloco de Assinatura'])`, repetindo o clique uma vez se `#selBloco` não vier em 20 s →
+  opção que termina em `" - " + nome_bloco` (`RoboErro` se não houver; o texto é "69766 - Termos TESTE") → **antes
+  de clicar, lê a linha do documento: se já mostra o nº do bloco, devolve sem clicar** → `#sbmIncluir` → confirma
+  pela coluna "Blocos" da linha do documento.
 
-Timeout padrão 30 s por operação; uma sessão de navegador por pedido; `logout` ao final mesmo em erro; em
-exceção, `dados/sei/erro.png` (sobrescrito) antes de relançar.
+Timeout padrão 30 s por operação; uma sessão por pedido; `logout` ao final mesmo em erro; em exceção, fecha popups
+sobrando, salva `dados/sei/erro.png` (sobrescrito) e relança. Medido: ~15 s por termo, independente do tamanho
+(660 KB de HTML no GESERV).
 
 ### 5.2 `enviar_termo(conn, pedido, sei=None, agora=None) -> dict`
 
@@ -188,7 +205,7 @@ Devolve `{"passo", "mensagem", "documento_sei", "bloco_sei"}`. `sei` é injetáv
 
 Se o passo `documento` estourar timeout **depois** de salvar (a árvore não respondeu), o documento pode
 existir sem que o sistema saiba. Na retomada de um pedido em erro sem `documento_sei`, o robô primeiro chama
-`documento_na_arvore("Termo … NN/AAAA - UNIDADE")`: se achar, grava o número e segue para o bloco; só cria
+`documento_na_arvore("Termo de Responsabilidade NN/AAAA - UNIDADE")` (com as pastas abertas): se achar, grava o número e segue para o bloco; só cria
 se não achar. O rótulo com número por unidade e ano é o que torna essa checagem determinística.
 
 ## 6. Trabalhador (`atender_pedidos.py`) e serviço
@@ -243,25 +260,18 @@ Sem SEI nem SPW reais; Playwright nunca importado na suíte (imports lazy, como 
 - `tests/test_atender_pedidos.py`: laço com executores falsos — ordem FIFO, um por vez, exceção vira `erro`
   e não derruba o laço, pedido órfão volta a `aguardando`.
 
-## 10. Spike (pré-requisito do plano)
+## 10. Spike (concluído em 2026-09-20 — PASS)
 
-Escrever no SEI é território novo — o robô do PCA só lê. Antes do plano, um script descartável em
-`docs/superpowers/notes/2026-09-20-spike-sei-escrita/` roda com o login do Antônio contra o processo de
-rascunho dele (**`90796110000022.000059/2026-88`**, conforme informado; conferir o formato ao abrir) e um
-bloco "Termos TESTE" criado por ele, e responde:
+Relatório em `../notes/2026-09-20-spike-sei-escrita/README.md`, com scripts e evidências. Rodou com o login do
+usuário no processo de rascunho `90796110000022.000059/2026-88` e no bloco "Termos TESTE" (nº 69766): criou os
+**21 termos por centro de custo** (rótulos "01/2026 - <CC>") e incluiu todos no bloco, sem duplicata mesmo com
+repetições após erro. As seis perguntas estão respondidas na §5.1; os incidentes (árvore em pastas, documento
+grande, confirmação por estado, recuperação após erro) viraram regras da §5.1 e §5.3.
 
-1. Como incluir documento a partir do processo (frame, botão, tela de escolha do tipo, filtro por nome).
-2. Quais campos do formulário produzem o rótulo "Termo de Responsabilidade 01/2026 - GESERV" na árvore
-   (Número × Nome na Árvore) e como marcar nível Público.
-3. Como o editor recebe o HTML (janela nova com CKEditor: `setData` via JS ou colar) e como salvar/fechar.
-4. Como ler o número SEI do documento recém-criado.
-5. Como incluir o documento num bloco existente pelo nome, e **se um bloco já disponibilizado aceita
-   inclusão** — se não aceitar, a alternativa volta para decisão do usuário (ex.: o robô retira a
-   disponibilização, inclui e disponibiliza de novo; ou vocês disponibilizam só depois).
-6. Tempo total e pontos de instabilidade (esperas por iframe, popups).
-
-Sai um `README.md` no diretório do spike com seletores, passos e um print da árvore; a §5.1 é ajustada com
-o que se provou, e só então o plano é escrito. O documento de teste criado fica no processo de rascunho.
+**Em aberto para o usuário:** a lista de tipos vista no spike (77 tipos, `evidencias/tipos-de-documento.json`) não
+tem "Termo de Devolução". Ou existe na lista completa (botão "+" da tela "Gerar Documento"), ou o termo de devolução
+usa outro tipo ("Termo"? o próprio "Termo de Responsabilidade"?). O padrão de `sei_tipo_devolucao` em Textos segue
+a decisão dele.
 
 ## 11. Publicação
 
@@ -270,7 +280,7 @@ o que se provou, e só então o plano é escrito. O documento de teste criado fi
 3. `sudo systemctl enable --now termos-robo` (unidade em `ops/termos-robo.service`).
 4. No SEI: criar os blocos "Termos {UNIDADE}" das unidades que recebem termo.
 5. Em Cadastros: `unidade_sei` das pessoas que recebem termo individual; exceções em Responsáveis.
-6. Em Textos: conferir os nomes dos tipos de documento.
+6. Em Textos: conferir os nomes dos tipos de documento (o de devolução depende da decisão da §10).
 7. Evidência: um termo real enviado, com print da árvore do SEI e do bloco, anexados nesta spec (§12).
 
 ## 12. Evidências
