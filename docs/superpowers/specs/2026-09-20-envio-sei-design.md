@@ -1,4 +1,4 @@
-# Envio ao SEI — documento no processo, bloco de assinatura e "Atualizar agora"
+# Envio ao SEI — documento no processo, bloco de assinatura e "Atualizar com SPW"
 
 **Data:** 2026-09-20.
 **Estado:** desenho aprovado; spike da §10 concluído em 2026-09-20 (PASS); prioridade máxima do usuário — pronto para o plano.
@@ -45,7 +45,7 @@ robô lá.
 | Nível de acesso | Sempre público | — |
 | Depois de salvar | Nada: só incluir no bloco; quem assina é o responsável | — |
 | E-mail | O `mailto:` de hoje basta | Sem dependência nova |
-| Atualizar base pelo site | Sim, botão "Atualizar agora" pela mesma fila | Quase de graça com a fila pronta |
+| Atualizar base pelo site | Sim, botão "Atualizar com SPW" pela mesma fila | Quase de graça com a fila pronta |
 | Arquitetura | Fila em `termos.db` + trabalhador no host (`.venv-robo`, systemd) | Banco e venv já compartilhados; sem Chromium na imagem |
 | Conteúdo no editor | Substitui **todo** o modelo do tipo (o SEI já traz um texto padrão) pelo termo gerado | Decisão do usuário durante o spike |
 | Formatação | Parágrafos justificados (recuo 1,25 cm; abertura/centro/direita sem recuo) e tabela com **90%** de largura, tudo em `style=` inline no gerador | O editor do SEI descarta CSS e classes; decisão do usuário (2026-09-20) |
