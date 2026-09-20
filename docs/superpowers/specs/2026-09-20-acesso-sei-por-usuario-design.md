@@ -34,7 +34,8 @@ preenchidas.
 Cifra: **Fernet** (`cryptography`), chave em `secrets/chaves.env` (`CHAVE_SENHAS=<chave Fernet>`), lida por
 `segredos.ler_env`. Módulo novo `cofre.py`: `gerar_chave() -> str`, `cifrar(texto) -> str`, `decifrar(token) -> str`;
 sem a chave → `ErroDeNegocio("secrets/chaves.env não encontrado ou incompleto …")` no site e erro legível no pedido.
-A chave é a mesma para `web` e `robo` (os dois montam `secrets/`). `cryptography` entra no Dockerfile (alvo `web`,
+A chave é a mesma para `web` e `robo` (os dois montam `secrets/` — o `web` ganhou esse mount na leva de correção
+do code review final). `cryptography` entra no Dockerfile (alvo `web`,
 herdado pelo `robo`) e em `requirements.txt`.
 
 Funções em `usuarios.py`:

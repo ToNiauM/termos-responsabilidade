@@ -25,7 +25,7 @@ _HASH_FALSO = generate_password_hash("senha-falsa-para-tempo-constante")
 
 _COLUNAS_LISTA = ("id, login, email, nome, ativo, trocar_senha, falhas, bloqueado_ate, criado_em, ultimo_acesso, "
                    "sei_login, sei_atualizado_em, spw_login, spw_atualizado_em")
-_COLUNAS_CONTA = _COLUNAS_LISTA + ", senha_hash, sei_unidade"
+_COLUNAS_CONTA = _COLUNAS_LISTA + ", senha_hash"
 _MANTER = object()     # editar(): "não mexer no e-mail"
 
 

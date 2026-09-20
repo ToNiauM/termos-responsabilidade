@@ -203,9 +203,11 @@ chave e guarde-a:
     # CHAVE_SENHAS=...
     chmod 600 secrets/chaves.env
 
-As duas imagens (`web` e `robo`) montam `./secrets`. **Guarde `chaves.env` junto com o backup do banco** — sem
-ela as senhas cifradas em `termos.db` são inúteis; quem restaura o banco sem a chave junto precisa cadastrar os
-acessos de novo. Com isso, `secrets/sei.env` fica só com `SEI_LOGIN_URL` e `SEI_ORGAO`.
+As duas imagens (`web` e `robo`) montam `./secrets` (somente leitura). **`backup.sh` não copia `chaves.env`** —
+ele só leva `termos.db` para o bucket R2; guarde a chave à parte, à mão, em outro lugar (por exemplo, no
+gerenciador de senhas do administrador). Sem ela as senhas cifradas em `termos.db` são inúteis; quem restaura um
+backup sem a chave junto precisa pedir que cada operador cadastre o acesso de novo. Com isso, `secrets/sei.env`
+fica só com `SEI_LOGIN_URL` e `SEI_ORGAO`.
 
 Cada operador cadastra o próprio acesso em **Meus acessos** (link no cabeçalho, `/meus-acessos`): ao SEI (usuário,
 senha e sigla da unidade — é nessa unidade e em nome dessa pessoa que os termos nascem no SEI, e é lá que o bloco

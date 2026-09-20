@@ -35,6 +35,10 @@ class RoboErro(Exception):
     """Erro previsto do robô; a mensagem vai para robo_execucoes e para o Início."""
 
 
+# Usada por atender_pedidos.executar_spw para reconhecer login recusado sem repetir o texto.
+MSG_LOGIN_RECUSADO = "login no SPW não chegou ao menu (usuário/senha?)"
+
+
 def ler_env(caminho: Path | None = None) -> dict:
     """`caminho` omitido usa o ARQUIVO_ENV do módulo NA HORA da chamada (não travado na importação),
     para os testes poderem trocá-lo com monkeypatch.setattr(importar_spw, "ARQUIVO_ENV", ...)."""
@@ -135,7 +139,7 @@ def baixar_export(env: dict, destino: Path) -> Path:
             with pagina.expect_navigation(wait_until="networkidle", timeout=60000):
                 pagina.click(P + "btnEntrar")
             if "MenuChamador" not in pagina.url:
-                raise RoboErro("login no SPW não chegou ao menu (usuário/senha?): " + pagina.url)
+                raise RoboErro(MSG_LOGIN_RECUSADO + ": " + pagina.url)
             pagina.goto(env["SPW_CONSULTA_URL"], wait_until="networkidle", timeout=60000)
             pagina.click("#ContentPlaceHolder1_ASPxButton1")
             pagina.wait_for_selector("#ContentPlaceHolder1_PCExportacao_cboArquivo", state="visible", timeout=30000)

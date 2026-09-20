@@ -1,7 +1,7 @@
-"""Cifra das senhas do SEI guardadas em usuarios.sei_senha. Fernet (cryptography) com a chave em
-secrets/chaves.env (CHAVE_SENHAS=...). A mesma chave serve ao site (cifra ao salvar) e ao serviço robo (decifra
-ao atender o pedido); os dois montam secrets/. Sem a chave, nada é salvo nem lido — e um backup do banco sozinho
-não revela senha nenhuma. Gerar uma vez: python -c "import cofre; print(cofre.gerar_chave())"."""
+"""Cifra das senhas do SEI e do SPW guardadas em usuarios.sei_senha e usuarios.spw_senha. Fernet (cryptography)
+com a chave em secrets/chaves.env (CHAVE_SENHAS=...). A mesma chave serve ao site (cifra ao salvar) e ao serviço
+robo (decifra ao atender o pedido); os dois montam secrets/. Sem a chave, nada é salvo nem lido — e um backup do
+banco sozinho não revela senha nenhuma. Gerar uma vez: python -c "import cofre; print(cofre.gerar_chave())"."""
 from cryptography.fernet import Fernet, InvalidToken
 
 import db
@@ -33,4 +33,4 @@ def decifrar(token: str) -> str:
     try:
         return _fernet().decrypt(token.encode()).decode("utf-8")
     except InvalidToken:
-        raise db.ErroDeNegocio("Senha cifrada com outra chave; cadastre a senha do SEI de novo.")
+        raise db.ErroDeNegocio("Senha cifrada com outra chave; cadastre a senha de novo em Meus acessos.")

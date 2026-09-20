@@ -19,6 +19,8 @@ services:
     volumes:
       # termos.db e timbrado.docx vivem aqui; backup = copiar a pasta dados/
       - ./dados:/app/dados
+      # chave das senhas (chaves.env) — ver README, Acessos por usuário
+      - ./secrets:/app/secrets:ro
 
   # Trabalhador da fila robo_pedidos (emissão no SEI e atualização com o SPW), com Playwright
   # (alvo robo do Dockerfile). Sobe permanente com `docker compose up -d`; sem ele o site
