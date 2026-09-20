@@ -290,4 +290,25 @@ de procurar.
 
 ## 12. Evidências
 
-(a preencher na publicação)
+**Implementação (2026-09-20, ramo `envio-sei`):** 12 tarefas (11 do plano + troca de unidade `SEI_UNIDADE`), cada uma com
+revisão de spec e qualidade; suíte 3168 testes. Ledger em `.superpowers/sdd/2026-09-20-envio-sei/progress.md` (descartado após
+o merge; rulings resumidos na mensagem final ao usuário).
+
+**Prova real com o código de produção** (`robo_sei.enviar_termo` + Playwright, base copiada em `/tmp/envio-teste`, processo de
+rascunho `90796110000022.000059/2026-88` cadastrado como vigente, GECER com `unidade_sei = TESTE`, número `04/2026`):
+
+```
+RESULTADO: {'passo': 'concluido', 'mensagem': 'documento 1557117 no bloco 69766', 'documento_sei': '1557117', 'bloco_sei': '69766'} (32s)
+TERMO: 04/2026 TESTE 1557117 69766
+```
+
+Os 32 s incluem a troca de unidade CAE-A → GELIC (`SEI_UNIDADE=GELIC`): o SEI lembra a última unidade usada entre logins, e
+um teste anterior tinha deixado a sessão em CAE-A — por isso a chave passou a ser fixada no `sei.env`. Print da árvore com o
+documento (título centrado, texto justificado, tabela 90%): `../notes/2026-09-20-spike-sei-escrita/evidencias/prova-final.png`.
+
+**Blocos de assinatura:** o usuário pediu os 21 blocos "Termos {CC}" na unidade GESERV, mas o seu perfil no SEI não tem
+"Blocos de Assinatura" nessa unidade (redirecionamento silencioso para Controle de Processos; GELIC/GECER/SEGED/CAE-A abrem).
+Decisão dele: "testa no GELIC, depois eu apago" → criados em GELIC (nº 69788–69808, `evidencias/blocos-gelic.png`). Um lote
+criado por engano em CAE-A (69767–69787, pela unidade lembrada) foi excluído na hora (blocos vazios, 0 restantes).
+
+**Emissão no SEI pelo site** (após publicação): a registrar pelo usuário no primeiro termo real.
