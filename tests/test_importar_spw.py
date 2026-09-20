@@ -23,8 +23,13 @@ BASE = [(1001, "ATIVO", "CADEIRA", "01 - SALA CCI"), (1002, "ATIVO", "NOTEBOOK",
 
 
 def test_ler_env_exige_arquivo_e_chaves(tmp_path):
-    with pytest.raises(robo.RoboErro, match="spw.env"):
+    try:
         robo.ler_env(tmp_path / "nao-existe.env")
+        assert False, "should have raised"
+    except robo.RoboErro as e:
+        msg = str(e)
+        assert "spw.env" in msg  # label says spw.env
+        assert "nao-existe.env" in msg  # but real path appears somewhere
     arq = tmp_path / "spw.env"
     arq.write_text("SPW_USUARIO=u\nSPW_SENHA=s=com=igual\n# comentário\nSPW_LOGIN_URL=http://l\n")
     with pytest.raises(robo.RoboErro, match="SPW_CONSULTA_URL"):

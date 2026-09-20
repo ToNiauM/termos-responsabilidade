@@ -37,7 +37,7 @@ def ler_env(caminho: Path = ARQUIVO_ENV) -> dict:
     try:
         return segredos.ler_env(caminho, CHAVES_ENV)
     except segredos.SegredoAusente as e:
-        msg = str(e).replace(caminho.name, "spw.env")
+        msg = str(e).replace(f"secrets/{caminho.name}", "secrets/spw.env", 1)
         raise RoboErro(msg)
 
 
