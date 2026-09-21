@@ -49,7 +49,11 @@ def destino_atual(endpoint, args):
 
 
 def montar(funcoes, evento_aberto, endpoint_atual, argumentos=None, login_ativo=True):
-    """Árvore do menu: itens e grupos permitidos, com o item da tela atual marcado."""
+    """Árvore do menu: itens e grupos permitidos, com o item da tela atual marcado.
+
+    `login_ativo` não influencia mais a árvore (Administração já depende só de `permitido`);
+    mantido apenas por compatibilidade de assinatura com os chamadores existentes.
+    """
     ep, args = destino_atual(endpoint_atual, argumentos)
 
     def item(rotulo, icone, endpoint, kw=None):

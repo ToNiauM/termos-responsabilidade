@@ -540,8 +540,12 @@ def test_inventario_eventos_abrir_e_encerrar(cliente):
 
 
 def test_inventario_abrir_com_amostragem(cliente):
-    r = cliente.post("/inventario/abrir", data={"nome": "Amostra", "usuarios": _ids("Beltrana"), "escopo": "escolher", "salas": ["99 - SEM MAPA"]}, follow_redirects=True)
-    assert b"99 - SEM MAPA" in r.data and b"01 - SALA CCI" not in r.data.split(b"<tbody>")[1]
+    import db, inventario
+    cliente.post("/inventario/abrir", data={"nome": "Amostra", "usuarios": _ids("Beltrana"), "escopo": "escolher", "salas": ["99 - SEM MAPA"]}, follow_redirects=True)
+    eid = inventario.evento_aberto(db.conectar())["id"]
+    r = cliente.get(f"/inventario/{eid}")
+    tabela = r.data.split(b"<tbody>")[1]
+    assert b"99 - SEM MAPA" in tabela and b"01 - SALA CCI" not in tabela
 
 
 def test_inventario_sala_leitura_json(cliente):
@@ -1018,6 +1022,9 @@ def test_inventario_desktop_admin_local_entra_na_comissao(cliente_local):
     assert r.status_code == 200
     eid = inventario.evento_aberto(conn)["id"]
     assert inventario.evento(conn, eid)["integrantes"] == ["Administrador local", "Xis"]
+    r = cliente_local.get("/inventario")
+    assert r.status_code == 200 and b"Inv" in r.data
+    assert cliente_local.get(f"/inventario/{eid}").status_code == 200
     j = cliente_local.post(f"/inventario/{eid}/sala/01 - SALA CCI/ler", json={"numero": "1001"}).get_json()
     assert j["integrante"] == "Administrador local"
 

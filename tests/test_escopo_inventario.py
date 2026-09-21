@@ -415,3 +415,12 @@ def test_criar_sem_abrir_nasce_fechado_e_conceder_e_atomico(dados):
     with pytest.raises(db.ErroDeNegocio):
         comissoes.criar(dados, "Preparado", "", [fulano], None)                        # nome repetido: nada gravado
     assert len(inventario.eventos(dados)) == 1
+
+
+def test_criar_desfaz_o_evento_se_conceder_funcao_falhar(dados, monkeypatch):
+    semear(dados)
+    fulano = usuarios.criar(dados, "fulano3", "Fulano Três", SENHA_PADRAO, ["consulta"], trocar_senha=False)
+    monkeypatch.setattr(usuarios, "conceder_funcao", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("x")))
+    with pytest.raises(RuntimeError):
+        comissoes.criar(dados, "Preparado", "", [fulano], None)
+    assert inventario.eventos(dados) == []                                            # o with conn: desfez o insert
