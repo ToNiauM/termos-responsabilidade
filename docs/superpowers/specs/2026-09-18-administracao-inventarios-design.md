@@ -1,7 +1,7 @@
 # Administração de inventários — chave aberto/fechado e painel do administrador
 
 **Data:** 2026-09-18.
-**Estado:** desenho aprovado; ainda não implementado.
+**Estado:** implementado e publicado em 2026-09-20 (noite); ver §10.
 **Base:** `main`, commit `724bee1`, depois do robô do SPW.
 **Plano:** `../plans/2026-09-18-administracao-inventarios.md`.
 
@@ -140,4 +140,28 @@ Salas por integrante, vários abertos, histórico de quem abriu/fechou (fica nas
 
 ## 10. Evidências
 
-Preenchido na implementação.
+Publicado em 2026-09-20 ~21:10, main=`e806441` (merge ff do ramo `admin-inventarios`, 8 commits, apagado depois). Base do
+ramo: `76e87ac` (o plano foi escrito sobre `724bee1`; as diferenças — SEI por usuário, Meus acessos, permissões — foram
+reconciliadas nos despachos).
+
+- Commits: `1b89896` estados e chave · `a1ae180` comissão aceita qualquer ativo e concede a função · `e84fd6c` planilha com
+  `suspenso_em` · `850f750` + `6261f97` tela Administração, rotas da chave, permissões e menu · `30c10ce` tela Inventário só
+  para conferência, Início e Ajuda · `4e1e038` README · `e806441` correções da revisão final (teste de amostragem por tela,
+  estado na tela de excluir, testes desktop e de atomicidade).
+- Suíte: `.venv/bin/pytest -q` → 3496 passed (antes: 3385).
+- Publicação: `docker compose up -d --build`; `db._colunas(conn, 'inventario_eventos')` no container inclui `suspenso_em`;
+  "Inventário 2026" (id 1) continua **aberto** (`suspenso_em` e `encerrado_em` nulos) e "Inventário Setorial 2026"
+  finalizado; `/login` 200; `/administracao` sem sessão → 302; trabalhador reiniciado 21:10.
+- Desvios conscientes em relação ao texto da spec (implementação prevalece): mensagem do evento fechado é "Inventário
+  fechado. A leitura está suspensa até o administrador reabrir; consulta liberada." (§5 dizia "Inventário fechado: leitura
+  suspensa"); colunas "Criado em" e "Localizados" (§4 dizia "aberto em" e "leituras/salas conferidas" — o evento agora
+  nasce fechado, então "Criado em" é o correto); §8 "`/usuarios` redireciona" contradizia §4/§7 — `/usuarios` continua
+  respondendo 200 com a barra de abas. O card e o menu usam a versão de `evento_corrente` recortada pela visibilidade
+  (`app._evento_corrente_visivel`), não `inventario.evento_corrente` diretamente.
+- Deferidos (revisão final): `ligar_chave` sem `BEGIN IMMEDIATE` (os dois UPDATEs caem na mesma transação; só o flash
+  pode citar um "fechado" defasado sob dois admins simultâneos); helpers `_elegiveis/_local/_conn` duplicados entre
+  `app_admin.py` e `app_inventario.py`; N+1 de `resumo` na lista de inventários; card do Início diz "Nenhum inventário
+  aberto" quando só há finalizados; `consulta_inventarios` fora da matriz de `test_permissoes` (pré-existente).
+
+Pendências do usuário: conferir no site o menu **Administração** (abas Inventários e Usuários) com o "Inventário 2026"
+aberto e a chave; a comissão pode agora incluir qualquer usuário ativo.
