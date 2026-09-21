@@ -511,17 +511,6 @@ def _destinatario(conn, t):
     return (t["chave"], p["email"] if p else None)
 
 
-def _links_sei_email(t) -> str:
-    """Bloco "Acesse no SEI" do e-mail com as URLs do processo e do documento (só as que o robô já resolveu); vazio sem ids."""
-    import robo_sei
-    linhas = []
-    if t.get("id_procedimento"):
-        linhas.append(f"Processo: {robo_sei.url_processo(t['id_procedimento'])}")
-    if t.get("id_documento"):
-        linhas.append(f"Documento: {robo_sei.url_documento(t['id_documento'])}")
-    return "Acesse no SEI (é preciso estar logado):\n" + "\n".join(linhas) + "\n" if linhas else ""
-
-
 def _mailto(conn, t, nome, email):
     """Link mailto: com assunto e corpo dos Textos; só quando há e-mail e documento SEI."""
     if not email or not t["documento_sei"] or not t["bloco_sei"]:
@@ -529,7 +518,7 @@ def _mailto(conn, t, nome, email):
     tx = textos.obter(conn)
     nome = textos.nome_proprio(nome)
     campos = {"nome": nome, "primeiro_nome": nome.split()[0] if nome else "", "termo": NOME_TERMO[t["tipo"]], "processo": t["numero_sei"],
-              "documento": t["documento_sei"], "bloco": t["bloco_sei"], "links": _links_sei_email(t), **textos.campos_gerais(tx)}
+              "documento": t["documento_sei"], "bloco": t["bloco_sei"], **textos.campos_gerais(tx)}
     assunto = tx["email_assunto"].format_map(campos)
     corpo = tx["email_corpo"].format_map(campos).replace("\n", "\r\n")
     return f"mailto:{quote(email, safe='@')}?subject={quote(assunto)}&body={quote(corpo)}"

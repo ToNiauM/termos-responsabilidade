@@ -1476,16 +1476,7 @@ def test_hiperlinks_do_sei_no_processo_e_no_documento(cliente, dados):
     assert f'href="{doc}"' in cliente.get("/termos-emitidos").data.decode()
     assert f'href="{proc}"' in cliente.get("/termo/ccusto/CCI").data.decode()
     assert f'href="{proc}"' in cliente.get("/cadastros/processos").data.decode()
-    # e-mail de assinatura: os links entram no corpo (CCI tem j@cfc.org.br); sem ids, o bloco "Acesse no SEI" nem aparece
-    html = cliente.get(f"/termos-emitidos/{t['id']}").data.decode()
+    # e-mail de assinatura continua só com os números (URL gigante no mailto ficava feio; decisão do usuário)
     from urllib.parse import unquote
-    corpo = unquote(html.split("&amp;body=")[1].split('"')[0])
-    assert "Acesse no SEI (é preciso estar logado):" in corpo
-    assert "Processo: https://sei.cfc.org.br/sei/controlador.php?acao=procedimento_trabalhar&id_procedimento=555001" in corpo
-    assert "Documento: https://sei.cfc.org.br/sei/controlador.php?acao=documento_visualizar&id_documento=777099" in corpo
-    dados.execute("UPDATE termos_emitidos SET id_documento = NULL WHERE id = ?", (t["id"],)); dados.commit()
     corpo = unquote(cliente.get(f"/termos-emitidos/{t['id']}").data.decode().split("&amp;body=")[1].split('"')[0])
-    assert "Documento:" not in corpo and "Processo: https://" in corpo
-    dados.execute("UPDATE processos_sei SET id_procedimento = NULL"); dados.commit()
-    corpo = unquote(cliente.get(f"/termos-emitidos/{t['id']}").data.decode().split("&amp;body=")[1].split('"')[0])
-    assert "Acesse no SEI" not in corpo and "{links}" not in corpo
+    assert "1557099" in corpo and "https://sei.cfc.org.br" not in corpo
