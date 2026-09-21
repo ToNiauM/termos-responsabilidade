@@ -17,7 +17,7 @@
 <div class="br-message danger"><div class="icon"><i class="fas fa-times-circle fa-lg" aria-hidden="true"></i></div>
   <div class="content" role="alert"><span class="message-title">Sem processo SEI.</span><span class="message-body"> Cadastre um processo SEI vigente para {{ rotulo_tipo }} em <a href="{{ url_for('cadastros', aba='processos') }}">Cadastros → Processos SEI</a> para copiar ou baixar este termo.</span></div></div>
 {% else %}
-<p class="text-gray-70 mb-3">Processo SEI {{ processo.numero_sei }} ({{ processo.descricao }}).
+<p class="text-gray-70 mb-3">Processo SEI {{ processo.numero_sei|link_sei(processo.id_procedimento) }} ({{ processo.descricao }}).
   {% if situacao.ultimo %}Último termo registrado em {{ situacao.ultimo.emitido_em[8:10] }}/{{ situacao.ultimo.emitido_em[5:7] }}/{{ situacao.ultimo.emitido_em[:4] }} {{ situacao.ultimo.emitido_em[11:16] }}{% if situacao.ultimo.documento_sei %} (SEI {{ situacao.ultimo.documento_sei }}){% endif %}
     (<a href="{{ url_for('termo_emitido_tela', id=situacao.ultimo.id) }}">ver registro</a>).
     {% if situacao.estado == 'vigente' %}Bens iguais aos de hoje.{% elif situacao.estado == 'desatualizado' %}Desde então entraram {{ situacao.entraram }} e saíram {{ situacao.sairam }} bem(ns): emita de novo.{% endif %}

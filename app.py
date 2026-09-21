@@ -40,6 +40,17 @@ app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024   # mesmo limite do nginx (c
 app.template_filter("moeda")(painel.moeda)   # R$ 1.234,56 em todas as telas
 app.add_template_filter(permissoes.ROTULOS.__getitem__, "rotulo_funcao")
 
+
+@app.template_filter("link_sei")
+def _link_sei(texto, id_interno, tipo="processo"):
+    """Número de processo/documento como hiperlink para o SEI quando o robô já gravou o id interno; senão texto puro."""
+    from markupsafe import Markup, escape
+    import robo_sei
+    if not texto or not id_interno:
+        return texto
+    url = robo_sei.url_documento(id_interno) if tipo == "documento" else robo_sei.url_processo(id_interno)
+    return Markup(f'<a href="{escape(url)}" target="_blank" rel="noopener">{escape(texto)}</a>')
+
 DSGOV_FIXO = {"SISTEMA": "Termos de Responsabilidade"}
 
 NEGADO = "Seu usuário não tem permissão para esta ação."
@@ -500,6 +511,17 @@ def _destinatario(conn, t):
     return (t["chave"], p["email"] if p else None)
 
 
+def _links_sei_email(t) -> str:
+    """Bloco "Acesse no SEI" do e-mail com as URLs do processo e do documento (só as que o robô já resolveu); vazio sem ids."""
+    import robo_sei
+    linhas = []
+    if t.get("id_procedimento"):
+        linhas.append(f"Processo: {robo_sei.url_processo(t['id_procedimento'])}")
+    if t.get("id_documento"):
+        linhas.append(f"Documento: {robo_sei.url_documento(t['id_documento'])}")
+    return "Acesse no SEI (é preciso estar logado):\n" + "\n".join(linhas) + "\n" if linhas else ""
+
+
 def _mailto(conn, t, nome, email):
     """Link mailto: com assunto e corpo dos Textos; só quando há e-mail e documento SEI."""
     if not email or not t["documento_sei"] or not t["bloco_sei"]:
@@ -507,7 +529,7 @@ def _mailto(conn, t, nome, email):
     tx = textos.obter(conn)
     nome = textos.nome_proprio(nome)
     campos = {"nome": nome, "primeiro_nome": nome.split()[0] if nome else "", "termo": NOME_TERMO[t["tipo"]], "processo": t["numero_sei"],
-              "documento": t["documento_sei"], "bloco": t["bloco_sei"], **textos.campos_gerais(tx)}
+              "documento": t["documento_sei"], "bloco": t["bloco_sei"], "links": _links_sei_email(t), **textos.campos_gerais(tx)}
     assunto = tx["email_assunto"].format_map(campos)
     corpo = tx["email_corpo"].format_map(campos).replace("\n", "\r\n")
     return f"mailto:{quote(email, safe='@')}?subject={quote(assunto)}&body={quote(corpo)}"

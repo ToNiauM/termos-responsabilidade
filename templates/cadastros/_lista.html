@@ -27,7 +27,7 @@
       <td>{{ item.localizacao }}</td><td>{% if item.ccustos %}{{ item.ccustos }}{% else %}<span class="br-tag bg-warning"><span>Sem centro de custo</span></span>{% endif %}</td>
       <td class="dsgov-acoes">{% if item.ccustos %}<a class="br-button small" href="{{ link('localizacoes_alterar', localizacao=item.localizacao) }}">Alterar centro</a>{{ acao('localizacoes_excluir', 'Remover vínculo', origem, {'localizacao': item.localizacao}) }}{% else %}<a class="br-button small" href="{{ link('cadastro_novo', aba='localizacoes', localizacao=item.localizacao) }}">Vincular centro</a>{% endif %}</td>
       {% else %}
-      <td>{{ item.numero_sei }}</td><td>{{ item.descricao }}</td><td>{{ dict(tipos)[item.tipo] }}</td><td><span class="br-tag {{ 'bg-success text-pure-0' if item.vigente else 'bg-gray-20' }}"><span>{{ 'Vigente' if item.vigente else 'Encerrado' }}</span></span></td><td>{{ item.criado_em[8:10] }}/{{ item.criado_em[5:7] }}/{{ item.criado_em[:4] }}</td>
+      <td>{{ item.numero_sei|link_sei(item.id_procedimento) }}</td><td>{{ item.descricao }}</td><td>{{ dict(tipos)[item.tipo] }}</td><td><span class="br-tag {{ 'bg-success text-pure-0' if item.vigente else 'bg-gray-20' }}"><span>{{ 'Vigente' if item.vigente else 'Encerrado' }}</span></span></td><td>{{ item.criado_em[8:10] }}/{{ item.criado_em[5:7] }}/{{ item.criado_em[:4] }}</td>
       <td class="dsgov-acoes">{% if item.vigente %}{{ acao('processos_encerrar', 'Encerrar', origem, {'id': item.id}, 'fa-times') }}{% else %}{{ acao('processos_vigente', 'Tornar vigente', origem, {'id': item.id}, 'fa-check') }}{% endif %}{{ acao('processos_excluir', 'Excluir', origem, {'id': item.id}) }}</td>
       {% endif %}
     </tr>

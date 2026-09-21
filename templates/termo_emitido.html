@@ -11,10 +11,11 @@
 <div class="br-card mb-4"><div class="card-content">
   <dl class="dsgov-detalhe row">
     <div class="col-md-3"><dt>Emitido em</dt><dd>{{ t.emitido_em[8:10] }}/{{ t.emitido_em[5:7] }}/{{ t.emitido_em[:4] }} {{ t.emitido_em[11:16] }}</dd></div>
-    <div class="col-md-3"><dt>Processo SEI</dt><dd>{{ t.numero_sei }}<br/><span class="text-gray-70">{{ t.processo }}</span></dd></div>
+    <div class="col-md-3"><dt>Processo SEI</dt><dd>{{ t.numero_sei|link_sei(t.id_procedimento) }}<br/><span class="text-gray-70">{{ t.processo }}</span></dd></div>
     <div class="col-md-2"><dt>Bens</dt><dd>{{ t.quantidade }}</dd></div>
     <div class="col-md-2"><dt>Valor total</dt><dd>{{ (t.valor_total)|moeda }}</dd></div>
     <div class="col-md-2"><dt>Número</dt><dd>{{ t.numero_termo or '—' }}{% if t.unidade_sei %} · {{ t.unidade_sei }}{% endif %}</dd></div>
+    {% if t.documento_sei %}<div class="col-md-3"><dt>Documento no SEI</dt><dd>{{ t.documento_sei|link_sei(t.id_documento, 'documento') }}{% if t.bloco_sei %} · bloco {{ t.bloco_sei }}{% endif %}</dd></div>{% endif %}
   </dl>
   {% if estado == 'andamento' %}
   <div class="br-message info"><div class="icon"><i class="fas fa-spinner fa-lg" aria-hidden="true"></i></div>
@@ -38,7 +39,7 @@
     {% if LOGIN_ATIVO and estado in ('inicial', 'erro') and pode('termo_emitido_enviar_sei', 'POST') %}
     <form method="post" action="{{ url_for('termo_emitido_enviar_sei', id=t.id) }}" class="mr-3">{{ csrf_campo() }}<button class="br-button primary" type="submit"><i class="fas fa-paper-plane mr-1" aria-hidden="true"></i>Emitir Termo no SEI</button></form>
     {% elif LOGIN_ATIVO and estado == 'erro_bloco' and pode('termo_emitido_enviar_sei', 'POST') %}
-    <span class="mr-3">Documento {{ t.documento_sei }} criado no SEI.</span>
+    <span class="mr-3">Documento {{ t.documento_sei|link_sei(t.id_documento, 'documento') }} criado no SEI.</span>
     <form method="post" action="{{ url_for('termo_emitido_enviar_sei', id=t.id) }}" class="mr-3">{{ csrf_campo() }}<button class="br-button primary" type="submit"><i class="fas fa-layer-group mr-1" aria-hidden="true"></i>Incluir no bloco</button></form>
     {% endif %}
     {% if estado != 'andamento' %}

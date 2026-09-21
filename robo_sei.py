@@ -21,6 +21,15 @@ import textos
 
 BASE = "https://sei.cfc.org.br/sei/"
 HOSTS = {"sei.cfc.org.br", "sip.cfc.org.br"}
+
+
+def url_processo(id_procedimento: str) -> str:
+    """Hiperlink do processo para quem está logado no SEI (mesmo formato usado no sistema do PCA)."""
+    return f"{BASE}controlador.php?acao=procedimento_trabalhar&id_procedimento={id_procedimento}"
+
+
+def url_documento(id_documento: str) -> str:
+    return f"{BASE}controlador.php?acao=documento_visualizar&id_documento={id_documento}"
 ARQUIVO_ENV = segredos.PASTA / "sei.env"
 CHAVES_ENV = ("SEI_LOGIN_URL", "SEI_ORGAO")
 PASTA_SEI = "sei"                     # dentro de config.pasta_dados(): erro.png
@@ -232,7 +241,8 @@ class SEI:
         if self.p.title().strip() != f"SEI - {numero}":
             raise RoboErro(f"Processo {numero} não abriu no SEI; nada foi criado.")
         esperar(self._arvore_bruta, self.t, erro="árvore do processo não carregou")
-        return {"titulo_confere": True, "nos": len(self._anchors())}
+        anchors = self._anchors()
+        return {"titulo_confere": True, "nos": len(anchors), "id_procedimento": anchors[0]["id"] if anchors else None}
 
     @staticmethod
     def _norma(rotulo: str) -> str:
@@ -252,6 +262,14 @@ class SEI:
         diferentes têm o mesmo rótulo; aí não dá para saber qual é o nosso e é melhor criar outro)."""
         numeros = self._numeros_com_rotulo(rotulo)
         return numeros[0] if len(numeros) == 1 else None
+
+    def id_do_documento(self, numero: str) -> str | None:
+        """Id interno do documento (o `anchor<id>` da árvore) — é o que o hiperlink do SEI usa."""
+        for a in self._anchors():
+            m = RE_ROTULO.match(a["texto"])
+            if m and m.group("numero") == numero:
+                return a["id"]
+        return None
 
     def numeros_na_arvore(self) -> set[str]:
         return {m.group("numero") for a in self._anchors() if (m := RE_ROTULO.match(a["texto"]))}
@@ -422,15 +440,17 @@ def enviar_termo(conn, pedido: dict, abrir=None, env: dict | None = None) -> dic
                     sei.trocar_unidade(unidade)
                 passo = "documento"
                 db.marcar_passo(conn, pid, "documento")
-                sei.abrir_processo(termo["numero_sei"])
+                aberto = sei.abrir_processo(termo["numero_sei"])
+                db.salvar_id_procedimento(conn, termo["processo_id"], (aberto or {}).get("id_procedimento"))
                 numero = termo["documento_sei"]
                 if not numero:
                     numero = sei.documento_na_arvore(rotulo) or sei.incluir_documento(tipo_nome, nome_arvore, pedido["html"] or "", rotulo)
                     db.salvar_documento_sei(conn, termo["id"], numero, termo["bloco_sei"] or "")
+                id_doc = getattr(sei, "id_do_documento", lambda n: None)(numero)          # hiperlink do documento
                 passo = "bloco"
                 db.marcar_passo(conn, pid, "bloco")
                 bloco = sei.incluir_em_bloco(numero, nome_bloco)
-                db.salvar_documento_sei(conn, termo["id"], numero, bloco)
+                db.salvar_documento_sei(conn, termo["id"], numero, bloco, id_documento=id_doc)
             except Exception as exc:
                 getattr(sei, "foto", lambda *_: None)("erro.png")
                 avisos = getattr(sei, "avisos", [])

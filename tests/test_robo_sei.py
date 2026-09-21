@@ -40,7 +40,10 @@ class SEIFalso:
         self.chamadas.append(("abrir_processo", numero))
         if not self.titulo_ok:
             raise robo_sei.RoboErro(f"Processo {numero} não abriu no SEI; nada foi criado.")
-        return {"titulo_confere": True}
+        return {"titulo_confere": True, "id_procedimento": "555001"}
+
+    def id_do_documento(self, numero):
+        return {"1557099": "777099", "1557088": "777088"}.get(numero)
 
     def documento_na_arvore(self, rotulo):
         self.chamadas.append(("documento_na_arvore", rotulo))
@@ -91,6 +94,7 @@ def test_fluxo_completo_grava_documento_e_bloco(dados):
     assert falso.saiu
     t = db.termo_emitido(dados, t["id"])
     assert t["documento_sei"] == "1557099" and t["bloco_sei"] == "69766"
+    assert t["id_documento"] == "777099" and t["id_procedimento"] == "555001"       # ids internos p/ hiperlinks
     assert db.pedido(dados, p["id"])["passo"] == "concluido"
 
 
@@ -257,6 +261,19 @@ def test_campos_do_formulario_mantem_o_padrao_numero_traco_nome():
     ficar "01/2026 - ANTÔNIO" como nos outros tipos, o traço vai junto do nome."""
     assert robo_sei.campos_do_formulario("01/2026 - ANTÔNIO", tem_numero=True) == ("01/2026", "- ANTÔNIO")
     assert robo_sei.campos_do_formulario("01/2026 - GELAI", tem_numero=False) == ("", "01/2026 - GELAI")
+
+
+def test_id_do_documento_vem_do_anchor_da_arvore(monkeypatch):
+    sei = robo_sei.SEI.__new__(robo_sei.SEI)
+    monkeypatch.setattr(sei, "arvore", lambda: {"anchors": [
+        {"id": "555001", "texto": "90796110000022.000059/2026-88"},
+        {"id": "777099", "texto": "Termo de Responsabilidade 01/2026 - CCI (1557099)"}]})
+    assert sei.id_do_documento("1557099") == "777099" and sei.id_do_documento("999") is None
+
+
+def test_urls_do_sei():
+    assert robo_sei.url_processo("555001") == "https://sei.cfc.org.br/sei/controlador.php?acao=procedimento_trabalhar&id_procedimento=555001"
+    assert robo_sei.url_documento("777099") == "https://sei.cfc.org.br/sei/controlador.php?acao=documento_visualizar&id_documento=777099"
 
 
 def test_modulo_importa_sem_playwright():

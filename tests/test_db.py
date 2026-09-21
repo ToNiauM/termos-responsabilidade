@@ -807,6 +807,20 @@ def test_proximo_numero_por_unidade_tipo_e_ano(dados):
     assert db.proximo_numero_termo(dados, "CCI", "ccusto", 2026) == "100/2026"
 
 
+def test_ids_internos_do_sei_para_hiperlinks(dados):
+    semear(dados)
+    t = _processo_e_termo(dados)
+    assert t["id_procedimento"] is None and t["id_documento"] is None
+    db.salvar_id_procedimento(dados, t["processo_id"], "555001")
+    db.salvar_documento_sei(dados, t["id"], "1557099", "69766", id_documento="777099")
+    t = db.termo_emitido(dados, t["id"])
+    assert t["id_procedimento"] == "555001" and t["id_documento"] == "777099"
+    db.salvar_documento_sei(dados, t["id"], "1557099", "69766")                  # sem id: mantém o que já tinha
+    assert db.termo_emitido(dados, t["id"])["id_documento"] == "777099"
+    assert db.termos_emitidos(dados)[0]["id_procedimento"] == "555001"
+    assert db.processos(dados)[0]["id_procedimento"] == "555001"
+
+
 def test_preparar_envio_atribui_e_mantem_numero(dados):
     semear(dados)
     t = _processo_e_termo(dados)

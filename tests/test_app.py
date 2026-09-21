@@ -1457,3 +1457,35 @@ def test_inicio_mostra_inventario_fechado(cliente, dados, usuarios_exemplo):
     assert "Inventário fechado" in html and "Inventário em andamento" not in html
     m = cliente.get("/").data.split(b'id="main-navigation"')[1].split(b"menu-footer")[0]
     assert b"Inv A" in m                                                                 # menu mostra o corrente
+
+
+def test_hiperlinks_do_sei_no_processo_e_no_documento(cliente, dados):
+    _processo_ccusto(cliente)
+    t = db.registrar_emissao(dados, "ccusto", "CCI", db.bens_do_centro(dados, "CCI"))
+    db.salvar_documento_sei(dados, t["id"], "1557099", "69766")
+    proc = "https://sei.cfc.org.br/sei/controlador.php?acao=procedimento_trabalhar&amp;id_procedimento=555001"   # & escapado no atributo
+    doc = "https://sei.cfc.org.br/sei/controlador.php?acao=documento_visualizar&amp;id_documento=777099"
+    for url in (f"/termos-emitidos/{t['id']}", "/termos-emitidos", "/termo/ccusto/CCI", "/cadastros/processos"):
+        html = cliente.get(url).data.decode()
+        assert "2222" in html and proc not in html and doc not in html                 # sem id: texto puro
+    db.salvar_id_procedimento(dados, t["processo_id"], "555001")
+    db.salvar_documento_sei(dados, t["id"], "1557099", "69766", id_documento="777099")
+    html = cliente.get(f"/termos-emitidos/{t['id']}").data.decode()
+    assert f'<a href="{proc}" target="_blank" rel="noopener">2222</a>' in html
+    assert f'<a href="{doc}" target="_blank" rel="noopener">1557099</a>' in html
+    assert f'href="{doc}"' in cliente.get("/termos-emitidos").data.decode()
+    assert f'href="{proc}"' in cliente.get("/termo/ccusto/CCI").data.decode()
+    assert f'href="{proc}"' in cliente.get("/cadastros/processos").data.decode()
+    # e-mail de assinatura: os links entram no corpo (CCI tem j@cfc.org.br); sem ids, o bloco "Acesse no SEI" nem aparece
+    html = cliente.get(f"/termos-emitidos/{t['id']}").data.decode()
+    from urllib.parse import unquote
+    corpo = unquote(html.split("&amp;body=")[1].split('"')[0])
+    assert "Acesse no SEI (é preciso estar logado):" in corpo
+    assert "Processo: https://sei.cfc.org.br/sei/controlador.php?acao=procedimento_trabalhar&id_procedimento=555001" in corpo
+    assert "Documento: https://sei.cfc.org.br/sei/controlador.php?acao=documento_visualizar&id_documento=777099" in corpo
+    dados.execute("UPDATE termos_emitidos SET id_documento = NULL WHERE id = ?", (t["id"],)); dados.commit()
+    corpo = unquote(cliente.get(f"/termos-emitidos/{t['id']}").data.decode().split("&amp;body=")[1].split('"')[0])
+    assert "Documento:" not in corpo and "Processo: https://" in corpo
+    dados.execute("UPDATE processos_sei SET id_procedimento = NULL"); dados.commit()
+    corpo = unquote(cliente.get(f"/termos-emitidos/{t['id']}").data.decode().split("&amp;body=")[1].split('"')[0])
+    assert "Acesse no SEI" not in corpo and "{links}" not in corpo

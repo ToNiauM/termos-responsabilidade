@@ -244,6 +244,11 @@ def criar_esquema(conn: sqlite3.Connection) -> None:
     # 2026-09-18: chave aberto/fechado dos inventários (spec administracao-inventarios §3).
     if "suspenso_em" not in _colunas(conn, "inventario_eventos"):
         conn.execute("ALTER TABLE inventario_eventos ADD COLUMN suspenso_em TEXT")
+    # 2026-09-20: ids internos do SEI (o robô grava ao emitir) para os hiperlinks de processo e documento.
+    if "id_procedimento" not in _colunas(conn, "processos_sei"):
+        conn.execute("ALTER TABLE processos_sei ADD COLUMN id_procedimento TEXT")
+    if "id_documento" not in _colunas(conn, "termos_emitidos"):
+        conn.execute("ALTER TABLE termos_emitidos ADD COLUMN id_documento TEXT")
     # Evento com encerrado_em vazio ("" em vez de NULL, visto em produção em 2026-09-17) não é aberto nem encerrado.
     conn.execute("UPDATE inventario_eventos SET encerrado_em = NULL WHERE encerrado_em = ''")
     # Mudanças órfãs de importações apagadas com FK desligada (visto em produção em 2026-09-17, 8.708 linhas):
@@ -922,7 +927,7 @@ def registrar_emissao(conn, tipo: str, chave: str, bens: list) -> dict:
 
 
 def termos_emitidos(conn, tipo: str | None = None, chave: str | None = None, limite: int = 200) -> list[dict]:
-    sql = """SELECT t.*, p.descricao AS processo, p.numero_sei FROM termos_emitidos t
+    sql = """SELECT t.*, p.descricao AS processo, p.numero_sei, p.id_procedimento FROM termos_emitidos t
              JOIN processos_sei p ON p.id = t.processo_id WHERE 1"""
     params: list = []
     if tipo:
@@ -937,7 +942,7 @@ def termos_emitidos(conn, tipo: str | None = None, chave: str | None = None, lim
 
 def termo_emitido(conn, id: int) -> dict | None:
     t = _um(conn, """
-        SELECT t.*, p.descricao AS processo, p.numero_sei FROM termos_emitidos t
+        SELECT t.*, p.descricao AS processo, p.numero_sei, p.id_procedimento FROM termos_emitidos t
         JOIN processos_sei p ON p.id = t.processo_id WHERE t.id = ?""", id)
     if not t:
         return None
@@ -945,11 +950,19 @@ def termo_emitido(conn, id: int) -> dict | None:
     return t
 
 
-def salvar_documento_sei(conn, id: int, documento: str, bloco: str = "") -> None:
-    """Número do documento e do bloco de assinatura no SEI; os dois são necessários para pedir a assinatura."""
-    conn.execute("UPDATE termos_emitidos SET documento_sei = ?, bloco_sei = ? WHERE id = ?",
-                 (_texto(documento) or None, _texto(bloco) or None, id))
+def salvar_documento_sei(conn, id: int, documento: str, bloco: str = "", id_documento: str | None = None) -> None:
+    """Número do documento e do bloco de assinatura no SEI; os dois são necessários para pedir a assinatura.
+    `id_documento` (id interno, para o hiperlink) só é trocado quando vem informado."""
+    conn.execute("UPDATE termos_emitidos SET documento_sei = ?, bloco_sei = ?, id_documento = COALESCE(?, id_documento) WHERE id = ?",
+                 (_texto(documento) or None, _texto(bloco) or None, _texto(id_documento) or None, id))
     conn.commit()
+
+
+def salvar_id_procedimento(conn, processo_id: int, id_procedimento: str | None) -> None:
+    """Id interno do processo no SEI (o robô lê da árvore ao abrir); vazio não apaga o que já havia."""
+    if _texto(id_procedimento):
+        conn.execute("UPDATE processos_sei SET id_procedimento = ? WHERE id = ?", (_texto(id_procedimento), processo_id))
+        conn.commit()
 
 
 def registrar_email(conn, id: int) -> str:

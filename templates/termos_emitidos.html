@@ -18,8 +18,8 @@
     <td>{{ rotulos[t.tipo] }}</td><td>{{ t.chave }}</td>
     <td class="dsgov-numero">{{ t.quantidade }}</td><td class="dsgov-numero">{{ (t.valor_total)|moeda }}</td>
     <td>{{ t.numero_termo or '—' }}</td>
-    <td>{{ t.numero_sei }} · {{ t.processo }}</td>
-    <td>{% if t.id in enviando %}<span class="br-tag bg-info text-pure-0"><span>enviando…</span></span>{% else %}{{ t.documento_sei or '—' }} · {{ t.bloco_sei or '—' }}{% endif %}</td>
+    <td>{{ t.numero_sei|link_sei(t.id_procedimento) }} · {{ t.processo }}</td>
+    <td>{% if t.id in enviando %}<span class="br-tag bg-info text-pure-0"><span>enviando…</span></span>{% else %}{{ t.documento_sei|link_sei(t.id_documento, 'documento') if t.documento_sei else '—' }} · {{ t.bloco_sei or '—' }}{% endif %}</td>
     <td>{% if t.email_enviado_em %}{{ t.email_enviado_em[8:10] }}/{{ t.email_enviado_em[5:7] }}/{{ t.email_enviado_em[:4] }}{% else %}—{% endif %}</td>
   </tr>
   {% else %}
