@@ -283,6 +283,24 @@
     };
   }
 
+  /* Texto do furo da rosca: a view o põe no meio do CARD, mas o anel sobe para dar lugar à legenda (center 45%
+     ou menos). Posiciona o texto em pixels no centro real do anel; refeito a cada mudança de tamanho. */
+  function centralizarTotal(op, largura, altura) {
+    var pizza = (op.series || []).filter(function (s) { return s.type === "pie"; })[0];
+    var texto = [].concat(op.graphic || [])[0];
+    if (!pizza || !texto || texto.type !== "text" || !texto.style) return null;
+    var c = Array.isArray(pizza.center) ? pizza.center : ["50%", "50%"];
+    var px = function (v, total) {
+      if (typeof v === "number") return v;
+      return typeof v === "string" && /%$/.test(v) ? parseFloat(v) / 100 * total : total / 2;
+    };
+    texto.id = texto.id || "pca-total-rosca";
+    ["left", "top", "right", "bottom"].forEach(function (k) { delete texto[k]; });
+    texto.x = px(c[0], largura); texto.y = px(c[1], altura);
+    texto.style.textAlign = "center"; texto.style.textVerticalAlign = "middle";
+    return { id: texto.id, x: texto.x, y: texto.y };
+  }
+
   function montar(raiz) {
     (raiz || document).querySelectorAll("[data-grafico]").forEach(function (el) {
       if (el.dataset.graficoMontado) return;
@@ -290,6 +308,8 @@
       if (!script) return;
       var bruto = script.textContent;
       var opcoes = encaixar(aplicarPadroes(JSON.parse(bruto)), el.clientWidth || 600);
+      centralizarTotal(opcoes, el.clientWidth || 600, el.clientHeight || 300);
+      el.__pcaOpcoes = opcoes;
       var totalRosca = totalDaRosca(opcoes);
       el.__pcaBruto = bruto;
       var inst = echarts.init(el, "pca", { renderer: "canvas" });
@@ -307,10 +327,14 @@
           if (faixa !== ultimaFaixa) {
             ultimaFaixa = faixa;
             var novas = encaixar(aplicarPadroes(JSON.parse(el.__pcaBruto)), el.clientWidth);
+            centralizarTotal(novas, el.clientWidth, el.clientHeight);
+            el.__pcaOpcoes = novas;
             totalDaRosca(novas);   /* mesmo id no texto do furo; a legenda volta toda ligada, e o total também */
             atual.setOption(novas, true);
           }
           atual.resize();
+          var pos = el.__pcaOpcoes && centralizarTotal(el.__pcaOpcoes, el.clientWidth, el.clientHeight);
+          if (pos) atual.setOption({ graphic: { elements: [pos] } });
         };
         if (window.ResizeObserver) new ResizeObserver(ajustar).observe(el);
         else window.addEventListener("resize", ajustar);
