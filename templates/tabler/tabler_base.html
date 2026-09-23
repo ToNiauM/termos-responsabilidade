@@ -7,6 +7,7 @@
   <meta name="csrf" content="{{ CSRF }}"/>
   <title>{% block titulo %}{{ DSGOV.SISTEMA }}{% endblock %} — {{ DSGOV.SISTEMA }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='tabler/vendor/tabler.min.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='tabler/vendor/tabler-icons/tabler-icons.min.css') }}"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/vendor/fontawesome/css/all.min.css') }}"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='tabler/astra.css', v=VERSAO_ESTILO) }}"/>
   {% block estilos %}{% endblock %}

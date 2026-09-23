@@ -360,7 +360,11 @@ def bens_da_sala(conn, evento_id: int, localizacao: str) -> dict:
     a tabela Trazidos não tem coluna de foto); sobras: desta sala."""
     B = _fonte_bens(conn, evento_id)
     bens = _todos(conn, f"""
-        SELECT b.*, {_LEITURA} FROM {B} b
+        SELECT b.*, {_LEITURA},
+               (SELECT GROUP_CONCAT(a.nome, ', ') FROM atribuicoes a WHERE a.numero = b.numero) AS pessoa,
+               (SELECT rp.responsavel FROM localizacoes l JOIN responsaveis rp ON rp.ccustos = l.ccustos
+                 WHERE l.localizacao = b.localizacao) AS responsavel_centro
+        FROM {B} b
         LEFT JOIN inventario_leituras r ON r.numero = b.numero AND r.evento_id = ?
         WHERE b.localizacao = ? AND b.situacao = 'ATIVO' ORDER BY b.numero""", evento_id, localizacao)
     for b in bens:

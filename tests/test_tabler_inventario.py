@@ -71,21 +71,25 @@ def test_sala_no_tabler_leitura_lote_e_fotos(tabler, monkeypatch):
     assert 'id="btn-camera"' in html and 'id="btn-digitar"' in html and "html5-qrcode.min.js" in html and 'id="leitor-camera"' in html
     assert 'id="aviso"' in html and 'id="aviso-texto"' in html and 'id="btn-sobra"' in html and 'id="form-sobra"' in html
     assert 'id="n-localizados"' in html and 'id="contadores" data-total="2"' in html
-    assert 'id="form-lote"' in html and 'name="numeros" type="checkbox"' in html and 'data-parent="check-bens"' in html
-    assert html.count('id="tabela-bens"') == 1 and '<tbody id="tabela-bens">' in html   # o JS usa o tbody
+    assert 'id="form-lote"' in html and 'data-papel="selecao"' in html and 'id="selecionar-todos"' in html
+    assert 'id="lista-bens"' in html and 'class="list-group list-group-flush"' in html and 'id="grade-bens"' in html
+    assert "<style" not in html.split("<body")[1] and ' style="' not in html   # só classes nativas do Tabler
+    assert "tabler-icons.min.css" in html and "ti ti-map-pin" in html and "ti ti-dots-vertical" in html
     assert "dsgov.js" not in html and "core.min.js" not in html
-    # leitura e foto pela API; a tela volta com a miniatura e o botão de apagar
+    # leitura e foto pela API; a tela volta com a foto no avatar, o selo de fotos extras e o excluir no menu
     assert tabler.post(f"{url}/ler", json={"numero": "1001"}).get_json()["situacao"] == "localizado"
     inventario.adicionar_foto(db.conectar(), eid, 1001, lambda c: "https://x/1.webp")
     inventario.adicionar_foto(db.conectar(), eid, 1001, lambda c: "https://x/2.webp")
     html = tabler.get(url).text
-    linha = html.split('data-numero="1001"')[1].split("</tr>")[0]
-    assert linha.count('class="astra-miniatura"') == 1 and ">+1<" in linha and 'aria-label="Excluir foto 1"' in linha
-    assert 'class="foto-input" hidden/>' in linha and ">Localizado<" in linha
-    linha2 = html.split('data-numero="1002"')[1].split("</tr>")[0]
-    assert 'class="foto-input" hidden disabled' in linha2 and "disabled\" aria-label=\"Nova foto" in linha2
+    item = html.split('id="lista-bens"')[1].split('data-bem="1001"')[1].split('data-bem="')[0]
+    assert item.count('class="avatar avatar-lg avatar-square object-cover"') == 1 and "+1 foto(s)" in item and 'aria-label="Excluir foto 1"' in item
+    assert 'class="foto-input" hidden/>' in item and ">Localizado<" in item and "sem conservação" in item
+    assert "JAQUELINE PORTELA" in item and "ti ti-armchair" not in item   # responsável do centro; tem foto, sem ícone
+    item2 = html.split('id="lista-bens"')[1].split('data-bem="1002"')[1].split('data-bem="')[0]
+    assert 'class="foto-input" hidden disabled' in item2 and ">Pendente<" in item2 and "ti ti-package" in item2   # classificação genérica
+    assert 'data-acao="desfazer" hidden' in item2
     r = tabler.post(f"{url}/lote", data={"acao": "marcar", "numeros": ["1002"]}, follow_redirects=True)
-    assert "1 bem(ns) marcado(s)" in r.text and r.text.count(">Localizado<") == 2 and _e_tabler(r.text)
+    assert "1 bem(ns) marcado(s)" in r.text and r.text.count(">Localizado<") == 4 and _e_tabler(r.text)   # lista + grade
     # sobra
     for v in fotos.VARIAVEIS:
         monkeypatch.delenv(v, raising=False)
