@@ -137,7 +137,7 @@ def test_analise_no_tabler_cards_filtros_e_tabela(tabler, dados):
     hrefs = re.findall(r'<a class="card card-link h-100 astra-kpi" href="([^"]*)">', html)
     assert hrefs and all(h.startswith("/analise?") for h in hrefs)
     assert 'name="valor_status"' in html and 'value="nao_informado"' in html and "Valor zero" in html
-    assert "Exportar .xlsx" in html and "data-grafico=" in html and "echarts-dsgov.js" in html
+    assert "Exportar .xlsx" in html and "data-grafico=" in html and "tabler/graficos.js" in html
     assert 'data-filtro-tabela="tabela-bens"' in html
     assert "Não informado" in re.search(r"<tr>.*?9001.*?</tr>", html).group()
     assert "R$ 0,00" in re.search(r"<tr>.*?9002.*?</tr>", html).group()

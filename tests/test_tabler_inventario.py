@@ -117,7 +117,7 @@ def test_painel_no_tabler(tabler):
     html = tabler.get(f"/inventario/{eid}/painel").text
     assert _e_tabler(html)
     assert 'id="g-situacao"' in html and "bens no escopo" in html and "1 (33.3%)" in html
-    assert "echarts.min.js" in html and "echarts-dsgov.js" in html and "data-grafico" in html
+    assert "echarts.min.js" in html and "tabler/graficos.js" in html and "data-grafico" in html
     html = tabler.get(f"/inventario/{eid}/painel?andar=01").text
     assert 'id="g-salas"' in html and "todos os andares" in html
 

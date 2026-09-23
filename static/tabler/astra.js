@@ -97,49 +97,10 @@
 
   function temaAtual() { return document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light'; }
 
-  /* Gráficos (tema ECharts "dsgov", pensado para fundo branco): no escuro, os cinzas de texto, eixo e grade
-     clareiam e a borda das fatias acompanha o card. A opção clara original fica guardada para voltar. */
-  var CINZAS_ESCURO = { '#333333': '#e5e7eb', '#555555': '#9ca3af', '#888888': '#4b5563', '#e6e6e6': '#263041', '#cccccc': '#374151' };
-  function copiar(v) {
-    if (Array.isArray(v)) return v.map(copiar);
-    if (v && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) {
-      var o = {}; Object.keys(v).forEach(function (k) { o[k] = copiar(v[k]); }); return o;
-    }
-    return v;
-  }
-  function escurecer(v, chave) {
-    if (Array.isArray(v)) return v.map(function (x) { return escurecer(x, chave); });
-    if (v && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) {
-      Object.keys(v).forEach(function (k) { v[k] = escurecer(v[k], k); }); return v;
-    }
-    if (typeof v === 'string') {
-      var c = v.toLowerCase();
-      if ((chave === 'borderColor' || chave === 'textBorderColor') && (c === '#ffffff' || c === '#fff')) return chave === 'borderColor' ? '#1f2937' : 'transparent';
-      return CINZAS_ESCURO[c] || v;
-    }
-    return v;
-  }
-  /* Número fora da barra fica sobre o card escuro: texto claro, sem contorno */
-  function rotulosNoEscuro(op) {
-    (op.series || []).forEach(function (s) {
-      var l = s.label;
-      if (s.type !== 'pie' && l && l.show && /^(top|bottom|left|right|outside)$/.test(l.position || '')) {
-        l.color = '#e5e7eb'; l.textBorderWidth = 0;
-      }
-    });
-    return op;
-  }
+  /* Gráficos (graficos.js, tema "pca"): quando claro/escuro muda, avisa para redesenharem com os tons novos. */
   function temaDosGraficos() {
-    if (!window.echarts) return;
-    var escuro = temaAtual() === 'dark';
-    document.querySelectorAll('[data-grafico]').forEach(function (el) {
-      var inst = window.echarts.getInstanceByDom(el);
-      if (!inst) return;
-      if (!el.astraOpcaoClara) { if (!escuro) return; el.astraOpcaoClara = inst.getOption(); }
-      inst.setOption(escuro ? rotulosNoEscuro(escurecer(copiar(el.astraOpcaoClara))) : el.astraOpcaoClara, true);
-    });
+    document.dispatchEvent(new CustomEvent('pca:tema', { detail: { tema: temaAtual() } }));
   }
-  window.addEventListener('load', temaDosGraficos);   /* depois que o echarts-dsgov.js montou os gráficos */
 
   /* Aparência por usuário (painel "Personalizar aparência"): claro/escuro, cor principal, tom dos cinzas e
      cantos. O _tema.html já aplicou a escolha antes de pintar; aqui cada troca muda a tela na hora e, com
