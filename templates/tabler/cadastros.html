@@ -1,0 +1,69 @@
+{% extends 'tabler_base.html' %}
+{% from 'tabler_macros.html' import ajuda_titulo, select %}
+{% from 'tabler_campos.html' import ocultos, acao %}
+{% block titulo %}{{ areas[aba][0] }} · Cadastros{% endblock %}
+{% block conteudo %}
+<div class="page-header d-print-none mb-3">
+  <div class="row g-2 align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Cadastros</div>
+      <div class="d-flex align-items-center"><h1 class="page-title">{{ areas[aba][0] }}</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}</div>
+    </div>
+    {% if not nome %}<div class="col-12 col-sm-auto"><a class="btn btn-primary" href="{{ link('cadastro_novo', aba=aba) }}"><i class="fas fa-plus me-2" aria-hidden="true"></i>{{ areas[aba][2] }}</a></div>{% endif %}
+  </div>
+</div>
+<ul class="nav nav-tabs astra-abas mb-3" aria-label="Áreas de cadastro">
+  {% for id, area in areas.items() %}<li class="nav-item"><a class="nav-link{% if id == aba %} active fw-semibold{% endif %}" href="{{ url_for('cadastros', aba=id) }}"{% if id == aba %} aria-current="page"{% endif %}>{{ area[0] }}</a></li>{% endfor %}
+</ul>
+{% if nome %}
+  {% include 'cadastros/_pessoa.html' %}
+{% else %}
+<p class="text-secondary">{{ areas[aba][1] }}.</p>
+{% if salvo %}<div class="alert alert-info" role="status"><div class="d-flex"><i class="fas fa-info-circle me-2 mt-1" aria-hidden="true"></i><div>O registro {{ salvo[0] }} foi salvo e não aparece nesta página com os filtros atuais. <a href="{{ salvo[1] }}">Acessar registro</a></div></div></div>{% endif %}
+{% if aba == 'localizacoes' and pendentes %}
+<div class="alert alert-warning" role="status"><div class="d-flex"><i class="fas fa-exclamation-triangle me-2 mt-1" aria-hidden="true"></i><div>{{ pendentes|length }} localização(ões) com bens ativos sem centro de custo. <a href="{{ url_for('cadastros', aba=aba, situacao='sem_centro') }}">Resolver vínculos</a></div></div></div>
+{% endif %}
+{% if aba == 'processos' %}
+<div class="row row-cards mb-3">{% for tipo, rotulo in tipos %}<div class="col-md-4"><div class="card card-sm h-100">{% if not vigentes[tipo] %}<div class="card-status-start bg-warning"></div>{% endif %}<div class="card-body"><h2 class="card-title mb-2">{{ rotulo }}</h2>{% if vigentes[tipo] %}<p class="mb-0">Vigente: <strong>{{ vigentes[tipo].numero_sei }}</strong></p>{% else %}<span class="badge bg-yellow-lt">Sem processo vigente</span><p class="text-secondary small mt-2 mb-0">Defina um processo para emitir este tipo de termo.</p>{% endif %}</div></div></div>{% endfor %}</div>
+{% endif %}
+<form method="get" action="{{ url_for('cadastros', aba=aba) }}" class="card mb-3" id="filtros-cadastros">
+  <div class="card-body">
+  <input type="hidden" name="ordem" value="{{ filtros.ordem }}"/><input type="hidden" name="direcao" value="{{ filtros.direcao }}"/>
+  <div class="row g-3 align-items-end">
+  <div class="{{ 'col-md-4' if aba in ('localizacoes', 'processos') else 'col-md-5' }}"><label class="form-label" for="busca-cadastro">{{ {'responsaveis': 'Buscar por sigla ou responsável', 'localizacoes': 'Buscar localização', 'pessoas': 'Buscar pessoa', 'processos': 'Buscar número ou descrição'}[aba] }}</label><div class="input-icon"><span class="input-icon-addon"><i class="fas fa-search" aria-hidden="true"></i></span><input class="form-control" id="busca-cadastro" type="search" name="q" value="{{ filtros.q }}"/></div></div>
+  {% if aba == 'localizacoes' %}
+  <div class="col-md-3">{{ select('centro', 'Centro de custo', [('', 'Todos')] + centros|map(attribute='ccustos')|list, selecionado=filtros.centro, obrigatorio=False) }}</div>
+  <div class="col-md-3">{{ select('situacao', 'Situação', [('', 'Todas'), ('sem_centro', 'Sem centro de custo'), ('vinculadas', 'Vinculadas')], selecionado=filtros.situacao, obrigatorio=False) }}</div>
+  {% elif aba == 'processos' %}
+  <div class="col-md-3">{{ select('tipo', 'Tipo de termo', [('', 'Todos')] + tipos, selecionado=filtros.tipo, obrigatorio=False) }}</div>
+  <div class="col-md-3">{{ select('situacao', 'Situação', [('', 'Todas'), ('vigente', 'Vigente'), ('encerrado', 'Encerrado')], selecionado=filtros.situacao, obrigatorio=False) }}</div>
+  {% endif %}
+  <div class="col-6 col-md-2">{{ select('por_pagina', 'Itens por página', ['10', '20', '50'], selecionado=filtros.por_pagina, obrigatorio=False) }}</div>
+  <div class="col-12 col-md-auto d-flex flex-wrap gap-2"><button class="btn btn-primary" type="submit"><i class="fas fa-search me-2" aria-hidden="true"></i>Buscar</button><a class="btn btn-link" href="{{ url_for('cadastros', aba=aba) }}">Limpar filtros</a></div>
+  </div>
+  </div>
+</form>
+{% if aba == 'localizacoes' %}
+<div class="card mb-3">
+  <form id="mover-localizacoes" method="post" action="{{ url_for('localizacoes_mover') }}" class="card-body">{{ csrf_campo() }}
+    {{ ocultos(origem) }}
+    <div class="row g-3 align-items-end">
+      <div class="col-md-6">{{ select('ccustos_destino', 'Mover selecionadas para', centros|map(attribute='ccustos')|list) }}</div>
+      <div class="col-md-6"><p class="mb-2 text-secondary" id="contagem-selecao" role="status" aria-live="polite">0 localizações selecionadas</p><button class="btn btn-outline-primary" type="submit" id="revisar-lote"><i class="fas fa-exchange-alt me-2" aria-hidden="true"></i>Revisar transferência</button></div>
+    </div>
+    <p class="form-hint mt-3 mb-0">Selecione localizações vinculadas na tabela. A seleção vale somente para esta página e é limpa ao buscar, filtrar ou mudar de página.</p>
+  </form>
+</div>
+{% endif %}
+{% include 'cadastros/_lista.html' %}
+<nav class="d-flex flex-wrap align-items-center gap-2 mt-3" aria-label="Paginação dos cadastros" data-total="{{ lista.paginas }}" data-current="{{ lista.pagina }}" data-per-page="{{ lista.por_pagina }}">
+  <div class="text-secondary">{{ lista.inicio }}–{{ lista.fim }} de {{ lista.total }} registros · Página {{ lista.pagina }} de {{ lista.paginas }}</div>
+  <ul class="pagination m-0 ms-auto">
+    <li class="page-item{% if lista.pagina <= 1 %} disabled{% endif %}">{% if lista.pagina > 1 %}<a class="page-link" href="{{ pagina_url(pagina=lista.pagina-1) }}" aria-label="Página anterior"><i class="fas fa-angle-left me-1" aria-hidden="true"></i>anterior</a>{% else %}<span class="page-link" aria-disabled="true" aria-label="Página anterior"><i class="fas fa-angle-left me-1" aria-hidden="true"></i>anterior</span>{% endif %}</li>
+    <li class="page-item{% if lista.pagina >= lista.paginas %} disabled{% endif %}">{% if lista.pagina < lista.paginas %}<a class="page-link" href="{{ pagina_url(pagina=lista.pagina+1) }}" aria-label="Próxima página">próxima<i class="fas fa-angle-right ms-1" aria-hidden="true"></i></a>{% else %}<span class="page-link" aria-disabled="true" aria-label="Próxima página">próxima<i class="fas fa-angle-right ms-1" aria-hidden="true"></i></span>{% endif %}</li>
+  </ul>
+</nav>
+<p class="mt-4"><a class="btn btn-outline-secondary" href="{{ url_for('cadastros_exportar') }}"><i class="fas fa-download me-2" aria-hidden="true"></i>Baixar todos os cadastros</a></p>
+{% endif %}
+{% endblock %}
+{% block scripts %}{% include 'cadastros/_comportamento.html' %}{% endblock %}

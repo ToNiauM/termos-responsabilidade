@@ -13,7 +13,7 @@
 <body>
 <a class="visually-hidden-focusable" href="#conteudo">Ir para o conteúdo</a>
 <div class="page">
-  <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
+  <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark" id="main-navigation" aria-label="Menu principal">
     <div class="container-fluid">
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menu-lateral" aria-controls="menu-lateral" aria-expanded="false" aria-label="Abrir o menu">
         <span class="navbar-toggler-icon"></span>
@@ -69,13 +69,13 @@
           {% endif %}
           {% if USUARIO and USUARIO.id %}
           <div class="nav-item dropdown">
-            <a href="#" class="nav-link d-flex lh-1 p-0 px-2" data-bs-toggle="dropdown" aria-label="Abrir o menu do usuário">
+            <button type="button" class="nav-link d-flex lh-1 p-0 px-2 border-0 bg-transparent" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Abrir o menu do usuário">
               <span class="avatar avatar-sm">{{ USUARIO.nome[:1] }}</span>
               <div class="d-none d-xl-block ps-2 text-start">
                 <div>{{ USUARIO.nome }}</div>
                 <div class="mt-1 small text-secondary">{{ USUARIO.funcoes|map('rotulo_funcao')|join(', ') }}</div>
               </div>
-            </a>
+            </button>
             <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
               <a class="dropdown-item" href="{{ url_for('usuarios.acessos') }}">Meus acessos</a>
               <a class="dropdown-item" href="{{ url_for('usuarios.senha') }}">Trocar senha</a>

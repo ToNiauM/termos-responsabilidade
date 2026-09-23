@@ -28,8 +28,10 @@
   function atualizarSelecao(grupo) {
     var filhos = Array.from(document.querySelectorAll('[data-child="' + grupo + '"]'));
     var marcados = filhos.filter(function (c) { return c.checked; }).length;
-    var pai = document.querySelector('[data-parent="' + grupo + '"]');
-    if (pai) { pai.checked = filhos.length > 0 && marcados === filhos.length; pai.indeterminate = marcados > 0 && marcados < filhos.length; }
+    document.querySelectorAll('[data-parent="' + grupo + '"]').forEach(function (pai) {
+      pai.checked = filhos.length > 0 && marcados === filhos.length;
+      pai.indeterminate = marcados > 0 && marcados < filhos.length;
+    });
     document.querySelectorAll('[data-selecao-info="' + grupo + '"]').forEach(function (info) {
       var n = info.querySelector('.count'), t = info.querySelector('.text');
       if (n) n.textContent = marcados;
@@ -49,7 +51,7 @@
       atualizarSelecao(el.dataset.child);
     }
   });
-  document.querySelectorAll('[data-parent]').forEach(function (p) { atualizarSelecao(p.dataset.parent); });
+  new Set(Array.from(document.querySelectorAll('[data-parent]'), function (p) { return p.dataset.parent; })).forEach(atualizarSelecao);
 
   /* ---------- Mensagens de sucesso somem sozinhas depois de 8 s ---------- */
   document.querySelectorAll('#mensagens .alert-success').forEach(function (msg) {

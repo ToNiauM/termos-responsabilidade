@@ -1,0 +1,306 @@
+{% extends "tabler_base.html" %}
+{% from 'tabler_macros.html' import ajuda_titulo, th_selecao, td_selecao %}
+{% block titulo %}{{ localizacao }}{% endblock %}
+{% block estilos %}
+<style>
+.astra-leitor { max-width: 480px; }
+.astra-contador { min-width: 3rem; font-size: 1rem; padding: .45em .7em; }
+#leitor-camera button { margin: .25rem; }
+/* Celular: cada bem vira um bloco (Nº e descrição em cima; situação, foto e campos embaixo), sem rolagem lateral */
+@media (max-width: 767.98px) {
+  #tabela-sala thead { display: none; }
+  #tabela-sala, #tabela-sala tbody { display: block; }
+  #tabela-sala tr { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; padding: .75rem 1rem; border-bottom: 1px solid var(--tblr-border-color); }
+  #tabela-sala td { display: block; flex: 1 1 100%; padding: 0; border: 0; background: none; box-shadow: none; }
+  #tabela-sala td[data-rotulo]::before { content: attr(data-rotulo); display: block; font-size: .75rem; color: var(--tblr-secondary); margin-bottom: .15rem; }
+  #tabela-sala td.col-selecao { flex: 0 0 auto; order: 1; }
+  #tabela-sala td.col-selecao .form-check-input { width: 1.5rem; height: 1.5rem; }
+  #tabela-sala td.col-numero { flex: 0 0 auto; order: 2; font-weight: 600; }
+  #tabela-sala td.col-descricao { flex: 1 1 0; min-width: 10rem; order: 3; }
+  #tabela-sala td.situacao { order: 4; }
+  #tabela-sala td.foto { order: 5; }
+  #tabela-sala td.col-campo { order: 6; }
+  #tabela-sala .campo { font-size: 1rem; min-height: 2.5rem; }
+}
+</style>
+{% endblock %}
+{% block conteudo %}
+{% set fechado = e.estado != 'aberto' or not na_comissao %}
+<div class="page-header d-print-none mb-3">
+  <div class="row g-2 align-items-center">
+    <div class="col-12 col-md">
+      <div class="page-pretitle">Inventário · sala</div>
+      <div class="d-flex align-items-center"><h1 class="page-title">{{ localizacao }}</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}</div>
+      <div class="text-secondary mt-1">{{ e.nome }}{% if sala.ccustos %} · centro {{ sala.ccustos }}{% endif %} ·
+        {% if na_comissao %}lendo como <strong>{{ integrante }}</strong>{% else %}<strong>Você não faz parte da comissão deste evento</strong>{% endif %}
+        (<a href="{{ url_for('inventario.evento_tela', id=e.id) }}">evento</a>)</div>
+    </div>
+    <div class="col-12 col-md-auto text-md-end" id="contadores" data-total="{{ sala.total }}">
+      <span class="badge bg-green-lt astra-contador" title="localizados"><span id="n-localizados">{{ sala.localizados }}</span></span>
+      <span class="badge bg-yellow-lt astra-contador" title="divergentes"><span id="n-divergentes">{{ sala.divergentes }}</span></span>
+      <span class="badge bg-secondary-lt astra-contador" title="pendentes"><span id="n-pendentes">{{ sala.pendentes }}</span></span>
+      <div class="small text-secondary mt-1">localizados · divergentes · pendentes de {{ sala.total }}</div>
+    </div>
+  </div>
+</div>
+{% if e.encerrado_em %}
+<div class="alert alert-warning mb-3" role="alert"><div class="d-flex"><i class="fas fa-lock me-2 mt-1" aria-hidden="true"></i><div>Evento encerrado: somente consulta.</div></div></div>
+{% elif e.estado == 'fechado' %}
+<div class="alert alert-warning mb-3" role="alert"><div class="d-flex"><i class="fas fa-pause-circle me-2 mt-1" aria-hidden="true"></i>
+  <div><strong>Inventário fechado.</strong> A leitura está suspensa até o administrador reabrir; consulta liberada.</div></div></div>
+{% elif fechado %}
+<div class="alert alert-info mb-3" role="alert"><div class="d-flex"><i class="fas fa-eye me-2 mt-1" aria-hidden="true"></i><div>Somente consulta: seu usuário não confere bens neste evento.</div></div></div>
+{% endif %}
+{% if not fotos_ativas %}
+<div class="alert alert-info mb-3" role="alert"><div class="d-flex"><i class="fas fa-camera me-2 mt-1" aria-hidden="true"></i><div>Fotos desativadas: bucket não configurado. Leituras e sobras funcionam sem foto.</div></div></div>
+{% endif %}
+
+<div class="card mb-3"><div class="card-body">
+  <label class="form-label" for="leitura">Ler plaqueta (leitor de código de barras ou câmera)</label>
+  <div class="row g-2 align-items-center">
+    <div class="col-12 col-md">
+      <input class="form-control form-control-lg" id="leitura" type="text" inputmode="none" autocomplete="off" enterkeyhint="done" placeholder="Aproxime o leitor…"{% if fechado or not na_comissao %} disabled{% endif %} autofocus/>
+    </div>
+    <div class="col-6 col-md-auto d-grid">
+      <button class="btn btn-lg btn-primary" type="button" id="btn-camera"{% if fechado or not na_comissao %} disabled{% endif %}><i class="fas fa-camera me-2" aria-hidden="true"></i>Câmera</button>
+    </div>
+    <div class="col-6 col-md-auto d-grid">
+      <button class="btn btn-lg btn-outline-secondary" type="button" id="btn-digitar"{% if fechado or not na_comissao %} disabled{% endif %}><i class="fas fa-keyboard me-2" aria-hidden="true"></i>Digitar</button>
+    </div>
+  </div>
+  <div id="aviso" class="alert mt-3 mb-0" hidden><div class="d-flex flex-wrap align-items-center gap-2"><i class="fas fa-info-circle" aria-hidden="true"></i><div role="alert"><span id="aviso-texto"></span></div>
+    <button class="btn btn-sm btn-outline-primary ms-auto" type="button" id="btn-sobra" hidden>Registrar sobra</button></div></div>
+  <div id="camera" class="mt-3" hidden><div id="leitor-camera" class="astra-leitor"></div><button class="btn btn-outline-secondary mt-2" type="button" id="btn-fechar-camera"><i class="fas fa-times me-2" aria-hidden="true"></i>Fechar câmera</button></div>
+</div></div>
+
+{% if not fechado %}
+<form method="post" action="{{ url_for('inventario.lote', id=e.id, localizacao=localizacao) }}" id="form-lote" class="mb-3 d-flex align-items-center flex-wrap gap-2">{{ csrf_campo() }}
+  <button class="btn btn-outline-success" type="submit" name="acao" value="marcar"{% if not na_comissao %} disabled{% endif %}><i class="fas fa-check-double me-2" aria-hidden="true"></i>Marcar selecionados como localizados</button>
+  <button class="btn btn-outline-secondary" type="submit" name="acao" value="desmarcar"{% if not na_comissao %} disabled{% endif %}><i class="fas fa-undo me-2" aria-hidden="true"></i>Desmarcar</button>
+  <span class="small text-secondary">plaqueta ilegível ou ausente: marque na lista e use os botões</span>
+</form>
+{% endif %}
+<div class="card mb-3" id="card-bens">
+  <div class="card-header flex-wrap gap-2">
+    <h2 class="card-title">Bens da sala</h2>
+    <div class="ms-auto">
+      <div class="input-icon">
+        <span class="input-icon-addon"><i class="fas fa-search" aria-hidden="true"></i></span>
+        <input class="form-control form-control-sm" id="campo-busca-bens" type="search" placeholder="Buscar na tabela" aria-label="Buscar na tabela: Bens da sala" data-filtro-tabela="tabela-sala"/>
+      </div>
+    </div>
+  </div>
+  {% if not fechado %}
+  <div class="card-body py-2 border-bottom text-secondary small d-flex align-items-center gap-2" data-selecao-info="check-bens">
+    <input class="form-check-input m-0 d-md-none" id="check-all-bens-celular" type="checkbox" aria-label="Selecionar todas as linhas" data-parent="check-bens"/>
+    <span><span class="count">0</span> <span class="text">item selecionado</span></span>
+  </div>
+  {% endif %}
+  <div class="table-responsive">
+  <table class="table table-vcenter card-table" id="tabela-sala">
+    <caption class="visually-hidden">Bens da sala</caption>
+  <thead><tr>{% if not fechado %}{{ th_selecao('bens') }}{% endif %}<th scope="col">Foto</th><th scope="col">Nº</th><th scope="col">Descrição</th><th scope="col">Situação</th><th scope="col">Conservação</th><th scope="col">Quem usa</th><th scope="col">Observação</th></tr></thead>
+  <tbody id="tabela-bens">
+  {% for b in bens %}
+  <tr data-numero="{{ b.numero }}" data-situacao="{{ b.situacao_inv }}">
+    {% if not fechado %}<td class="col-selecao"><input class="form-check-input m-0 align-middle" id="check-bens-{{ loop.index }}" name="numeros" type="checkbox" value="{{ b.numero }}" aria-label="Selecionar o bem {{ b.numero }}" data-child="check-bens" form="form-lote"/></td>{% endif %}<td class="foto text-nowrap">{% for f in b.fotos[:1] %}<span class="d-inline-flex align-items-center me-1">{% if f.url.startswith(('http://', 'https://')) %}<a href="{{ f.url }}" target="_blank" rel="noopener"><img src="{{ f.url }}" alt="Foto {{ f.nfoto }} do bem {{ b.numero }}" class="astra-miniatura"/></a>{% endif %}{% if not fechado %}<form method="post" action="{{ url_for('inventario.foto_excluir', id=e.id, numero=b.numero, nfoto=f.nfoto) }}" class="d-inline">{{ csrf_campo() }}<input type="hidden" name="volta" value="{{ localizacao }}"/><button class="btn btn-ghost-danger btn-icon" type="submit" aria-label="Excluir foto {{ f.nfoto }}"><i class="fas fa-trash" aria-hidden="true"></i></button></form>{% endif %}</span>{% endfor %}{% if b.fotos|length > 1 %}<span class="badge bg-secondary-lt me-1" title="Todas as fotos no cadastro do bem">+{{ b.fotos|length - 1 }}</span>{% endif %}
+      {% if fotos_ativas and not fechado %}<label class="btn btn-outline-primary btn-icon{% if not b.lido_em %} disabled{% endif %}" aria-label="Nova foto do bem {{ b.numero }}" title="Nova foto"><i class="fas fa-camera" aria-hidden="true"></i><input type="file" accept="image/*" capture="environment" class="foto-input" hidden{% if not b.lido_em %} disabled{% endif %}/></label>{% endif %}</td><td class="col-numero">{{ b.numero }}</td><td class="col-descricao">{{ b.descricao }}{% if b.complemento %} <span class="text-secondary">{{ b.complemento }}</span>{% endif %}</td>
+    <td class="situacao">{% if b.situacao_inv == 'localizado' %}<span class="badge bg-green-lt text-nowrap">Localizado</span>{% elif b.situacao_inv == 'divergente' %}<span class="badge bg-yellow-lt">Divergente · lido em {{ b.lido_em_sala }}</span>{% else %}<span class="badge bg-secondary-lt text-nowrap">Pendente</span>{% endif %}</td>
+    <td class="col-campo" data-rotulo="Conservação"><select class="campo form-select form-select-sm" data-campo="conservacao" aria-label="Conservação do bem {{ b.numero }}"{% if fechado or not b.lido_em %} disabled{% endif %}><option value="">—</option>{% for c in conservacao %}<option{% if b.conservacao == c %} selected{% endif %}>{{ c }}</option>{% endfor %}</select></td>
+    <td class="col-campo" data-rotulo="Quem usa"><input class="campo form-control form-control-sm" data-campo="quem_usa" type="text" value="{{ b.quem_usa or '' }}" aria-label="Quem usa o bem {{ b.numero }}"{% if fechado or not b.lido_em %} disabled{% endif %}/></td>
+    <td class="col-campo" data-rotulo="Observação"><input class="campo form-control form-control-sm" data-campo="observacao" type="text" value="{{ b.observacao or '' }}" aria-label="Observação do bem {{ b.numero }}"{% if fechado or not b.lido_em %} disabled{% endif %}/></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header"><h2 class="card-title">Trazidos de outras salas ou não ativos</h2></div>
+  <div class="table-responsive"><table class="table table-vcenter card-table"><thead><tr><th scope="col">Nº</th><th scope="col">Descrição</th><th scope="col">Cadastrado em</th><th scope="col">Situação</th><th scope="col">Lido em</th></tr></thead>
+<tbody id="tabela-trazidos">
+{% for t in trazidos %}<tr data-numero="{{ t.numero }}" data-ativo="{{ 'sim' if t.situacao == 'ATIVO' else 'nao' }}"><td>{{ t.numero }}</td><td>{{ t.descricao }}</td><td>{{ t.localizacao }}</td><td>{{ t.situacao }}</td><td>{{ t.lido_em[8:10] }}/{{ t.lido_em[5:7] }} {{ t.lido_em[11:16] }} · {{ t.integrante }}</td></tr>{% endfor %}
+</tbody></table></div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header"><h2 class="card-title">Sobras (bens sem cadastro)</h2></div>
+{% if sobras %}
+  <div class="table-responsive"><table class="table table-vcenter card-table"><thead><tr><th scope="col">Descrição</th><th scope="col">Observação</th><th scope="col">Foto</th><th scope="col">Por</th>{% if not fechado %}<th scope="col" class="astra-acoes">Ações</th>{% endif %}</tr></thead><tbody>
+{% for s in sobras %}<tr><td>{{ s.descricao }}{% if s.complemento %} <span class="text-secondary">{{ s.complemento }}</span>{% endif %}</td><td>{{ s.observacao }}</td>
+  <td>{% if s.foto_url %}<a href="{{ s.foto_url }}" target="_blank" rel="noopener"><img src="{{ s.foto_url }}" alt="Foto da sobra" class="astra-miniatura"/></a>{% else %}—{% endif %}</td><td>{{ s.integrante }}</td>
+  {% if not fechado %}<td class="astra-acoes"><form method="post" action="{{ url_for('inventario.sobra_excluir', id=e.id, sobra_id=s.id) }}">{{ csrf_campo() }}<button class="btn btn-ghost-danger btn-icon" type="submit" aria-label="Excluir sobra"><i class="fas fa-trash" aria-hidden="true"></i></button></form></td>{% endif %}</tr>{% endfor %}
+</tbody></table></div>
+{% else %}<div class="card-body text-secondary">Nenhuma sobra nesta sala.</div>{% endif %}
+</div>
+{% if not fechado %}
+<div class="card mt-3" id="card-sobra" hidden><form method="post" action="{{ url_for('inventario.sobra', id=e.id, localizacao=localizacao) }}" enctype="multipart/form-data" id="form-sobra">{{ csrf_campo() }}
+  <div class="card-header"><h2 class="card-title">Registrar sobra</h2></div>
+  <div class="card-body"><div class="row g-3">
+    <div class="col-12 col-md-4"><label class="form-label required" for="s-descricao">Descrição</label><input class="form-control" id="s-descricao" name="descricao" type="text" required/></div>
+    <div class="col-12 col-md-4"><label class="form-label" for="s-complemento">Complemento</label><input class="form-control" id="s-complemento" name="complemento" type="text"/></div>
+    <div class="col-12 col-md-4"><label class="form-label required" for="s-observacao">Observação (obrigatória)</label><input class="form-control" id="s-observacao" name="observacao" type="text" required/></div>
+    {% if fotos_ativas %}<div class="col-12 col-md-6"><label class="form-label required" for="s-foto">Foto (obrigatória)</label><input class="form-control" id="s-foto" name="foto" type="file" accept="image/*" capture="environment" required/></div>{% endif %}
+  </div></div>
+  <div class="card-footer d-flex justify-content-end gap-2 flex-wrap">
+    <button class="btn btn-link" type="button" id="btn-cancelar-sobra">Cancelar</button>
+    <button class="btn btn-primary" type="submit">Registrar sobra</button>
+  </div>
+</form></div>
+{% endif %}
+
+<div class="mt-4">
+  <a class="btn btn-outline-secondary" href="{{ url_for('inventario.evento_tela', id=e.id) }}"><i class="fas fa-arrow-left me-2" aria-hidden="true"></i>Salas</a>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='dsgov/vendor/html5-qrcode/html5-qrcode.min.js') }}"></script>
+<script>
+(function () {
+  var URL_LER = {{ url_for('inventario.ler', id=e.id, localizacao=localizacao)|tojson }};
+  var URL_LEITURA = {{ url_for('inventario.atualizar_leitura', id=e.id, numero=0)|tojson }};   // troca o 0 pelo número
+  var URL_FOTO_EXCLUIR = {{ url_for('inventario.foto_excluir', id=e.id, numero=0, nfoto=0)|tojson }};   // troca os 0 por número e nfoto
+  var SALA = {{ localizacao|tojson }};
+  var CSRF = document.querySelector('meta[name="csrf"]').content;
+  var campo = document.getElementById("leitura"), aviso = document.getElementById("aviso"), avisoTexto = document.getElementById("aviso-texto");
+  var btnSobra = document.getElementById("btn-sobra"), cardSobra = document.getElementById("card-sobra"), formSobra = document.getElementById("form-sobra");
+  var ultimoLido = "", ultimoQuando = 0, timerAviso = null;
+  if (!campo) return;
+
+  var formLote = document.getElementById("form-lote");
+  if (formLote) formLote.addEventListener("submit", function (ev) {
+    var n = document.querySelectorAll('input[name="numeros"]:checked').length;
+    if (!n) { ev.preventDefault(); mostrar("warning", "Selecione ao menos um bem na lista."); return; }
+    if (ev.submitter && ev.submitter.value === "desmarcar" && !confirm("Desfazer a leitura de " + n + " bem(ns)? Eles voltam a pendentes e as fotos são apagadas.")) ev.preventDefault();
+  });
+
+  function focar() { if (!campo.disabled) { campo.value = ""; campo.focus(); } }
+  function mostrar(tipo, texto, sobra) {
+    aviso.className = "alert mt-3 mb-0 alert-" + tipo; avisoTexto.textContent = texto; aviso.hidden = false;
+    btnSobra.hidden = !sobra; clearTimeout(timerAviso); if (!sobra) timerAviso = setTimeout(function () { aviso.hidden = true; }, 4000);
+  }
+  function contar() {
+    var linhas = document.querySelectorAll("#tabela-bens tr"), loc = 0;
+    linhas.forEach(function (tr) { if (tr.dataset.situacao === "localizado") loc++; });
+    var trazidos = document.querySelectorAll('#tabela-trazidos tr[data-ativo="sim"]').length;
+    document.getElementById("n-localizados").textContent = loc;
+    document.getElementById("n-divergentes").textContent = trazidos;
+    document.getElementById("n-pendentes").textContent = document.getElementById("contadores").dataset.total - loc;
+  }
+  function celula(texto) { var td = document.createElement("td"); td.textContent = texto; return td; }
+  function chip(classe, texto) {
+    var span = document.createElement("span"); span.className = "badge " + classe;
+    span.textContent = texto;
+    return span;
+  }
+  function preencherFoto(td, fotosLista, numero) {
+    td.textContent = "";
+    fotosLista.slice(0, 1).forEach(function (f) {
+      var wrap = document.createElement("span"); wrap.className = "d-inline-flex align-items-center me-1";
+      var a = document.createElement("a"); a.href = f.url; a.target = "_blank"; a.rel = "noopener";
+      var img = document.createElement("img"); img.src = f.url; img.alt = "Foto " + f.nfoto; img.className = "astra-miniatura";
+      a.appendChild(img); wrap.appendChild(a);
+      var form = document.createElement("form"); form.method = "post"; form.className = "d-inline";
+      form.action = URL_FOTO_EXCLUIR.replace(/\/0\/foto\/0\/excluir$/, "/" + numero + "/foto/" + f.nfoto + "/excluir");
+      var input = document.createElement("input"); input.type = "hidden"; input.name = "volta"; input.value = SALA;
+      var tok = document.createElement("input"); tok.type = "hidden"; tok.name = "csrf"; tok.value = CSRF; form.appendChild(tok);
+      var btn = document.createElement("button"); btn.className = "btn btn-ghost-danger btn-icon"; btn.type = "submit"; btn.setAttribute("aria-label", "Excluir foto " + f.nfoto);
+      btn.innerHTML = '<i class="fas fa-trash" aria-hidden="true"></i>';
+      form.appendChild(input); form.appendChild(btn); wrap.appendChild(form);
+      td.appendChild(wrap);
+    });
+    if (fotosLista.length > 1) { var mais = document.createElement("span"); mais.className = "badge bg-secondary-lt me-1"; mais.title = "Todas as fotos no cadastro do bem"; mais.textContent = "+" + (fotosLista.length - 1); td.appendChild(mais); }
+    var label = document.createElement("label"); label.className = "btn btn-outline-primary btn-icon"; label.setAttribute("aria-label", "Nova foto do bem " + numero); label.title = "Nova foto";
+    label.innerHTML = '<i class="fas fa-camera" aria-hidden="true"></i>';
+    var inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*"; inp.setAttribute("capture", "environment"); inp.className = "foto-input"; inp.hidden = true;
+    label.appendChild(inp); td.appendChild(label);
+  }
+  function aplicar(j) {
+    var tr = document.querySelector('#tabela-bens tr[data-numero="' + j.numero + '"]');
+    if (tr) {
+      tr.dataset.situacao = j.situacao;
+      var situacaoTd = tr.querySelector(".situacao");
+      situacaoTd.textContent = "";
+      situacaoTd.appendChild(j.situacao === "localizado" ? chip("bg-green-lt text-nowrap", "Localizado") : chip("bg-yellow-lt", "Divergente · lido em " + SALA));
+      tr.querySelectorAll(".campo, .foto-input").forEach(function (el) { el.disabled = false; });
+      var rotulo = tr.querySelector("label.disabled"); if (rotulo) rotulo.classList.remove("disabled");
+      document.getElementById("tabela-bens").prepend(tr);
+    } else {
+      var t = document.querySelector('#tabela-trazidos tr[data-numero="' + j.numero + '"]');
+      if (t) t.remove();
+      var novo = document.createElement("tr");
+      novo.dataset.numero = j.numero;
+      novo.dataset.ativo = j.ativo ? "sim" : "nao";
+      novo.appendChild(celula(j.numero));
+      novo.appendChild(celula(j.descricao));
+      novo.appendChild(celula(j.cadastrado_em));
+      novo.appendChild(celula(j.situacao_bem));
+      novo.appendChild(celula("agora · " + j.integrante));
+      document.getElementById("tabela-trazidos").prepend(novo);
+    }
+    contar();
+  }
+  function ler(numero) {
+    numero = String(numero || "").trim(); if (!numero) return;
+    var agora = Date.now(); if (numero === ultimoLido && agora - ultimoQuando < 3000) return;   // leitura dupla do leitor/câmera
+    ultimoLido = numero; ultimoQuando = agora;
+    fetch(URL_LER, {method: "POST", headers: {"Content-Type": "application/json", "X-CSRF": CSRF}, body: JSON.stringify({numero: numero})})
+      .then(function (r) { return r.json().then(function (j) { return {status: r.status, j: j}; }); })
+      .then(function (res) {
+        var j = res.j;
+        if (res.status === 404) { mostrar("danger", "Bem " + numero + " não está na base.", true); return; }
+        if (res.status !== 200) { mostrar("danger", j.erro || "Erro ao registrar a leitura."); return; }
+        var texto = j.situacao === "localizado" ? "Bem " + j.numero + " localizado." : "Bem " + j.numero + " cadastrado em " + j.cadastrado_em + "; registrado aqui.";
+        if (!j.ativo) texto = "Bem " + j.numero + " está " + j.situacao_bem + "; leitura registrada.";
+        if (j.reler && j.leitura_anterior) texto += " Já lido em " + j.leitura_anterior.lido_em.slice(8, 10) + "/" + j.leitura_anterior.lido_em.slice(5, 7) + " por " + j.leitura_anterior.integrante + " em " + j.leitura_anterior.localizacao + ". Atualizado.";
+        mostrar(!j.ativo ? "info" : (j.situacao === "localizado" ? "success" : "warning"), texto);
+        aplicar(j);
+      })
+      .catch(function () { mostrar("danger", "Sem conexão; tente de novo."); })
+      .finally(focar);
+  }
+  campo.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); ler(campo.value); } });
+  document.getElementById("btn-digitar").addEventListener("click", function () { campo.inputMode = "numeric"; campo.placeholder = "Digite o número e Enter"; campo.focus(); });
+  campo.addEventListener("blur", function () { campo.inputMode = "none"; });
+  btnSobra.addEventListener("click", function () { if (cardSobra) { cardSobra.hidden = false; formSobra.querySelector("#s-descricao").focus(); } });
+  var btnCancelar = document.getElementById("btn-cancelar-sobra"); if (btnCancelar) btnCancelar.addEventListener("click", function () { cardSobra.hidden = true; focar(); });
+
+  // Câmera (html5-qrcode): fica aberta para leituras seguidas até fechar.
+  var leitor = null, cameraDiv = document.getElementById("camera"), cameraAberta = false;
+  document.getElementById("btn-camera").addEventListener("click", function () {
+    if (cameraAberta) return;
+    cameraAberta = true;
+    cameraDiv.hidden = false;
+    if (!leitor) leitor = new Html5QrcodeScanner("leitor-camera", {fps: 10, qrbox: {width: 250, height: 120}}, false);
+    leitor.render(function (texto) { ler(texto); }, function () {});
+  });
+  document.getElementById("btn-fechar-camera").addEventListener("click", function () {
+    cameraDiv.hidden = true; if (leitor) leitor.clear().catch(function () {}); leitor = null; cameraAberta = false; focar();
+  });
+
+  // Campos por bem: salvam ao mudar.
+  document.getElementById("tabela-bens").addEventListener("change", function (ev) {
+    var el = ev.target, tr = el.closest("tr"); if (!tr) return;
+    if (el.classList.contains("campo")) {
+      var corpo = {}; corpo[el.dataset.campo] = el.value;
+      fetch(URL_LEITURA.replace(/\/0$/, "/" + tr.dataset.numero), {method: "POST", headers: {"Content-Type": "application/json", "X-CSRF": CSRF}, body: JSON.stringify(corpo)})
+        .then(function (r) { if (!r.ok) return r.json().then(function (j) { mostrar("danger", j.erro || "Erro ao salvar."); }); })
+        .catch(function () { mostrar("danger", "Sem conexão; alteração não salva."); });
+    } else if (el.classList.contains("foto-input") && el.files[0]) {
+      var fd = new FormData(); fd.append("foto", el.files[0]);
+      fetch(URL_LEITURA.replace(/\/0$/, "/" + tr.dataset.numero) + "/foto", {method: "POST", headers: {"X-CSRF": CSRF}, body: fd})
+        .then(function (r) { return r.json().then(function (j) { return {ok: r.ok, j: j}; }); })
+        .then(function (res) {
+          if (!res.ok) { mostrar("danger", res.j.erro || "Erro ao salvar."); return; }
+          preencherFoto(tr.querySelector(".foto"), res.j.fotos, tr.dataset.numero);
+          mostrar("success", "Foto enviada.");
+        })
+        .catch(function () { mostrar("danger", "Sem conexão; alteração não salva."); });
+    }
+  });
+  document.addEventListener("click", function (ev) { if (!ev.target.closest("input, select, textarea, button, label, a, #camera")) focar(); });
+  focar();
+})();
+</script>
+{% endblock %}

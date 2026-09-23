@@ -1,0 +1,22 @@
+{% extends 'tabler_base.html' %}
+{% from 'tabler_macros.html' import titulo_pagina %}
+{% from 'tabler_campos.html' import ocultos, escolha %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+{{ titulo_pagina(titulo, AJUDA_ANCORA, 'Cadastros') }}
+<div class="row">
+<div class="col-lg-8">
+<form method="post" action="{{ url_for('localizacoes_mover') }}" class="card">{{ csrf_campo() }}
+  {{ ocultos(retorno) }}{% for loc in locais %}<input type="hidden" name="localizacoes" value="{{ loc.localizacao }}"/>{% endfor %}
+  <div class="card-body">
+    <p>Confira as localizações selecionadas e escolha o centro de destino.</p>
+    <ul class="list-group mb-3">{% for loc in locais %}<li class="list-group-item"><strong>{{ loc.localizacao }}</strong> · Centro atual: {{ loc.ccustos }}</li>{% endfor %}</ul>
+    {{ escolha('ccustos_destino', 'Centro de custo de destino', centros|map(attribute='ccustos')|list, valores, erros) }}
+    <p class="text-secondary mb-0">Você poderá revisar a origem e o destino antes de confirmar.</p>
+  </div>
+  <div class="card-footer d-flex justify-content-end gap-2"><a class="btn btn-link" href="{{ retorno }}">Cancelar</a><button class="btn btn-primary" type="submit"><i class="fas fa-exchange-alt me-2" aria-hidden="true"></i>Revisar alteração</button></div>
+</form>
+</div>
+</div>
+{% endblock %}
+{% block scripts %}{% include 'cadastros/_comportamento.html' %}{% endblock %}

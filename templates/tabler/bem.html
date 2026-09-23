@@ -1,0 +1,66 @@
+{% extends "tabler_base.html" %}
+{% from 'tabler_macros.html' import ajuda_titulo %}
+{% block titulo %}Bem {{ bem.numero }}{% endblock %}
+{% block estilos %}
+<style>
+  .astra-miniatura { width: 72px; height: 72px; object-fit: cover; border-radius: var(--tblr-border-radius); border: 1px solid var(--tblr-border-color); }
+</style>
+{% endblock %}
+{% block conteudo %}
+<div class="page-header d-print-none mb-3">
+  <div class="row g-2 align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Patrimônio</div>
+      <div class="d-flex align-items-center"><h1 class="page-title">Bem {{ bem.numero }}</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}</div>
+    </div>
+    <div class="col-auto"><a class="btn btn-outline-secondary" href="{{ URL_INICIAL }}"><i class="fas fa-arrow-left me-2" aria-hidden="true"></i>Voltar</a></div>
+  </div>
+</div>
+<div class="card mb-3"><div class="card-body">
+  <div class="datagrid">
+    <div class="datagrid-item"><div class="datagrid-title">Descrição</div><div class="datagrid-content">{{ bem.descricao }}</div></div>
+    <div class="datagrid-item"><div class="datagrid-title">Complemento</div><div class="datagrid-content">{{ bem.complemento or '—' }}</div></div>
+    <div class="datagrid-item"><div class="datagrid-title">Situação</div><div class="datagrid-content">{{ bem.situacao }}</div></div>
+    <div class="datagrid-item"><div class="datagrid-title">Localização</div><div class="datagrid-content">{{ bem.localizacao or '—' }}</div></div>
+    <div class="datagrid-item"><div class="datagrid-title">Valor atual</div><div class="datagrid-content astra-numero">{{ (bem.valor_atual or 0)|moeda }}</div></div>
+    <div class="datagrid-item"><div class="datagrid-title">Centro de custo</div>
+      <div class="datagrid-content">{% if bem.ccustos %}<a href="{{ url_for('termo', tipo='ccusto', chave=bem.ccustos) }}">{{ bem.ccustos }}</a> — {{ bem.responsavel }}{% else %}sem mapeamento{% endif %}</div></div>
+    <div class="datagrid-item"><div class="datagrid-title">Responsável individual</div>
+      <div class="datagrid-content">{% if bem.pessoa %}<a href="{{ url_for('termo', tipo='individual', chave=bem.pessoa) }}">{{ bem.pessoa }}</a>{% else %}— (responde o setor){% endif %}</div></div>
+  </div>
+</div></div>
+<h2 class="h3 mt-4 mb-2">Histórico</h2>
+<div class="row row-cards mb-3">
+  <div class="col-12 col-md-6"><div class="card h-100">
+    <div class="card-header"><h3 class="card-title">Movimentações (importações)</h3></div>
+    {% if historico.mudancas %}
+    <div class="list-group list-group-flush">
+      {% for m in historico.mudancas %}
+      <div class="list-group-item"><span class="text-secondary">{{ m.importado_em[8:10] }}/{{ m.importado_em[5:7] }}/{{ m.importado_em[:4] }}</span> · <strong>{{ m.tipo }}</strong>{% if m.de or m.para %}: {{ m.de or '—' }} → {{ m.para or '—' }}{% endif %}</div>
+      {% endfor %}
+    </div>
+    {% else %}<div class="card-body"><p class="text-secondary mb-0">Nenhuma mudança registrada.</p></div>{% endif %}
+  </div></div>
+  <div class="col-12 col-md-6"><div class="card h-100">
+    <div class="card-header"><h3 class="card-title">Termos em que apareceu</h3></div>
+    {% if historico.termos %}
+    <div class="list-group list-group-flush">
+      {% for t in historico.termos %}
+      <div class="list-group-item"><a href="{{ url_for('termo_emitido_tela', id=t.id) }}">{{ t.emitido_em[8:10] }}/{{ t.emitido_em[5:7] }}/{{ t.emitido_em[:4] }}</a> · {{ rotulos[t.tipo] }} · {{ t.chave }}{% if t.documento_sei %} · SEI {{ t.documento_sei }}{% endif %}</div>
+      {% endfor %}
+    </div>
+    {% else %}<div class="card-body"><p class="text-secondary mb-0">Nenhum termo registrado com este bem.</p></div>{% endif %}
+  </div></div>
+</div>
+{% if fotos %}
+<h2 class="h3 mt-4 mb-2">Fotos do inventário</h2>
+<div class="card"><div class="list-group list-group-flush">
+  {% for g in fotos %}
+  <div class="list-group-item">
+    <div class="mb-2"><strong>{{ g.evento }}</strong> <span class="text-secondary">· aberto em {{ g.aberto_em[8:10] }}/{{ g.aberto_em[5:7] }}/{{ g.aberto_em[:4] }}{% if g.encerrado_em %} · encerrado em {{ g.encerrado_em[8:10] }}/{{ g.encerrado_em[5:7] }}/{{ g.encerrado_em[:4] }}{% endif %} · lido em {{ g.lido_em[8:10] }}/{{ g.lido_em[5:7] }}/{{ g.lido_em[:4] }} {{ g.lido_em[11:16] }}</span></div>
+    <div class="d-flex flex-wrap gap-2">{% for f in g.fotos %}{% if f.url.startswith(('http://', 'https://')) %}<a href="{{ f.url }}" target="_blank" rel="noopener"><img src="{{ f.url }}" alt="Foto {{ f.nfoto }} do bem {{ bem.numero }} no evento {{ g.evento }}" class="astra-miniatura"/></a>{% endif %}{% endfor %}</div>
+  </div>
+  {% endfor %}
+</div></div>
+{% endif %}
+{% endblock %}

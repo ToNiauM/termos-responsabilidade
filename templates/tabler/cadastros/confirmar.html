@@ -1,0 +1,32 @@
+{% extends 'tabler_base.html' %}
+{% from 'tabler_macros.html' import titulo_pagina %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+{{ titulo_pagina(titulo, AJUDA_ANCORA, 'Cadastros') }}
+<div class="alert alert-{{ 'danger' if bloqueado else 'warning' }}" role="alert"><div class="d-flex"><i class="fas fa-exclamation-triangle me-2 mt-1" aria-hidden="true"></i><div>{{ descricao }}</div></div></div>
+{% if erro %}<div class="alert alert-warning" role="alert"><div class="d-flex"><i class="fas fa-exclamation-circle me-2 mt-1" aria-hidden="true"></i><div>{{ erro }}</div></div></div>{% endif %}
+{% if linhas %}
+<div class="card mb-3">
+  <div class="card-header"><h2 class="card-title">Confira os registros afetados</h2></div>
+  <div class="table-responsive">
+  <table class="table table-vcenter card-table table-striped"><caption class="visually-hidden">Revisão da alteração</caption><thead><tr><th scope="col">Registro</th><th scope="col">Situação atual / origem</th><th scope="col">Após confirmar / destino</th></tr></thead>
+  <tbody>{% for linha in linhas %}<tr>{% for valor in linha %}<td>{{ valor }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+  </div>
+</div>
+{% endif %}
+{% if bloqueado %}
+<div class="btn-list">
+<a class="btn btn-outline-primary" href="{{ retorno }}"><i class="fas fa-arrow-left me-2" aria-hidden="true"></i>Voltar aos cadastros</a>
+{% if aba == 'responsaveis' %}<a class="btn btn-outline-secondary" href="{{ url_for('cadastros', aba='localizacoes', centro=request.form.get('ccustos', '')) }}">Gerenciar localizações</a>{% endif %}
+</div>
+{% else %}
+<form method="post" action="{{ acao }}">{{ csrf_campo() }}
+  {% for k, v in campos %}<input type="hidden" name="{{ k }}" value="{{ v }}"/>{% endfor %}
+  <input type="hidden" name="revisao" value="{{ revisao }}"/>
+  <div class="d-flex justify-content-end gap-2">
+    <a class="btn btn-link" href="{{ retorno }}">Cancelar</a>
+    <button class="btn {{ 'btn-danger' if 'exclusão' in titulo else 'btn-primary' }}" type="submit"><i class="fas {{ 'fa-trash' if 'exclusão' in titulo else 'fa-check' }} me-2" aria-hidden="true"></i>{{ botao }}</button>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

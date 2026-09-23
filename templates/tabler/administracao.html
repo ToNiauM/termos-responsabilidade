@@ -1,0 +1,92 @@
+{% extends "tabler_base.html" %}
+{% from 'tabler_macros.html' import titulo_pagina, cabecalho_tabela, fechar_tabela %}
+{% block titulo %}Inventários · Administração{% endblock %}
+{% block conteudo %}
+{{ titulo_pagina('Inventários', AJUDA_ANCORA, 'Administração') }}
+{% include '_abas_admin.html' %}
+<p class="text-secondary">Só um inventário fica aberto por vez: ligar a chave em um fecha o outro. Finalizar congela as leituras e não tem volta.</p>
+
+<form method="post" action="{{ url_for('inventario.abrir') }}" class="card mb-3">{{ csrf_campo() }}
+  <div class="card-header"><h2 class="card-title">Novo inventário</h2></div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6"><label class="form-label required" for="nome">Nome</label><input class="form-control" id="nome" name="nome" type="text" placeholder="Ex.: Inventário 2026" required/></div>
+      <div class="col-md-6"><label class="form-label" for="descricao">Descrição (portaria, observações)</label><input class="form-control" id="descricao" name="descricao" type="text"/></div>
+      <div class="col-md-6">
+        <fieldset>
+          <legend class="form-label">Comissão</legend>
+          <p class="form-hint mt-0 mb-2">Quem entra sem a função Inventário recebe a função na hora.</p>
+          {% for u in elegiveis %}
+          {% if local %}
+          <label class="form-check mb-1"><input class="form-check-input" id="int-{{ loop.index }}" name="integrantes" type="checkbox" value="{{ u.nome }}"{% if u.id is none %} checked disabled{% endif %}/><span class="form-check-label">{{ u.nome }} <span class="text-secondary small">· {{ u.funcoes|map('rotulo_funcao')|join(', ') }}</span></span></label>
+          {% else %}
+          <label class="form-check mb-1"><input class="form-check-input" id="integrante-{{ u.id }}" name="usuarios" type="checkbox" value="{{ u.id }}"/>
+            <span class="form-check-label">{{ u.nome }} ({{ u.login }}) <span class="text-secondary small">· {{ u.funcoes|map('rotulo_funcao')|join(', ') }}</span></span></label>
+          {% endif %}
+          {% else %}<p class="text-secondary">Nenhum usuário ativo.</p>{% endfor %}
+        </fieldset>
+      </div>
+      <div class="col-md-6">
+        <fieldset>
+          <legend class="form-label">Escopo</legend>
+          <label class="form-check mb-1"><input class="form-check-input" id="escopo-todas" name="escopo" type="radio" value="todas" checked/><span class="form-check-label">Todas as salas com bens ativos ({{ salas_ativas|length }})</span></label>
+          <label class="form-check mb-1"><input class="form-check-input" id="escopo-escolher" name="escopo" type="radio" value="escolher"/><span class="form-check-label">Escolher salas (amostragem)</span></label>
+          <div id="lista-salas" class="astra-lista-salas border rounded p-2 mt-2" hidden>
+            {% for s in salas_ativas %}<label class="form-check mb-1"><input class="form-check-input" id="sala-{{ loop.index }}" name="salas" type="checkbox" value="{{ s }}"/><span class="form-check-label">{{ s }}</span></label>{% endfor %}
+          </div>
+        </fieldset>
+        <label class="form-check form-switch mt-3"><input class="form-check-input" id="abrir-agora" name="abrir_agora" type="checkbox" value="1"{% if not ha_aberto %} checked{% endif %}/><span class="form-check-label">Abrir agora{% if ha_aberto %} (fecha o inventário aberto){% endif %}</span></label>
+        <input type="hidden" name="abrir_agora" value="0"/>
+      </div>
+    </div>
+  </div>
+  <div class="card-footer d-flex justify-content-end">
+    <button class="btn btn-primary" type="submit"><i class="fas fa-plus me-2" aria-hidden="true"></i>Criar inventário</button>
+  </div>
+</form>
+
+{% if eventos %}
+{{ cabecalho_tabela('Inventários', 'inventarios') }}
+  <thead><tr><th scope="col">Inventário</th><th scope="col">Estado</th><th scope="col">Criado em</th><th scope="col">Finalizado em</th><th scope="col">Comissão</th><th scope="col" class="text-end">Localizados</th><th scope="col" class="astra-acoes">Ações</th></tr></thead>
+  <tbody>{% for e in eventos %}
+  <tr><td><a href="{{ url_for('inventario.evento_tela', id=e.id) }}">{{ e.nome }}</a>{% if e.descricao %}<div class="small text-secondary">{{ e.descricao }}</div>{% endif %}</td>
+    <td>{% if e.estado == 'aberto' %}<span class="badge bg-green-lt">aberto</span>{% elif e.estado == 'fechado' %}<span class="badge bg-yellow-lt">fechado</span>{% else %}<span class="badge bg-secondary-lt">finalizado</span>{% endif %}</td>
+    <td class="text-nowrap">{{ e.aberto_em[8:10] }}/{{ e.aberto_em[5:7] }}/{{ e.aberto_em[:4] }}</td>
+    <td class="text-nowrap">{% if e.encerrado_em %}{{ e.encerrado_em[8:10] }}/{{ e.encerrado_em[5:7] }}/{{ e.encerrado_em[:4] }}{% else %}—{% endif %}</td>
+    <td>{{ e.integrantes|join(', ') }}</td>
+    <td class="text-end astra-numero text-nowrap">{{ e.resumo.lidos }} / {{ e.resumo.bens }}</td>
+    <td class="astra-acoes">
+      <div class="d-inline-flex align-items-center gap-1">
+      {% if e.estado == 'aberto' %}
+      <form method="post" action="{{ url_for('inventario.fechar', id=e.id) }}" class="d-inline">{{ csrf_campo() }}<button class="btn btn-sm btn-outline-secondary" type="submit"><i class="fas fa-toggle-on me-1" aria-hidden="true"></i>Fechar</button></form>
+      {% elif e.estado == 'fechado' %}
+      <form method="post" action="{{ url_for('inventario.abrir_chave', id=e.id) }}" class="d-inline">{{ csrf_campo() }}<button class="btn btn-sm btn-outline-secondary" type="submit"><i class="fas fa-toggle-off me-1" aria-hidden="true"></i>Abrir</button></form>
+      {% endif %}
+      {% if e.estado != 'finalizado' %}
+      <form method="post" action="{{ url_for('inventario.encerrar', id=e.id) }}" class="d-inline">{{ csrf_campo() }}
+        {% if confirmar == e.id %}<input type="hidden" name="confirmar" value="1"/><button class="btn btn-sm btn-primary" type="submit"><i class="fas fa-check me-1" aria-hidden="true"></i>Confirmar finalização</button>
+        {% else %}<button class="btn btn-sm" type="submit"><i class="fas fa-lock me-1" aria-hidden="true"></i>Finalizar</button>{% endif %}
+      </form>
+      <a class="btn btn-sm btn-icon btn-ghost-secondary" href="{{ url_for('inventario.comissao', id=e.id) }}" aria-label="Comissão de {{ e.nome }}" title="Comissão"><i class="fas fa-users" aria-hidden="true"></i></a>
+      {% else %}
+      {% if pode('inventario.relatorio_tela') %}<a class="btn btn-sm btn-icon btn-ghost-secondary" href="{{ url_for('inventario.relatorio_tela', id=e.id) }}" aria-label="Relatório de {{ e.nome }}" title="Relatório"><i class="fas fa-table" aria-hidden="true"></i></a>{% endif %}
+      {% endif %}
+      <a class="btn btn-sm btn-icon btn-ghost-danger" href="{{ url_for('inventario.excluir', id=e.id) }}" aria-label="Excluir {{ e.nome }}" title="Excluir"><i class="fas fa-trash" aria-hidden="true"></i></a>
+      </div>
+    </td></tr>
+  {% endfor %}</tbody>
+{{ fechar_tabela() }}
+{% else %}<div class="card"><div class="empty"><p class="empty-title">Nenhum inventário criado.</p></div></div>{% endif %}
+{% endblock %}
+{% block estilos %}
+<style>
+  .astra-lista-salas { max-height: 16rem; overflow-y: auto; }
+</style>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('input[name="escopo"]').forEach(function (r) {
+  r.addEventListener("change", function () { document.getElementById("lista-salas").hidden = document.getElementById("escopo-escolher").checked === false; });
+});
+</script>
+{% endblock %}

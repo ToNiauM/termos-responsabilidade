@@ -14,3 +14,11 @@
 {% endmacro %}
 
 {% macro ocultos(origem) %}<input type="hidden" name="retorno" value="{{ origem }}"/>{% endmacro %}
+
+{% macro acao(endpoint, rotulo, origem, campos, icone='fa-trash') %}
+<form method="post" action="{{ url_for(endpoint) }}" class="d-inline">{{ csrf_campo() }}
+  {{ ocultos(origem) }}
+  {% for k, v in campos.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}"/>{% endfor %}
+  <button class="btn btn-sm {{ 'btn-outline-danger' if icone == 'fa-trash' else 'btn-outline-secondary' }}" type="submit"><i class="fas {{ icone }} me-1" aria-hidden="true"></i>{{ rotulo }}</button>
+</form>
+{% endmacro %}

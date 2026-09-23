@@ -1,0 +1,29 @@
+{% extends "tabler_base.html" %}
+{% from 'tabler_macros.html' import titulo_pagina, select, cabecalho_tabela, fechar_tabela, tag_termo, tag_email %}
+{% block titulo %}Termo individual{% endblock %}
+{% block conteudo %}
+{{ titulo_pagina('Termo individual', AJUDA_ANCORA, 'Termos de Responsabilidade') }}
+{% if pode('gerar_individual', 'POST') %}
+<div class="card mb-3">
+  <div class="card-body">
+    <form method="post" action="{{ url_for('gerar_individual') }}" class="row g-3 align-items-end">{{ csrf_campo() }}
+      <div class="col-12 col-md-6">{{ select('nome', 'Pessoa', nomes) }}</div>
+      <div class="col-12 col-md-auto"><button class="btn btn-primary" type="submit"><i class="fas fa-file-alt me-2" aria-hidden="true"></i>Gerar termo</button></div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{{ cabecalho_tabela('Situação dos termos individuais', 'pessoas') }}
+  <thead><tr><th scope="col">Pessoa</th><th scope="col" class="text-end">Bens</th><th scope="col" class="text-end">Valor</th><th scope="col">Último termo</th><th scope="col">Situação</th><th scope="col">E-mail</th><th scope="col" class="astra-acoes">Termo</th></tr></thead>
+  <tbody>
+  {% for p in pessoas %}
+  <tr>
+    <td>{{ p.nome }}</td><td class="text-end astra-numero">{{ p.quantidade }}</td><td class="text-end astra-numero text-nowrap">{{ (p.valor)|moeda }}</td>
+    <td class="text-nowrap">{% if p.ultimo %}{{ p.ultimo.emitido_em[8:10] }}/{{ p.ultimo.emitido_em[5:7] }}/{{ p.ultimo.emitido_em[:4] }}{% else %}—{% endif %}</td>
+    <td>{{ tag_termo(p) }}</td><td>{{ tag_email(p) }}</td>
+    <td class="astra-acoes"><a class="btn btn-sm btn-ghost-primary btn-icon" href="{{ url_for('termo', tipo='individual', chave=p.nome) }}" aria-label="Termo de {{ p.nome }}" title="Termo de {{ p.nome }}"><i class="fas fa-file-alt" aria-hidden="true"></i></a></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+{{ fechar_tabela() }}
+{% endblock %}

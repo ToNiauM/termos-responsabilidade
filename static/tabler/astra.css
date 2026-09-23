@@ -52,3 +52,14 @@ button[aria-expanded="true"] > .astra-seta { transform: rotate(180deg); }
   .page-wrapper { margin: 0 !important; }
   .card { box-shadow: none; border: 0; }
 }
+
+/* Miniatura de foto (inventário, relatório); bem.html usa uma maior */
+.astra-miniatura { width: 56px; height: 56px; object-fit: cover; border-radius: var(--tblr-border-radius); }
+
+/* Abas que rolam na horizontal no celular em vez de quebrar linha */
+.astra-abas { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
+.astra-abas .nav-link { white-space: nowrap; }
+
+/* Cabeçalho ordenável: o link herda a cor do texto */
+.table th a.astra-ordem { color: inherit; text-decoration: none; }
+.table th a.astra-ordem:hover { text-decoration: underline; }

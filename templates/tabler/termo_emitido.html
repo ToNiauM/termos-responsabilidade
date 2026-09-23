@@ -1,0 +1,89 @@
+{% extends "tabler_base.html" %}
+{% from 'tabler_macros.html' import ajuda_titulo, cabecalho_tabela, fechar_tabela %}
+{% block titulo %}Registro {{ t.id }}{% endblock %}
+{% block estilos %}{% if estado == 'andamento' %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
+{% block conteudo %}
+<div class="page-header d-print-none mb-3">
+  <div class="row g-2 align-items-center">
+    <div class="col-12 col-md">
+      <div class="page-pretitle">Termos emitidos · registro {{ t.id }}</div>
+      <div class="d-flex align-items-center"><h1 class="page-title">{{ rotulos[t.tipo]|capitalize }}: {{ t.chave }}</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}</div>
+    </div>
+    <div class="col-12 col-md-auto"><a class="btn btn-outline-primary" href="{{ url_for('termo', tipo=t.tipo, chave=t.chave) }}"><i class="fas fa-file-alt me-2" aria-hidden="true"></i>Abrir termo atual</a></div>
+  </div>
+</div>
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="datagrid mb-3">
+      <div class="datagrid-item"><div class="datagrid-title">Emitido em</div><div class="datagrid-content">{{ t.emitido_em[8:10] }}/{{ t.emitido_em[5:7] }}/{{ t.emitido_em[:4] }} {{ t.emitido_em[11:16] }}</div></div>
+      <div class="datagrid-item"><div class="datagrid-title">Processo SEI</div><div class="datagrid-content">{{ t.numero_sei|link_sei(t.id_procedimento) }}<br/><span class="text-secondary">{{ t.processo }}</span></div></div>
+      <div class="datagrid-item"><div class="datagrid-title">Bens</div><div class="datagrid-content astra-numero">{{ t.quantidade }}</div></div>
+      <div class="datagrid-item"><div class="datagrid-title">Valor total</div><div class="datagrid-content astra-numero">{{ (t.valor_total)|moeda }}</div></div>
+      <div class="datagrid-item"><div class="datagrid-title">Número</div><div class="datagrid-content">{{ t.numero_termo or '—' }}{% if t.unidade_sei %} · {{ t.unidade_sei }}{% endif %}</div></div>
+      {% if t.documento_sei %}<div class="datagrid-item"><div class="datagrid-title">Documento no SEI</div><div class="datagrid-content">{{ t.documento_sei|link_sei(t.id_documento, 'documento') }}{% if t.bloco_sei %} · bloco {{ t.bloco_sei }}{% endif %}</div></div>{% endif %}
+    </div>
+    {% if estado == 'andamento' %}
+    <div class="alert alert-info" role="status">
+      <div class="d-flex"><i class="fas fa-spinner fa-spin me-2 mt-1" aria-hidden="true"></i>
+      <div><strong>Emitindo no SEI:</strong> {{ descricao_passo[pedido.passo] }}…
+      {% if parado %}<br><span>A emissão ainda não começou; avise o administrador.</span>{% endif %}</div></div>
+    </div>
+    {% elif estado in ('erro', 'erro_bloco') %}
+    <div class="alert alert-danger" role="alert">
+      <div class="d-flex"><i class="fas fa-times-circle me-2 mt-1" aria-hidden="true"></i>
+      <div><strong>Não foi possível emitir no SEI.</strong> {{ pedido.mensagem }}</div></div>
+    </div>
+    {% elif estado == 'concluido' %}
+    <p class="mb-2"><i class="fas fa-check-circle text-success me-2" aria-hidden="true"></i>Emitido no SEI em {{ pedido.terminado_em[8:10] }}/{{ pedido.terminado_em[5:7] }}/{{ pedido.terminado_em[:4] }} {{ pedido.terminado_em[11:16] }}: documento {{ t.documento_sei }}, bloco {{ t.bloco_sei }}.</p>
+    {% endif %}
+    {% if estado in ('inicial', 'manual', 'erro', 'erro_bloco') and pode('termo_emitido_documento', 'POST') %}
+    <form method="post" action="{{ url_for('termo_emitido_documento', id=t.id) }}" class="row g-2 align-items-end">{{ csrf_campo() }}
+      {% if not t.documento_sei %}<div class="col-12 col-md-3"><label class="form-label" for="numero_termo">Número do termo</label><input class="form-control" id="numero_termo" name="numero_termo" type="text" value="{{ t.numero_termo or '' }}" placeholder="NN/AAAA"/></div>{% endif %}
+      <div class="col-12 col-md-3"><label class="form-label" for="documento_sei">Documento no SEI</label><input class="form-control" id="documento_sei" name="documento_sei" type="text" value="{{ t.documento_sei or '' }}"{% if estado == 'erro_bloco' %} readonly{% endif %}/></div>
+      <div class="col-12 col-md-3"><label class="form-label" for="bloco_sei">Bloco de assinatura</label><input class="form-control" id="bloco_sei" name="bloco_sei" type="text" value="{{ t.bloco_sei or '' }}"/></div>
+      <div class="col-12 col-md-auto"><button class="btn btn-outline-primary" type="submit"><i class="fas fa-save me-2" aria-hidden="true"></i>Salvar</button></div>
+    </form>
+    {% endif %}
+    <div class="d-flex align-items-center flex-wrap gap-2 mt-3">
+      {% if LOGIN_ATIVO and estado in ('inicial', 'erro') and pode('termo_emitido_enviar_sei', 'POST') %}
+      <form method="post" action="{{ url_for('termo_emitido_enviar_sei', id=t.id) }}">{{ csrf_campo() }}<button class="btn btn-primary" type="submit"><i class="fas fa-paper-plane me-2" aria-hidden="true"></i>Emitir Termo no SEI</button></form>
+      {% elif LOGIN_ATIVO and estado == 'erro_bloco' and pode('termo_emitido_enviar_sei', 'POST') %}
+      <span>Documento {{ t.documento_sei|link_sei(t.id_documento, 'documento') }} criado no SEI.</span>
+      <form method="post" action="{{ url_for('termo_emitido_enviar_sei', id=t.id) }}">{{ csrf_campo() }}<button class="btn btn-primary" type="submit"><i class="fas fa-layer-group me-2" aria-hidden="true"></i>Incluir no bloco</button></form>
+      {% endif %}
+      {% if estado != 'andamento' %}
+      {% if mailto and pode('termo_emitido_email', 'POST') %}
+      <a class="btn {{ 'btn-primary' if estado in ('concluido', 'manual') else 'btn-outline-primary' }}" href="{{ mailto }}" id="enviar-email"><i class="fas fa-envelope me-2" aria-hidden="true"></i>{{ 'Enviar email novamente' if t.email_enviado_em else 'Enviar email' }}</a>
+      <form method="post" action="{{ url_for('termo_emitido_email', id=t.id) }}" id="registrar-email" hidden>{{ csrf_campo() }}</form>
+      {% elif not email %}
+      <span class="text-secondary">Sem e-mail cadastrado para {{ t.chave }}. Cadastre em Cadastros para enviar o pedido de assinatura.</span>
+      {% elif estado in ('inicial', 'manual', 'erro') %}
+      <span class="text-secondary">Emita o termo no SEI (ou informe documento e bloco) para enviar o pedido de assinatura por e-mail.</span>
+      {% endif %}
+      {% if t.email_enviado_em %}
+      <span class="badge bg-green-lt">E-mail enviado em {{ t.email_enviado_em[8:10] }}/{{ t.email_enviado_em[5:7] }}/{{ t.email_enviado_em[:4] }} {{ t.email_enviado_em[11:16] }}</span>
+      {% elif mailto %}
+      <span class="badge bg-yellow-lt">E-mail não enviado</span>
+      {% endif %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+{{ cabecalho_tabela('Bens no momento da emissão', 'foto') }}
+  <thead><tr><th scope="col">Número</th><th scope="col">Descrição</th><th scope="col">Complemento</th><th scope="col">Localização</th><th scope="col" class="text-end">Valor</th></tr></thead>
+  <tbody>
+  {% for b in t.bens %}
+  <tr><td><a href="{{ url_for('bem', numero=b.numero) }}">{{ b.numero }}</a></td><td>{{ b.descricao }}</td><td>{{ b.complemento or '' }}</td><td>{{ b.localizacao or '' }}</td><td class="text-end astra-numero text-nowrap">{{ (b.valor_atual or 0)|moeda }}</td></tr>
+  {% endfor %}
+  </tbody>
+{{ fechar_tabela() }}
+{% endblock %}
+{% block scripts %}
+<script>
+/* Abre o programa de e-mail (mailto) e registra o envio no sistema. */
+var enviar = document.getElementById("enviar-email");
+if (enviar) enviar.addEventListener("click", function () {
+  setTimeout(function () { document.getElementById("registrar-email").submit(); }, 500);
+});
+</script>
+{% endblock %}

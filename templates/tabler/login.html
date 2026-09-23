@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Entrar — {{ DSGOV.SISTEMA }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='tabler/vendor/tabler.min.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/vendor/fontawesome/css/all.min.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='tabler/astra.css') }}"/>
+  <style>
+    .astra-login-logo { height: 48px; width: auto; }
+  </style>
+</head>
+<body class="d-flex flex-column">
+<div class="page page-center astra-login">
+  <main class="container container-tight py-4">
+    <div class="text-center mb-4">
+      <img class="astra-login-logo" src="{{ url_for('static', filename='logo.png') }}" alt="{{ DSGOV.ORGAO }}"/>
+    </div>
+    <div class="card card-md">
+      <div class="card-body">
+        <h1 class="h2 text-center mb-1">{{ DSGOV.SISTEMA }}</h1>
+        <p class="text-secondary text-center mb-4">{{ DSGOV.ORGAO }}</p>
+        {% if sem_usuarios %}
+        <div class="alert alert-warning mb-0" role="alert">
+          <div class="d-flex"><i class="fas fa-exclamation-triangle me-2 mt-1" aria-hidden="true"></i>
+            <div><strong>Nenhum usuário cadastrado.</strong> Crie o primeiro administrador no servidor:
+              <code>python usuarios.py criar-admin &lt;login&gt; "&lt;Nome&gt;"</code> (na VPS: <code>docker compose exec web python usuarios.py criar-admin …</code>).</div></div>
+        </div>
+        {% else %}
+        {% if erro %}<div class="alert alert-danger" role="alert">
+          <div class="d-flex"><i class="fas fa-times-circle me-2 mt-1" aria-hidden="true"></i><div>{{ erro }}</div></div>
+        </div>{% endif %}
+        <form method="post" action="{{ url_for('usuarios.login', proximo=proximo) if proximo else url_for('usuarios.login') }}">{{ csrf_campo() }}
+          <div class="mb-3"><label class="form-label" for="login">Usuário ou e-mail</label><input class="form-control" id="login" name="login" type="text" autocomplete="username" autocapitalize="none" value="{{ login }}" required autofocus/></div>
+          <div class="mb-4"><label class="form-label" for="senha">Senha</label><input class="form-control" id="senha" name="senha" type="password" autocomplete="current-password" required/></div>
+          <button class="btn btn-primary w-100" type="submit"><i class="fas fa-sign-in-alt me-2" aria-hidden="true"></i>Entrar</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </main>
+</div>
+<script src="{{ url_for('static', filename='tabler/vendor/tabler.min.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+{% extends "tabler_base.html" %}
+{% from 'tabler_macros.html' import titulo_pagina %}
+{% block titulo %}Comissão · {{ e.nome }}{% endblock %}
+{% block conteudo %}
+{{ titulo_pagina('Comissão de ' ~ e.nome, AJUDA_ANCORA, 'Administração de inventários') }}
+<div class="row">
+<div class="col-lg-8">
+<form method="post" action="{{ url_for('inventario.comissao', id=e.id) }}" class="card">{{ csrf_campo() }}
+  <div class="card-body">
+  <p class="text-secondary">Marque quem pode ler bens neste evento. Quem sair da comissão deixa de ler; as leituras já feitas ficam.</p>
+  {% if local %}
+  {% for u in elegiveis %}
+  <label class="form-check mb-2"><input class="form-check-input" id="int-{{ loop.index }}" name="integrantes" type="checkbox" value="{{ u.nome }}"{% if u.nome in e.integrantes or u.id is none %} checked{% endif %}{% if u.id is none %} disabled{% endif %}/>
+    <span class="form-check-label">{{ u.nome }} <span class="text-secondary small">· {{ u.funcoes|map('rotulo_funcao')|join(', ') }}{% if u.nome in com_leituras %} · já tem leituras neste evento{% endif %}</span></span></label>
+  {% endfor %}
+  {% for nome in e.integrantes if nome not in elegiveis|map(attribute='nome')|list %}
+  <label class="form-check mb-2"><input class="form-check-input" id="ant-{{ loop.index }}" name="integrantes" type="checkbox" value="{{ nome }}" checked/>
+    <span class="form-check-label">{{ nome }} <span class="text-secondary small">· sem usuário ativo com este nome{% if nome in com_leituras %} · já tem leituras{% endif %}</span></span></label>
+  {% endfor %}
+  {% else %}
+  {% for u in elegiveis %}
+  <label class="form-check mb-2">
+    <input class="form-check-input" id="integrante-{{ u.id }}" name="usuarios" type="checkbox" value="{{ u.id }}"{% if u.id in selecionados %} checked{% endif %}/>
+    <span class="form-check-label">{{ u.nome }} ({{ u.login }}){% if u.nome in com_leituras %} <span class="text-secondary small">· já tem leituras neste evento</span>{% endif %}</span>
+  </label>
+  {% endfor %}
+  {% if sem_vinculo %}
+  <div class="alert alert-warning mt-3 mb-0" role="alert"><div class="d-flex"><i class="fas fa-exclamation-triangle me-2 mt-1" aria-hidden="true"></i>
+    <div>Integrantes anteriores sem conta vinculada: {{ sem_vinculo|join(', ') }}. Selecione acima as contas que poderão conferir os bens.</div></div></div>
+  {% endif %}
+  {% endif %}
+  </div>
+  <div class="card-footer d-flex justify-content-end gap-2 flex-wrap">
+    <a class="btn btn-link" href="{{ url_for('admin.tela') }}">Cancelar</a>
+    <button class="btn btn-primary" type="submit"><i class="fas fa-save me-2" aria-hidden="true"></i>Salvar comissão</button>
+  </div>
+</form>
+</div>
+</div>
+{% endblock %}

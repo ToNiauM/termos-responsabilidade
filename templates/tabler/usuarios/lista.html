@@ -1,0 +1,43 @@
+{% extends "tabler_base.html" %}
+{% from 'tabler_macros.html' import ajuda_titulo, cabecalho_tabela, fechar_tabela, select %}
+{% block titulo %}Usuários{% endblock %}
+{% block conteudo %}
+{% set aba = 'usuarios' %}
+<div class="page-header d-print-none mb-3">
+  <div class="row g-2 align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Administração</div>
+      <h1 class="page-title">Usuários</h1>
+    </div>
+    <div class="col-auto d-flex align-items-center">
+      <a class="btn btn-primary" href="{{ url_for('usuarios.novo', retorno=request.full_path) }}"><i class="fas fa-user-plus me-2" aria-hidden="true"></i>Novo usuário</a>
+      {{ ajuda_titulo(AJUDA_ANCORA) }}
+    </div>
+  </div>
+</div>
+{% include '_abas_admin.html' %}
+<form method="get" class="card mb-3"><div class="card-body">
+  <div class="row g-3 align-items-end">
+    <div class="col-md-4"><label class="form-label" for="q">Login, e-mail ou nome</label><input class="form-control" id="q" name="q" type="text" value="{{ q }}"/></div>
+    <div class="col-md-3">{{ select('funcao', 'Função', [('', 'Todas')] + rotulos.items()|list, selecionado=funcao or '', obrigatorio=False) }}</div>
+    <div class="col-md-3"><label class="form-check mb-2"><input class="form-check-input" id="inativos" name="inativos" type="checkbox" value="1"{% if inativos %} checked{% endif %}/><span class="form-check-label">Mostrar inativos</span></label></div>
+    <div class="col-md-2"><button class="btn btn-outline-primary w-100" type="submit"><i class="fas fa-search me-2" aria-hidden="true"></i>Filtrar</button></div>
+  </div>
+</div></form>
+{{ cabecalho_tabela('Usuários cadastrados', 'usuarios') }}
+  <thead><tr><th scope="col">Login</th><th scope="col">E-mail</th><th scope="col">Nome</th><th scope="col">Funções</th><th scope="col">Situação</th><th scope="col">Acessos</th><th scope="col">Último acesso</th><th scope="col" class="astra-acoes">Ações</th></tr></thead>
+  <tbody>{% for u in lista %}
+  <tr><td><code>{{ u.login }}</code></td><td>{{ u.email or '—' }}</td><td>{{ u.nome }}</td><td>{{ u.funcoes|map('rotulo_funcao')|join(', ') }}</td>
+    <td>{% if u.ativo %}<span class="badge bg-green-lt">ativo</span>{% else %}<span class="badge bg-secondary-lt">inativo</span>{% endif %}
+      {% if u.trocar_senha %}<span class="badge bg-yellow-lt ms-1">senha temporária</span>{% endif %}</td>
+    <td>{% if u.sei_login and u.spw_login %}SEI · SPW{% elif u.sei_login %}SEI{% elif u.spw_login %}SPW{% else %}—{% endif %}</td>
+    <td class="text-nowrap">{% if u.ultimo_acesso %}{{ u.ultimo_acesso[8:10] }}/{{ u.ultimo_acesso[5:7] }}/{{ u.ultimo_acesso[:4] }} {{ u.ultimo_acesso[11:16] }}{% else %}—{% endif %}</td>
+    <td class="astra-acoes"><a class="btn btn-sm btn-icon btn-ghost-secondary" href="{{ url_for('usuarios.editar', id=u.id, retorno=request.full_path) }}" aria-label="Editar {{ u.login }}" title="Editar"><i class="fas fa-edit" aria-hidden="true"></i></a>
+      {% if u.sei_login or u.spw_login %}
+      <form method="post" action="{{ url_for('usuarios.apagar_acessos', id=u.id, retorno=request.full_path) }}" class="d-inline" onsubmit="return confirm('Apagar os acessos de {{ u.login }} ao SEI e ao SPW?');">{{ csrf_campo() }}
+        <button class="btn btn-sm btn-icon btn-ghost-danger" type="submit" aria-label="Apagar acessos de {{ u.login }}" title="Apagar acessos"><i class="fas fa-user-slash" aria-hidden="true"></i><span class="visually-hidden">Apagar acessos</span></button>
+      </form>
+      {% endif %}</td></tr>
+  {% else %}<tr><td colspan="8" class="text-secondary">Nenhum usuário encontrado.</td></tr>{% endfor %}</tbody>
+{{ fechar_tabela() }}
+{% endblock %}

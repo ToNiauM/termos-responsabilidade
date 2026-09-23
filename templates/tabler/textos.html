@@ -1,0 +1,40 @@
+{% extends "tabler_base.html" %}
+{% from "tabler_macros.html" import titulo_pagina %}
+{% block titulo %}Textos{% endblock %}
+{% block conteudo %}
+{{ titulo_pagina('Textos dos termos', AJUDA_ANCORA) }}
+<div class="row">
+<form method="post" action="{{ url_for('textos_salvar') }}" class="col-lg-10">{{ csrf_campo() }}
+  <p class="text-secondary">Os marcadores entre chaves são substituídos ao gerar o termo. Linha em branco separa parágrafos; nos compromissos, uma linha por item. Vale para o documento colado no SEI e para o .docx.</p>
+  {% for titulo, chaves in grupos %}
+  <div class="card mb-3">
+    <div class="card-header"><h2 class="card-title">{{ titulo }}</h2></div>
+    <div class="card-body">
+      {% for chave in chaves %}
+      <div class="{{ 'mb-4' if not loop.last else '' }}">
+        <label class="form-label" for="t-{{ chave }}">{{ rotulos[chave] }}</label>
+        {% if chave in textarea %}
+        <textarea class="form-control" id="t-{{ chave }}" name="{{ chave }}" rows="{{ 8 if chave in ('ccusto_paragrafos', 'individual_compromissos') else 3 }}">{{ valores[chave] }}</textarea>
+        {% else %}
+        <input class="form-control" id="t-{{ chave }}" name="{{ chave }}" type="text" value="{{ valores[chave] }}"/>
+        {% endif %}
+        <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
+          <span class="form-hint m-0">{% if marcadores[chave] %}Marcadores: {% for m in marcadores[chave]|sort %}<code>{{ '{' ~ m ~ '}' }}</code>{% if not loop.last %}, {% endif %}{% endfor %}{% else %}Sem marcadores.{% endif %}</span>
+          {% if valores[chave] != padrao[chave] %}
+          <button class="btn btn-sm btn-outline-secondary ms-auto" type="submit" name="restaurar" value="{{ chave }}"><i class="fas fa-undo me-1" aria-hidden="true"></i>Restaurar padrão</button>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+  <div class="card astra-salvar"><div class="card-body d-flex justify-content-end py-2">
+    <button class="btn btn-primary" type="submit"><i class="fas fa-save me-2" aria-hidden="true"></i>Salvar</button>
+  </div></div>
+</form>
+</div>
+{% endblock %}
+{% block estilos %}<style>
+.astra-salvar { position: sticky; bottom: 0; z-index: 2; }
+</style>{% endblock %}

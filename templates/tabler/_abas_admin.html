@@ -1,0 +1,8 @@
+<nav class="mb-3" aria-label="Administração">
+  <ul class="nav nav-tabs">
+    <li class="nav-item"><a class="nav-link{% if aba == 'inventarios' %} active{% endif %}" href="{{ url_for('admin.tela') }}"{% if aba == 'inventarios' %} aria-current="page"{% endif %}><i class="fas fa-clipboard-check me-2" aria-hidden="true"></i>Inventários</a></li>
+    {% if pode('usuarios.lista') and USUARIO.id is not none %}
+    <li class="nav-item"><a class="nav-link{% if aba == 'usuarios' %} active{% endif %}" href="{{ url_for('usuarios.lista') }}"{% if aba == 'usuarios' %} aria-current="page"{% endif %}><i class="fas fa-users me-2" aria-hidden="true"></i>Usuários</a></li>
+    {% endif %}
+  </ul>
+</nav>

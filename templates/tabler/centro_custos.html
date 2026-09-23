@@ -1,0 +1,30 @@
+{% extends "tabler_base.html" %}
+{% from 'tabler_macros.html' import titulo_pagina, select, cabecalho_tabela, fechar_tabela, tag_termo, tag_email %}
+{% block titulo %}Termo por centro de custo{% endblock %}
+{% block conteudo %}
+{{ titulo_pagina('Termo por centro de custo', AJUDA_ANCORA, 'Termos de Responsabilidade') }}
+{% if pode('gerar', 'POST') %}
+<div class="card mb-3">
+  <div class="card-body">
+    <form method="post" action="{{ url_for('gerar') }}" class="row g-3 align-items-end">{{ csrf_campo() }}
+      <div class="col-12 col-md-6">{{ select('ccusto', 'Centro de custo', centros|map(attribute='ccustos')|list) }}</div>
+      <div class="col-12 col-md-auto"><button class="btn btn-primary" type="submit"><i class="fas fa-file-alt me-2" aria-hidden="true"></i>Gerar termo</button></div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{{ cabecalho_tabela('Situação dos termos por centro de custo', 'centros') }}
+  <thead><tr><th scope="col">Centro</th><th scope="col">Responsável</th><th scope="col" class="text-end">Bens</th><th scope="col" class="text-end">Valor</th><th scope="col">Último termo</th><th scope="col">Situação</th><th scope="col">E-mail</th><th scope="col" class="astra-acoes">Termo</th></tr></thead>
+  <tbody>
+  {% for c in centros %}
+  <tr>
+    <td>{{ c.ccustos }}</td><td>{{ c.responsavel }}</td>
+    <td class="text-end astra-numero">{{ c.quantidade }}</td><td class="text-end astra-numero text-nowrap">{{ (c.valor)|moeda }}</td>
+    <td class="text-nowrap">{% if c.ultimo %}{{ c.ultimo.emitido_em[8:10] }}/{{ c.ultimo.emitido_em[5:7] }}/{{ c.ultimo.emitido_em[:4] }}{% else %}—{% endif %}</td>
+    <td>{{ tag_termo(c) }}</td><td>{{ tag_email(c) }}</td>
+    <td class="astra-acoes"><a class="btn btn-sm btn-ghost-primary btn-icon" href="{{ url_for('termo', tipo='ccusto', chave=c.ccustos) }}" aria-label="Termo de {{ c.ccustos }}" title="Termo de {{ c.ccustos }}"><i class="fas fa-file-alt" aria-hidden="true"></i></a></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+{{ fechar_tabela() }}
+{% endblock %}

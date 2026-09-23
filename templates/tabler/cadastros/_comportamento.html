@@ -1,0 +1,29 @@
+<script>
+(function () {
+  // Foco no resumo de erros (ou no primeiro campo inválido) para leitor de tela e teclado
+  var erro = document.getElementById('erros-formulario') || document.querySelector('.is-invalid');
+  if (erro && erro.id === 'erros-formulario') erro.setAttribute('tabindex', '-1');
+  if (erro) erro.focus();
+  if (!erro && /^#registro-[a-f0-9]{16}$/.test(window.location.hash)) {
+    var registro = document.getElementById(window.location.hash.slice(1));
+    if (registro) { registro.setAttribute('tabindex', '-1'); registro.focus(); }
+  }
+  // Seleção em lote das localizações (o marcar/desmarcar todos vem do astra.js via data-parent/data-child)
+  var form = document.getElementById('mover-localizacoes');
+  if (!form) return;
+  var selecoes = document.querySelectorAll('input[name="localizacoes"][form="mover-localizacoes"]');
+  function atualizar() {
+    var n = Array.from(selecoes).filter(function (el) { return el.checked; }).length;
+    document.getElementById('contagem-selecao').textContent = n + ' localização(ões) selecionada(s) nesta página';
+    document.getElementById('revisar-lote').disabled = !n;
+  }
+  document.addEventListener('change', function () { window.setTimeout(atualizar, 0); });
+  window.addEventListener('pageshow', function () {
+    selecoes.forEach(function (el) { el.checked = false; el.dispatchEvent(new Event('change', { bubbles: true })); });
+    var todos = document.getElementById('selecionar-pagina');
+    if (todos) { todos.checked = false; todos.indeterminate = false; }
+    atualizar();
+  });
+  atualizar();
+})();
+</script>

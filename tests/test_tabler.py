@@ -1,4 +1,4 @@
-"""Protótipo Tabler (branch tabler): com ASTRA_UI=tabler, templates/tabler/ tem precedência sobre templates/.
+"""Protótipo Tabler (branch tabler): com TERMOS_DESIGN=tabler, templates/tabler/ tem precedência sobre templates/.
 
 As telas migradas herdam tabler_base.html; as demais continuam no base.html do DSGov, intactas.
 """
@@ -24,7 +24,15 @@ def _e_tabler(html):
 
 
 def test_sem_a_chave_tudo_continua_no_dsgov(cliente):
-    html = cliente.get("/").text
+    import app as modulo
+    original = modulo.app.jinja_loader
+    modulo.app.jinja_loader = modulo.carregador_templates(tabler=False)
+    modulo.app.jinja_env.cache.clear()
+    try:
+        html = cliente.get("/").text
+    finally:
+        modulo.app.jinja_loader = original
+        modulo.app.jinja_env.cache.clear()
     assert "govbr-ds/core.min.css" in html and "tabler.min.css" not in html
 
 
@@ -70,6 +78,18 @@ def test_formulario_de_cadastro_no_tabler_mostra_erros_e_preserva_valores(tabler
     assert '<select class="form-select' in html and 'name="tipo"' in html and 'type="checkbox"' in html
 
 
-def test_tela_nao_migrada_continua_no_dsgov_com_a_chave_ligada(tabler):
-    html = tabler.get("/ajuda").text
-    assert "govbr-ds/core.min.css" in html and "tabler.min.css" not in html
+def _menu(html):
+    return html.split('id="menu-lateral"')[1].split("</aside>")[0]
+
+
+def test_menu_do_tabler_marca_exatamente_um_item_por_tela(tabler):
+    for rota in ("/", "/termos-emitidos", "/cadastros/responsaveis", "/cadastros/pessoas/novo", "/analise", "/inventario", "/ajuda"):
+        assert _menu(tabler.get(rota).text).count('aria-current="page"') == 1, rota
+
+
+def test_menu_do_tabler_segue_as_permissoes(tabler, usuarios_exemplo):
+    completo = _menu(tabler.get("/").text)
+    assert "Administração" in completo and "Atualizar base" in completo and "Cadastros" in completo
+    tabler.post("/sair"); logar(tabler, *usuarios_exemplo["consulta"])
+    restrito = _menu(tabler.get("/").text)
+    assert "Administração" not in restrito and "Atualizar base" not in restrito

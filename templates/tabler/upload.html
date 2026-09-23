@@ -1,0 +1,83 @@
+{% extends "tabler_base.html" %}
+{% from "tabler_macros.html" import titulo_pagina, cabecalho_tabela, fechar_tabela %}
+{% block titulo %}Atualizar base{% endblock %}
+{% block estilos %}{% if pedido_spw %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
+{% block conteudo %}
+{{ titulo_pagina('Atualizar base', AJUDA_ANCORA) }}
+<p class="text-secondary">Baixe a planilha, edite e carregue de volta. Carregar substitui o conjunto inteiro.</p>
+<div class="row row-cards mb-3">
+  {% for card in [
+    {'id': 'bens', 'titulo': 'Bens', 'icone': 'fa-boxes', 'descricao': 'Export do sistema de patrimônio (SPW). Cadastros não mudam.',
+     'baixar': url_for('bens_exportar'), 'carregar': url_for('upload'), 'confirmar': 'Substituir todos os bens pela planilha'},
+    {'id': 'cadastros', 'titulo': 'Cadastros', 'icone': 'fa-address-book', 'descricao': 'Centros de custo, localizações, pessoas, atribuições e inventários. Bens não mudam.',
+     'baixar': url_for('cadastros_exportar'), 'carregar': url_for('importar_cadastros'), 'confirmar': 'Substituir todos os cadastros pela planilha'}] %}
+  <div class="col-md-6">
+    <form method="post" action="{{ card.carregar }}" enctype="multipart/form-data" class="card h-100" data-confirmar="{{ card.confirmar }}">{{ csrf_campo() }}
+      <div class="card-header"><h2 class="card-title"><i class="fas {{ card.icone }} me-2 text-secondary" aria-hidden="true"></i>{{ card.titulo }}</h2>
+        <div class="card-actions"><a class="btn btn-sm btn-outline-secondary" href="{{ card.baixar }}"><i class="fas fa-download me-1" aria-hidden="true"></i>Baixar</a></div>
+      </div>
+      <div class="card-body">
+        <p class="text-secondary">{{ card.descricao }}</p>
+        <label class="form-label" for="arquivo-{{ card.id }}">Planilha .xlsx</label>
+        <input class="form-control" id="arquivo-{{ card.id }}" name="arquivo" type="file" accept=".xlsx" required/>
+      </div>
+      <div class="card-footer text-end">
+        <button class="btn btn-primary" type="submit"><i class="fas fa-upload me-2" aria-hidden="true"></i>Carregar</button>
+      </div>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% if LOGIN_ATIVO and pode('base_atualizar_spw', 'POST') %}
+<div class="card mb-3"><div class="card-body d-flex align-items-center flex-wrap gap-3">
+  <form method="post" action="{{ url_for('base_atualizar_spw') }}">{{ csrf_campo() }}
+    <button class="btn btn-primary" type="submit" {% if pedido_spw %}disabled{% endif %}><i class="fas fa-sync me-2" aria-hidden="true"></i>Atualizar com SPW</button></form>
+  {% if pedido_spw %}<span><span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Atualizando com o SPW{% if pedido_spw.passo == 'aguardando' %} ({{ descricao_passo['aguardando'] }}){% endif %}…</span>
+  {% elif ultimo_spw and ultimo_spw.passo == 'erro' %}<span class="text-danger"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i>Última atualização falhou: {{ ultimo_spw.mensagem }}</span>
+  {% else %}<span class="text-secondary">Busca a relação de bens no SPW agora, sem esperar a atualização automática da madrugada.</span>{% endif %}
+</div></div>
+{% endif %}
+{% if sem_centro %}
+<div class="alert alert-warning" role="alert">
+  <div class="d-flex"><i class="fas fa-exclamation-triangle me-2 mt-1" aria-hidden="true"></i>
+  <div><strong>Localizações ativas sem centro de custo:</strong> {{ sem_centro|join(' · ') }}. <a href="{{ url_for('cadastros', aba='localizacoes') }}">Mapear</a>.</div></div>
+</div>
+{% endif %}
+{% if importacoes %}
+{{ cabecalho_tabela('Últimas cargas de bens', 'imp') }}
+  <thead><tr><th scope="col">Data</th><th scope="col">Arquivo</th><th scope="col" class="text-end">Total</th><th scope="col" class="text-end">Ativos</th><th scope="col" class="text-end">Novos</th><th scope="col" class="text-end">Removidos</th><th scope="col" class="text-end">Movidos</th><th scope="col" class="text-end">Situação</th></tr></thead>
+  <tbody>
+  {% for i in importacoes %}
+  <tr><td class="text-nowrap"><a href="{{ url_for('importacao_tela', id=i.id) }}">{{ i.importado_em[8:10] }}/{{ i.importado_em[5:7] }}/{{ i.importado_em[:4] }} {{ i.importado_em[11:16] }}</a></td><td>{{ i.arquivo or '—' }}</td>
+    <td class="text-end astra-numero">{{ i.total }}</td><td class="text-end astra-numero">{{ i.ativos }}</td><td class="text-end astra-numero">{{ i.novos }}</td><td class="text-end astra-numero">{{ i.removidos }}</td><td class="text-end astra-numero">{{ i.movidos }}</td><td class="text-end astra-numero">{{ i.situacao }}</td></tr>
+  {% endfor %}
+  </tbody>
+{{ fechar_tabela() }}
+{% endif %}
+{% if execucoes %}
+{{ cabecalho_tabela('Atualizações com o SPW (automáticas nos dias úteis, de madrugada, e as pedidas aqui)', 'robo') }}
+  <thead><tr><th scope="col">Início</th><th scope="col">Resultado</th><th scope="col">Detalhe</th></tr></thead>
+  <tbody>
+  {% for e in execucoes %}
+  <tr><td class="text-nowrap">{{ e.iniciado_em[8:10] }}/{{ e.iniciado_em[5:7] }}/{{ e.iniciado_em[:4] }} {{ e.iniciado_em[11:16] }}</td>
+    <td>{% if e.resultado == 'importado' and e.importacao_id %}<a href="{{ url_for('importacao_tela', id=e.importacao_id) }}" class="badge bg-success-lt">importado</a>
+      {% elif e.resultado == 'importado' %}<span class="badge bg-success-lt">importado</span>
+      {% elif e.resultado == 'sem_mudanca' %}<span class="badge bg-secondary-lt">sem mudança</span>
+      {% else %}<span class="badge bg-danger-lt">erro</span>{% endif %}</td>
+    <td>{{ e.mensagem or '—' }}</td></tr>
+  {% endfor %}
+  </tbody>
+{{ fechar_tabela() }}
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll("form[data-confirmar]").forEach(function (form) {
+  form.addEventListener("submit", function (ev) {
+    var arquivo = form.querySelector("input[type=file]").files[0];
+    var nome = arquivo ? arquivo.name : "selecionada";
+    if (!confirm(form.dataset.confirmar + " " + nome + "?")) ev.preventDefault();
+  });
+});
+</script>
+{% endblock %}

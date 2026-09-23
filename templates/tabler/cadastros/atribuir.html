@@ -1,0 +1,20 @@
+{% extends 'tabler_base.html' %}
+{% from 'tabler_macros.html' import titulo_pagina %}
+{% from 'tabler_campos.html' import campo, ocultos %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+{{ titulo_pagina(titulo, AJUDA_ANCORA, 'Cadastros') }}
+<div class="row">
+<div class="col-lg-8">
+<form method="post" action="{{ url_for('pessoas_atribuir') }}" class="card" novalidate>{{ csrf_campo() }}
+  {{ ocultos(retorno) }}<input type="hidden" name="nome" value="{{ nome }}"/>
+  <div class="card-body">
+    <p>Pessoa: <strong>{{ nome }}</strong>. Confira o número para consultar o bem antes de atribuí-lo.</p>
+    {{ campo('numero', 'Número do patrimônio', valores, erros, True) }}
+  </div>
+  <div class="card-footer d-flex justify-content-end gap-2"><a class="btn btn-link" href="{{ retorno }}">Cancelar</a><button class="btn btn-primary" type="submit"><i class="fas fa-search me-2" aria-hidden="true"></i>Consultar patrimônio</button></div>
+</form>
+</div>
+</div>
+{% endblock %}
+{% block scripts %}{% include 'cadastros/_comportamento.html' %}{% endblock %}

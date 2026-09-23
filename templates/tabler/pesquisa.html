@@ -1,0 +1,96 @@
+{% extends "tabler_base.html" %}
+{% from 'tabler_macros.html' import ajuda_titulo, cabecalho_tabela, fechar_tabela %}
+{% block titulo %}{% if filtro %}Bens de {{ chave }}{% else %}Pesquisa{% endif %}{% endblock %}
+{% block conteudo %}
+{% set termo_url = url_for('termo', tipo=filtro, chave=chave) if filtro else None %}
+<div class="page-header d-print-none mb-3">
+  <div class="row g-2 align-items-center">
+    <div class="col-12 col-md">
+      <div class="page-pretitle">Patrimônio</div>
+      <div class="d-flex align-items-center"><h1 class="page-title">{% if filtro %}Bens de {{ chave }} ({{ bens|length }}){% else %}Pesquisa{% if q %}: “{{ q }}”{% endif %}{% endif %}</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}</div>
+    </div>
+    {% if filtro %}<div class="col-12 col-md-auto"><a class="btn btn-primary" href="{{ termo_url }}"><i class="fas fa-file-alt me-2" aria-hidden="true"></i>{% if filtro == 'ccusto' %}Termo do centro de custo{% else %}Termo individual{% endif %}</a></div>{% endif %}
+  </div>
+</div>
+
+{% if not filtro %}
+{# no celular a busca do cabeçalho some; aqui ela fica sempre à mão #}
+<form class="mb-3{% if q %} d-md-none{% endif %}" method="get" action="{{ url_for('pesquisa') }}" role="search">
+  <div class="input-group">
+    <input class="form-control" id="busca-pesquisa" name="q" type="search" value="{{ q or '' }}" placeholder="Número, descrição, nome ou centro de custo" aria-label="Pesquisar"/>
+    <button class="btn btn-primary" type="submit"><i class="fas fa-search me-2" aria-hidden="true"></i>Pesquisar</button>
+  </div>
+</form>
+{% endif %}
+
+{% if not filtro and not q %}
+<div class="card mb-3"><div class="card-body">
+<p>Digite no campo de pesquisa um número de patrimônio, parte da descrição de um bem, o nome de uma pessoa ou a sigla de um centro de custo.</p>
+<p class="text-secondary small mb-0">Várias palavras: todas precisam bater em algum campo do bem (descrição, complemento, localização, centro de custo, pessoa). <code>computador GEX-LIC</code> traz os computadores do GEX-LIC. Texto simples encontra o que <em>contém</em> o que foi digitado (GEX traz GEX-ITEC e AGEX). Com <code>*</code> o padrão é exato: <code>GEX*</code> só o que começa com GEX, <code>*ITEC</code> só o que termina com ITEC.</p>
+</div></div>
+{% elif not filtro and not centros and not pessoas and not bens %}
+<div class="alert alert-info" role="alert">
+  <div class="d-flex"><i class="fas fa-info-circle me-2 mt-1" aria-hidden="true"></i>
+  <div><strong>Nada encontrado.</strong> Tente outra palavra ou parte dela.</div></div>
+</div>
+{% endif %}
+
+{% if centros %}
+<h2 class="h3 mb-2">Centros de custo</h2>
+<div class="row row-cards mb-3">
+  {% for c in centros %}
+  <div class="col-12 col-sm-6 col-md-4"><div class="card card-sm h-100"><div class="card-body d-flex flex-column">
+    <div class="fw-semibold fs-3">{{ c.ccustos }}</div>
+    <div class="text-secondary mb-2">{{ c.responsavel }} · {{ c.quantidade }} bem(ns) sob guarda</div>
+    <div class="btn-list mt-auto">
+      <a class="btn btn-sm btn-outline-primary" href="{{ url_for('pesquisa', ccusto=c.ccustos) }}"><i class="fas fa-list me-2" aria-hidden="true"></i>Ver bens</a>
+      <a class="btn btn-sm btn-ghost-primary" href="{{ url_for('termo', tipo='ccusto', chave=c.ccustos) }}"><i class="fas fa-file-alt me-2" aria-hidden="true"></i>Termo</a>
+    </div>
+  </div></div></div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if pessoas %}
+<h2 class="h3 mb-2">Pessoas</h2>
+<div class="row row-cards mb-3">
+  {% for p in pessoas %}
+  <div class="col-12 col-sm-6 col-md-4"><div class="card card-sm h-100"><div class="card-body d-flex flex-column">
+    <div class="fw-semibold fs-3">{{ p.nome }}</div>
+    <div class="text-secondary mb-2">{{ p.quantidade }} bem(ns) atribuído(s)</div>
+    <div class="btn-list mt-auto">
+      <a class="btn btn-sm btn-outline-primary" href="{{ url_for('pesquisa', pessoa=p.nome) }}"><i class="fas fa-list me-2" aria-hidden="true"></i>Ver bens</a>
+      <a class="btn btn-sm btn-ghost-primary" href="{{ url_for('termo', tipo='individual', chave=p.nome) }}"><i class="fas fa-file-alt me-2" aria-hidden="true"></i>Termo individual</a>
+    </div>
+  </div></div></div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if bens %}
+{% if not filtro %}<h2 class="h3 mb-2">Bens</h2>{% endif %}
+{% if truncado %}
+<div class="alert alert-warning" role="alert">
+  <div class="d-flex"><i class="fas fa-exclamation-triangle me-2 mt-1" aria-hidden="true"></i>
+  <div><strong>Muitos resultados.</strong> Só os {{ bens|length }} primeiros aparecem; refine a pesquisa.</div></div>
+</div>
+{% endif %}
+{{ cabecalho_tabela('Bens encontrados', 'bens') }}
+  <thead><tr><th scope="col">Número</th><th scope="col">Descrição</th><th scope="col">Complemento</th><th scope="col">Localização</th><th scope="col">Situação</th>{% if not filtro %}<th scope="col">Centro</th><th scope="col">Pessoa</th>{% endif %}</tr></thead>
+  <tbody>
+  {% for b in bens %}
+  <tr>
+    <td><a href="{{ url_for('bem', numero=b.numero) }}">{{ b.numero }}</a></td>
+    <td>{{ b.descricao }}</td><td>{{ b.complemento or '' }}</td><td>{{ b.localizacao or '' }}</td><td>{{ b.situacao }}</td>
+    {% if not filtro %}<td>{{ b.ccustos or '' }}</td><td>{{ b.pessoa or '' }}</td>{% endif %}
+  </tr>
+  {% endfor %}
+  </tbody>
+{{ fechar_tabela() }}
+{% elif filtro %}
+<div class="alert alert-warning" role="alert">
+  <div class="d-flex"><i class="fas fa-exclamation-triangle me-2 mt-1" aria-hidden="true"></i>
+  <div><strong>Nenhum bem.</strong> {% if filtro == 'ccusto' %}Nenhum bem ativo nas localizações deste centro (bens atribuídos a pessoas não contam).{% else %}Nenhum bem atribuído a esta pessoa.{% endif %}</div></div>
+</div>
+{% endif %}
+{% endblock %}

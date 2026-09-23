@@ -1,0 +1,29 @@
+{% extends "tabler_base.html" %}
+{% from 'tabler_macros.html' import titulo_pagina %}
+{% block titulo %}Trocar senha{% endblock %}
+{% block conteudo %}
+{{ titulo_pagina('Trocar senha', AJUDA_ANCORA, 'Minha conta') }}
+<div class="row">
+<div class="col-md-8 col-lg-6">
+{% if obrigatoria %}
+<div class="alert alert-warning" role="alert">
+  <div class="d-flex"><i class="fas fa-key me-2 mt-1" aria-hidden="true"></i><div><strong>Defina uma nova senha para continuar.</strong> Sua senha é temporária.</div></div>
+</div>
+{% endif %}
+{% if erro %}<div class="alert alert-danger" role="alert">
+  <div class="d-flex"><i class="fas fa-times-circle me-2 mt-1" aria-hidden="true"></i><div>{{ erro }}</div></div>
+</div>{% endif %}
+<form method="post" action="{{ url_for('usuarios.senha') }}" class="card">{{ csrf_campo() }}
+  <div class="card-body">
+    <div class="mb-3"><label class="form-label" for="atual">Senha atual</label><input class="form-control" id="atual" name="atual" type="password" autocomplete="current-password" required/></div>
+    <div class="mb-3"><label class="form-label" for="nova">Nova senha (mínimo 8 caracteres)</label><input class="form-control" id="nova" name="nova" type="password" autocomplete="new-password" minlength="8" required/></div>
+    <div class="mb-0"><label class="form-label" for="confirmacao">Repita a nova senha</label><input class="form-control" id="confirmacao" name="confirmacao" type="password" autocomplete="new-password" minlength="8" required/></div>
+  </div>
+  <div class="card-footer d-flex justify-content-end gap-2">
+    {% if not obrigatoria %}<a class="btn btn-link" href="{{ URL_INICIAL }}">Cancelar</a>{% endif %}
+    <button class="btn btn-primary" type="submit"><i class="fas fa-save me-2" aria-hidden="true"></i>Salvar nova senha</button>
+  </div>
+</form>
+</div>
+</div>
+{% endblock %}

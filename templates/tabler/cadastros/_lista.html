@@ -1,0 +1,42 @@
+{% macro coluna(campo, rotulo) %}
+<th scope="col" aria-sort="{{ ('descending' if filtros.direcao == 'desc' else 'ascending') if filtros.ordem == campo else 'none' }}"><a class="astra-ordem" href="{{ pagina_url(ordem=campo, direcao='desc' if filtros.ordem == campo and filtros.direcao == 'asc' else 'asc', pagina=1) }}">{{ rotulo }}{% if filtros.ordem == campo %}<i class="fas {{ 'fa-sort-down' if filtros.direcao == 'desc' else 'fa-sort-up' }} ms-1" aria-hidden="true"></i>{% endif %}</a></th>
+{% endmacro %}
+<div class="card">
+  <div class="card-header flex-wrap gap-2">
+    <h2 class="card-title">{{ lista.total }} registro(s) encontrado(s)</h2>
+    {% if aba == 'localizacoes' %}<div class="ms-auto text-secondary small" data-selecao-info="localizacoes"><span class="count">0</span> <span class="text">item selecionado</span></div>{% endif %}
+  </div>
+  <div class="table-responsive">
+  <table class="table table-vcenter card-table table-striped"><caption class="visually-hidden">{{ areas[aba][0] }}</caption>
+    <thead><tr>
+      {% if aba == 'responsaveis' %}{{ coluna('ccustos', 'Centro de custo') }}{{ coluna('responsavel', 'Responsável') }}{{ coluna('funcao', 'Função') }}
+      {% elif aba == 'pessoas' %}{{ coluna('nome', 'Nome') }}{{ coluna('email', 'E-mail') }}{{ coluna('quantidade', 'Bens atribuídos') }}
+      {% elif aba == 'localizacoes' %}
+      <th scope="col" class="w-1"><input class="form-check-input m-0 align-middle" id="selecionar-pagina" type="checkbox" data-parent="localizacoes"/><label class="visually-hidden" for="selecionar-pagina">Selecionar localizações vinculadas desta página</label></th>
+      {{ coluna('localizacao', 'Localização') }}{{ coluna('ccustos', 'Centro de custo') }}
+      {% else %}{{ coluna('numero_sei', 'Número SEI') }}{{ coluna('descricao', 'Descrição') }}{{ coluna('tipo', 'Tipo de termo') }}{{ coluna('vigente', 'Situação') }}{{ coluna('criado_em', 'Cadastrado em') }}{% endif %}
+      <th scope="col" class="astra-acoes">Ações</th>
+    </tr></thead>
+    <tbody>
+    {% for item in lista.itens %}
+    <tr id="{{ ancora(item.chave) }}"{% if registro == item.chave|string %} class="table-info" tabindex="-1"{% endif %}>
+      {% if aba == 'responsaveis' %}
+      <td><a href="{{ link('responsaveis_editar', ccustos=item.ccustos) }}">{{ item.ccustos }}</a></td><td>{{ item.responsavel }}</td><td>{{ item.funcao or '—' }}</td>
+      <td class="astra-acoes"><div class="btn-list flex-nowrap justify-content-end"><a class="btn btn-sm btn-outline-secondary" href="{{ link('responsaveis_editar', ccustos=item.ccustos) }}"><i class="fas fa-pen me-1" aria-hidden="true"></i>Editar</a><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('cadastros', aba='localizacoes', centro=item.ccustos) }}">Localizações</a>{{ acao('responsaveis_excluir', 'Excluir', origem, {'ccustos': item.ccustos}) }}</div></td>
+      {% elif aba == 'pessoas' %}
+      <td><a href="{{ pagina_url(nome=item.nome) }}">{{ item.nome }}</a></td><td>{{ item.email or '—' }}</td><td class="astra-numero">{{ item.quantidade }}</td>
+      <td class="astra-acoes"><div class="btn-list flex-nowrap justify-content-end"><a class="btn btn-sm btn-outline-secondary" href="{{ link('pessoas_editar', nome=item.nome) }}"><i class="fas fa-pen me-1" aria-hidden="true"></i>Editar</a><a class="btn btn-sm btn-outline-secondary" href="{{ pagina_url(nome=item.nome) }}">Ver bens</a>{{ acao('pessoas_excluir', 'Excluir', origem, {'nome': item.nome}) }}</div></td>
+      {% elif aba == 'localizacoes' %}
+      <td>{% if item.ccustos %}<input class="form-check-input m-0 align-middle" id="local-{{ loop.index }}" type="checkbox" name="localizacoes" value="{{ item.localizacao }}" data-child="localizacoes" form="mover-localizacoes"/><label class="visually-hidden" for="local-{{ loop.index }}">Selecionar {{ item.localizacao }}</label>{% endif %}</td>
+      <td>{{ item.localizacao }}</td><td>{% if item.ccustos %}{{ item.ccustos }}{% else %}<span class="badge bg-yellow-lt">Sem centro de custo</span>{% endif %}</td>
+      <td class="astra-acoes"><div class="btn-list flex-nowrap justify-content-end">{% if item.ccustos %}<a class="btn btn-sm btn-outline-secondary" href="{{ link('localizacoes_alterar', localizacao=item.localizacao) }}">Alterar centro</a>{{ acao('localizacoes_excluir', 'Remover vínculo', origem, {'localizacao': item.localizacao}) }}{% else %}<a class="btn btn-sm btn-outline-primary" href="{{ link('cadastro_novo', aba='localizacoes', localizacao=item.localizacao) }}">Vincular centro</a>{% endif %}</div></td>
+      {% else %}
+      <td>{{ item.numero_sei|link_sei(item.id_procedimento) }}</td><td>{{ item.descricao }}</td><td>{{ dict(tipos)[item.tipo] }}</td><td><span class="badge {{ 'bg-green-lt' if item.vigente else 'bg-secondary-lt' }}">{{ 'Vigente' if item.vigente else 'Encerrado' }}</span></td><td class="text-nowrap">{{ item.criado_em[8:10] }}/{{ item.criado_em[5:7] }}/{{ item.criado_em[:4] }}</td>
+      <td class="astra-acoes"><div class="btn-list flex-nowrap justify-content-end">{% if item.vigente %}{{ acao('processos_encerrar', 'Encerrar', origem, {'id': item.id}, 'fa-times') }}{% else %}{{ acao('processos_vigente', 'Tornar vigente', origem, {'id': item.id}, 'fa-check') }}{% endif %}{{ acao('processos_excluir', 'Excluir', origem, {'id': item.id}) }}</div></td>
+      {% endif %}
+    </tr>
+    {% else %}<tr><td colspan="{{ {'responsaveis': 4, 'pessoas': 4, 'localizacoes': 4, 'processos': 6}[aba] }}" class="text-secondary">Nenhum registro encontrado. Ajuste a busca ou use a ação de cadastro acima.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>

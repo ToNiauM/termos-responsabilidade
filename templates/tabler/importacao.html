@@ -1,0 +1,26 @@
+{% extends "tabler_base.html" %}
+{% from "tabler_macros.html" import titulo_pagina, cabecalho_tabela, fechar_tabela %}
+{% block titulo %}Importação{% endblock %}
+{% block conteudo %}
+{{ titulo_pagina('Importação de ' ~ i.importado_em[8:10] ~ '/' ~ i.importado_em[5:7] ~ '/' ~ i.importado_em[:4] ~ ' ' ~ i.importado_em[11:16], AJUDA_ANCORA, 'Atualizar base') }}
+<p class="text-secondary">{{ i.arquivo or 'arquivo não informado' }} · {{ i.total }} bens ({{ i.ativos }} ativos)</p>
+<div class="row row-cards mb-3">
+  {% for rotulo, n, cor in [('Novos', i.novos, 'green'), ('Removidos', i.removidos, 'red'), ('Movidos', i.movidos, 'azure'), ('Situação alterada', i.situacao, 'yellow')] %}
+  <div class="col-6 col-md-3"><div class="card card-sm h-100"><div class="card-body"><div class="row align-items-center g-2">
+    <div class="col-auto"><span class="avatar bg-{{ cor }}-lt"><i class="fas {{ {'Novos': 'fa-plus', 'Removidos': 'fa-minus', 'Movidos': 'fa-exchange-alt', 'Situação alterada': 'fa-sync'}[rotulo] }}" aria-hidden="true"></i></span></div>
+    <div class="col"><div class="h2 mb-0 astra-numero">{{ n }}</div><div class="text-secondary small">{{ rotulo }}</div></div>
+  </div></div></div></div>
+  {% endfor %}
+</div>
+{{ cabecalho_tabela('Mudanças', 'mud') }}
+  <thead><tr><th scope="col">Número</th><th scope="col">Descrição</th><th scope="col">Mudança</th><th scope="col">De</th><th scope="col">Para</th></tr></thead>
+  <tbody>
+  {% for m in i.mudancas %}
+  <tr><td><a href="{{ url_for('bem', numero=m.numero) }}">{{ m.numero }}</a></td><td>{{ m.descricao or '' }}</td>
+    <td><span class="badge {{ {'novo': 'bg-green-lt', 'removido': 'bg-red-lt', 'movido': 'bg-azure-lt', 'situacao': 'bg-yellow-lt'}[m.tipo] }}">{{ m.tipo }}</span></td>
+    <td>{{ m.de or '—' }}</td><td>{{ m.para or '—' }}</td></tr>
+  {% else %}<tr><td colspan="5" class="text-secondary">Nenhuma mudança nesta importação.</td></tr>
+  {% endfor %}
+  </tbody>
+{{ fechar_tabela() }}
+{% endblock %}

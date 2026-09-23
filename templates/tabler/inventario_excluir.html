@@ -1,0 +1,23 @@
+{% extends "tabler_base.html" %}
+{% from 'tabler_macros.html' import titulo_pagina %}
+{% block titulo %}Excluir · {{ e.nome }}{% endblock %}
+{% block conteudo %}
+{{ titulo_pagina('Excluir o evento ' ~ e.nome, AJUDA_ANCORA, 'Administração de inventários') }}
+<div class="row">
+<div class="col-lg-8">
+<div class="alert alert-danger mb-3" role="alert"><div class="d-flex"><i class="fas fa-exclamation-triangle me-2 mt-1" aria-hidden="true"></i>
+  <div><strong>Esta ação não tem desfazer.</strong> O evento está {{ e.estado }}. Serão apagados:
+    {{ c.leituras }} leitura(s), {{ c.fotos }} foto(s) de bens{% if c.sobras_com_foto %} e {{ c.sobras_com_foto }} de sobras{% endif %} (também no bucket), {{ c.sobras }} sobra(s), {{ c.integrantes }} integrante(s) da comissão, {{ c.salas }} sala(s) do escopo{% if c.bens_encerrados %} e o retrato de {{ c.bens_encerrados }} bem(ns) congelado(s) no encerramento{% endif %}. O caminho de volta é o backup diário.</div></div></div>
+<form method="post" action="{{ url_for('inventario.excluir', id=e.id) }}" class="card">{{ csrf_campo() }}
+  <div class="card-body">
+    <label class="form-label required" for="nome">Digite o nome do evento para confirmar: <strong>{{ e.nome }}</strong></label>
+    <input class="form-control" id="nome" name="nome" type="text" autocomplete="off" required/>
+  </div>
+  <div class="card-footer d-flex justify-content-end gap-2 flex-wrap">
+    <a class="btn btn-link" href="{{ url_for('admin.tela') }}">Cancelar</a>
+    <button class="btn btn-danger" type="submit"><i class="fas fa-trash me-2" aria-hidden="true"></i>Excluir definitivamente</button>
+  </div>
+</form>
+</div>
+</div>
+{% endblock %}
