@@ -91,32 +91,48 @@
 {% endmacro %}
 
 {% macro grafico(g) %}
-{# g = {id, titulo, subtitulo, opcoes (dict ECharts), resumo (aria-label), alto (bool), altura, col, tabela (graficos.tabela_dados)} #}
+{# g = {id, titulo, subtitulo, opcoes (dict ECharts), resumo (aria-label), alto (bool), altura, col, tabela (graficos.tabela_dados)}
+   Opcionais: destaque = {forte, texto} (frase curta acima do gráfico); seletores = [{rotulo, opcoes: [(valor, rótulo)]}] com
+   variantes = [{id, opcoes, resumo, tabela}] — o id de cada variante é g.id + "--" + valores dos seletores (graficos.js troca). #}
+{% set variantes = g.variantes or [g] %}
 <div class="{{ g.col or 'col-sm-12 col-md-6' }} mb-3">
   <div class="card h-100">
-    <div class="card-header d-block">
+    <div class="card-header {% if g.seletores %}flex-wrap gap-2{% else %}d-block{% endif %}">
+      {% if g.seletores %}<div class="col-12 col-md">{% endif %}
       <h3 class="card-title">{{ g.titulo }}</h3>
       {% if g.subtitulo %}<div class="card-subtitle mt-1">{{ g.subtitulo }}</div>{% endif %}
+      {% if g.seletores %}</div>
+      <div class="col-12 col-md-auto d-flex flex-wrap gap-2">
+        {% for s in g.seletores %}
+        <select class="form-select form-select-sm w-auto" data-grafico-seletor="{{ g.id }}" aria-label="{{ s.rotulo }}" title="{{ s.rotulo }}" autocomplete="off">
+          {% for valor, rotulo in s.opcoes %}<option value="{{ valor }}"{% if loop.first %} selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+        </select>
+        {% endfor %}
+      </div>{% endif %}
     </div>
     <div class="card-body">
-      <script type="application/json" id="{{ g.id }}">{{ g.opcoes|tojson }}</script>
-      <div class="{% if g.altura == 'extra' %}astra-grafico-extra{% elif g.alto %}astra-grafico-alto{% else %}astra-grafico{% endif %}" data-grafico="{{ g.id }}" role="img" aria-label="{{ g.resumo }}"></div>
-      {% if g.tabela %}
+      {% if g.destaque %}<p class="mb-2"><strong>{{ g.destaque.forte }}</strong> {{ g.destaque.texto }}</p>{% endif %}
+      {% for v in variantes %}<script type="application/json" id="{{ v.id }}" data-resumo="{{ v.resumo }}">{{ v.opcoes|tojson }}</script>
+      {% endfor %}
+      <div class="{% if g.altura == 'extra' %}astra-grafico-extra{% elif g.alto %}astra-grafico-alto{% else %}astra-grafico{% endif %}" data-grafico="{{ variantes[0].id }}"{% if g.seletores %} data-grafico-base="{{ g.id }}"{% endif %} role="img" aria-label="{{ variantes[0].resumo }}"></div>
+      {% if variantes[0].tabela %}
       <button class="btn btn-sm btn-ghost-secondary mt-2 collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#acc-{{ g.id }}-dados" aria-controls="acc-{{ g.id }}-dados" aria-expanded="false">
         <i class="fas fa-angle-down me-1 astra-seta" aria-hidden="true"></i>Ver dados
       </button>
       <div class="collapse" id="acc-{{ g.id }}-dados">
-        <div class="table-responsive mt-2">
+        {% for v in variantes %}
+        <div class="table-responsive mt-2"{% if g.seletores %} data-grafico-tabela="{{ v.id }}"{% if not loop.first %} hidden{% endif %}{% endif %}>
           <table class="table table-sm table-vcenter">
             <caption class="visually-hidden">{{ g.titulo }} — dados</caption>
-            <thead><tr>{% for c in g.tabela.colunas %}<th scope="col"{% if not loop.first %} class="text-end"{% endif %}>{{ c }}</th>{% endfor %}</tr></thead>
+            <thead><tr>{% for c in v.tabela.colunas %}<th scope="col"{% if not loop.first %} class="text-end"{% endif %}>{{ c }}</th>{% endfor %}</tr></thead>
             <tbody>
-            {% for linha in g.tabela.linhas %}
+            {% for linha in v.tabela.linhas %}
             <tr>{% for cel in linha %}<td{% if not loop.first %} class="text-end astra-numero"{% endif %}>{% if cel.url %}<a href="{{ cel.url }}">{{ cel.valor }}</a>{% else %}{{ cel.valor }}{% endif %}</td>{% endfor %}</tr>
             {% endfor %}
             </tbody>
           </table>
         </div>
+        {% endfor %}
       </div>
       {% endif %}
     </div>

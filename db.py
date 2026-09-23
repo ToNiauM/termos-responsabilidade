@@ -3,6 +3,7 @@
 Todas as funções recebem a conexão como primeiro argumento; quem abre e fecha é o chamador
 (o Flask, por request; os testes, por fixture). Nenhuma função aqui usa Flask.
 """
+import json
 import re
 import sqlite3
 from datetime import date, datetime, timedelta
@@ -1465,6 +1466,67 @@ def dimensoes(conn, f: dict) -> dict:
         "faixa": fixas(FAIXAS_VALOR, _agrupar(conn, _FAIXA_VALOR, f)),
         "pessoa": rot([x for x in _agrupar(conn, "a.nome", f) if x["chave"]], str),
     }
+
+
+CHAVES_SQL = {   # chave de filtro → expressão SQL do grupo, com as mesmas sentinelas "-" de _where/dimensoes
+    "situacao": "b.situacao",
+    "ccusto": "coalesce(l.ccustos, '-')",
+    "localizacao": "CASE WHEN coalesce(b.localizacao, '') = '' THEN '-' ELSE b.localizacao END",
+    "classificacao": "CASE WHEN coalesce(b.classificacao, '') = '' THEN '-' ELSE b.classificacao END",
+    "pessoa": "coalesce(a.nome, '-')",
+    "idade": _FAIXA_IDADE,
+    "ano": "CASE WHEN coalesce(substr(b.data_entrada, 7, 4), '') = '' THEN '-' ELSE substr(b.data_entrada, 7, 4) END",
+}
+
+
+def cruzamento(conn, f: dict, linha: str, coluna: str) -> list[dict]:
+    """Recorte f agrupado por duas chaves de CHAVES_SQL (ex.: centro × faixa de idade, ano × classificação).
+    Item: {linha, coluna, quantidade, valor (atual), compra (valor de compra)} — só as combinações que existem."""
+    where, p = _where(f)
+    return _todos(conn, f"SELECT {CHAVES_SQL[linha]} AS linha, {CHAVES_SQL[coluna]} AS coluna, count(*) AS quantidade, "
+                        f"coalesce(sum(b.valor_atual), 0) AS valor, coalesce(sum(b.valor_compra), 0) AS compra "
+                        f"{_DE} WHERE {where} GROUP BY 1, 2", *p)
+
+
+def concentracao(conn, f: dict, parcela: float = 0.8) -> dict:
+    """Curva de Pareto do valor atual no recorte: bens do mais valioso ao menos valioso (sem valor conta 0).
+    Devolve {quantidade, total, k (quantos bens, no mínimo, somam `parcela` do total), corte (valor atual do
+    k-ésimo bem), pontos: [(posição, valor acumulado)]} — pontos a cada 0,1% dos bens até 1% e depois a cada
+    1%, mais o k exato. Sem bens ou sem valor: k None e nenhum ponto."""
+    where, p = _where(f)
+    base = f"SELECT coalesce(b.valor_atual, 0) AS v {_DE} WHERE {where}"
+    n, total = conn.execute(f"SELECT count(*), coalesce(sum(v), 0) FROM ({base})", p).fetchone()
+    vazio = {"quantidade": n, "total": total, "k": None, "corte": None, "pontos": []}
+    if not n or total <= 0:
+        return vazio
+    ordem = (f"SELECT row_number() OVER (ORDER BY v DESC) AS rn, v, "
+             f"sum(v) OVER (ORDER BY v DESC ROWS UNBOUNDED PRECEDING) AS acum FROM ({base})")
+    k, corte = conn.execute(f"SELECT rn, v FROM ({ordem}) WHERE acum >= ? ORDER BY rn LIMIT 1",
+                            p + [total * parcela - 1e-6]).fetchone()
+    posicoes = sorted({-(-n * i // 1000) for i in range(1, 10)} | {-(-n * i // 100) for i in range(1, 101)} | {k})
+    pontos = conn.execute(f"SELECT rn, acum FROM ({ordem}) WHERE rn IN (SELECT value FROM json_each(?)) ORDER BY rn",
+                          p + [json.dumps(posicoes)]).fetchall()
+    return {**vazio, "k": k, "corte": corte, "pontos": [(rn, acum) for rn, acum in pontos]}
+
+
+def cobertura_termos(conn, f: dict) -> list[dict]:
+    """Bens ATIVOS do recorte f por quem os guarda e pela situação do termo dele. Cada bem tem um só guardião:
+    a pessoa, se atribuído (termo individual); senão o centro de custo da localização (termo do centro, como
+    em bens_do_centro); senão ninguém. A situação é a de situacao_termo sobre TODOS os bens atuais do guardião
+    (igual às telas de termos), não só os do recorte. Item: {tipo ('ccusto'|'individual'|'-'), chave,
+    estado ('vigente'|'desatualizado'|'sem_termo'|'sem_responsavel'), quantidade, valor}.
+    Recorte de outra situação (BAIXADO…) não tem bem ativo: lista vazia."""
+    if f.get("situacao") not in (None, "", "ATIVO"):
+        return []
+    where, p = _where({**f, "situacao": "ATIVO"})
+    grupos = _todos(conn, f"""SELECT CASE WHEN a.nome IS NOT NULL THEN 'individual' WHEN l.ccustos IS NOT NULL THEN 'ccusto' ELSE '-' END AS tipo,
+        coalesce(a.nome, l.ccustos, '-') AS chave, count(*) AS quantidade, coalesce(sum(b.valor_atual), 0) AS valor
+        {_DE} WHERE {where} GROUP BY 1, 2 ORDER BY 1, 2""", *p)
+    bens_de = {"ccusto": bens_do_centro, "individual": bens_da_pessoa}
+    for g in grupos:
+        g["estado"] = (situacao_termo(conn, g["tipo"], g["chave"], bens_de[g["tipo"]](conn, g["chave"]))["estado"]
+                       if g["tipo"] in bens_de else "sem_responsavel")
+    return grupos
 
 
 def painel(conn) -> dict:

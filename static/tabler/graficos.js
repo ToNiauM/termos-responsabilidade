@@ -110,6 +110,11 @@
     return fmtInteiro.format(v);
   }
 
+  var FORMATOS_DICA = {
+    moeda: function (v) { return typeof v === "number" ? fmtMoeda.format(v) : v; },
+    percentual: function (v) { return typeof v === "number" ? fmtCurto.format(v) + "%" : v; },
+  };
+
   /* Troca, em qualquer ponto da opção, as cores fixas vindas das views pelas do Tabler */
   function trocarCores(no) {
     if (Array.isArray(no)) { for (var i = 0; i < no.length; i++) no[i] = trocarCores(no[i]); return no; }
@@ -128,7 +133,8 @@
     if (typeof f !== "string" || !/\{[bcd]\}/.test(f)) return f;
     return function (p) {
       var v = p.value && typeof p.value === "object" ? p.value.value : p.value;
-      return f.replace(/\{b\}/g, p.name).replace(/\{c\}/g, (curto ? fmtEixo : fmtValor)(v))
+      return f.replace(/\{b\}/g, p.name).replace(/R\$ \{c\}/g, curto ? "R$ " + fmtEixo(v) : fmtMoeda.format(v))
+              .replace(/\{c\}/g, (curto ? fmtEixo : fmtValor)(v))
               .replace(/\{d\}/g, typeof p.percent === "number" ? fmtCurto.format(p.percent) : "");
     };
   }
@@ -159,6 +165,8 @@
       if (s.type === "bar" && s.stack) { s.itemStyle = s.itemStyle || {}; if (s.itemStyle.borderRadius === undefined) s.itemStyle.borderRadius = 0; }
     });
     op.tooltip = op.tooltip || {};
+    /* A view não manda função em JSON: "moeda" e "percentual" nomeiam o formato exato do tooltip */
+    if (typeof op.tooltip.valueFormatter === "string") op.tooltip.valueFormatter = FORMATOS_DICA[op.tooltip.valueFormatter];
     if (!op.tooltip.valueFormatter) op.tooltip.valueFormatter = fmtValor;
     if (op.tooltip.trigger === "item") op.tooltip.formatter = modelo(op.tooltip.formatter, false);
     op.tooltip.confine = true;   /* tooltip nunca sai do card */
@@ -175,7 +183,8 @@
       op.legend.type = "scroll";
       if (op.legend.top === undefined && op.legend.bottom === undefined) op.legend.bottom = 0;
       op.legend.itemGap = estreito ? 10 : 16;
-      op.legend.textStyle = Object.assign({ overflow: "truncate", width: estreito ? 90 : 160 }, op.legend.textStyle || {});
+      /* lineHeight: a legenda paginada recorta o topo da linha, e o acento das maiúsculas (MÓVEIS) sumia */
+      op.legend.textStyle = Object.assign({ overflow: "truncate", width: estreito ? 90 : 160, lineHeight: 16 }, op.legend.textStyle || {});
     }
     var grades = [].concat(op.grid || [{}]);
     grades.forEach(function (g) {
@@ -312,6 +321,8 @@
     ["left", "top", "right", "bottom"].forEach(function (k) { delete texto[k]; });
     texto.x = px(c[0], largura); texto.y = px(c[1], altura);
     texto.style.textAlign = "center"; texto.style.textVerticalAlign = "middle";
+    /* furo pequeno (card estreito): o total encolhe para caber dentro do anel */
+    if (largura < 480) { texto.style.fontSize = 16; texto.style.lineHeight = 20; }
     return { id: texto.id, x: texto.x, y: texto.y };
   }
 
@@ -364,6 +375,34 @@
       if ((opcoes.series || []).some(function (s) { return s.data && s.data.some && s.data.some(function (d) { return d && d.url; }); })) el.classList.add("cursor-pointer");
     });
   }
+  /* Seletor dentro do card: <select data-grafico-seletor="base"> (um ou mais) escolhe qual opção o gráfico
+     [data-grafico-base="base"] mostra. O id do <script type="application/json"> é a base mais os valores dos
+     seletores, na ordem da página, unidos por "--" (ex.: g-explorar--ccusto--valor). A tabela "Ver dados" de
+     cada combinação vem marcada com [data-grafico-tabela="id"] e só a da combinação atual fica visível. */
+  function trocarVariante(base) {
+    var valores = [];
+    document.querySelectorAll('[data-grafico-seletor="' + base + '"]').forEach(function (s) { valores.push(s.value); });
+    var id = [base].concat(valores).join("--");
+    var el = document.querySelector('[data-grafico-base="' + base + '"]');
+    if (!el || !document.getElementById(id) || el.dataset.grafico === id) return;
+    var atual = echarts.getInstanceByDom(el);
+    if (atual) echarts.dispose(el);
+    delete el.dataset.graficoMontado;
+    el.classList.remove("cursor-pointer");
+    el.dataset.grafico = id;
+    var rotulo = document.getElementById(id).getAttribute("data-resumo");
+    if (rotulo) el.setAttribute("aria-label", rotulo);
+    document.querySelectorAll("[data-grafico-tabela]").forEach(function (t) {
+      var alvo = t.getAttribute("data-grafico-tabela");
+      if (alvo.indexOf(base + "--") === 0) t.hidden = alvo !== id;
+    });
+    montar(el.parentNode);
+  }
+  document.addEventListener("change", function (ev) {
+    var base = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-grafico-seletor");
+    if (base) trocarVariante(base);
+  });
+
   document.addEventListener("DOMContentLoaded", function () { montar(document); });
   document.addEventListener("htmx:afterSettle", function (ev) { montar(ev.detail && ev.detail.elt ? ev.detail.elt.parentNode || document : document); });
   /* Gráficos dentro de abas/colapsos recolhidos nascem com largura zero: redimensiona ao abrir */
@@ -389,6 +428,6 @@
   window.pca.graficos = {
     categorica: CATEGORICA, sequencial: SEQUENCIAL, status: STATUS, get cores() { return T; },
     inteiro: fmtInteiro.format.bind(fmtInteiro), moeda: fmtMoeda.format.bind(fmtMoeda), percentual: fmtPct.format.bind(fmtPct),
-    montar: montar, eixo: fmtEixo,
+    montar: montar, eixo: fmtEixo, trocar: trocarVariante,
   };
 })();

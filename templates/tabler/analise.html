@@ -70,7 +70,7 @@
 {% endfor %}
 </div>
 
-<div class="row">{% for g in cards %}{{ grafico(g) }}{% endfor %}</div>
+<div class="row">{% for g in graficos %}{{ grafico(g) }}{% endfor %}</div>
 
 {% if r.truncado %}
 <div class="alert alert-warning mb-3" role="alert"><div class="d-flex"><i class="fas fa-exclamation-triangle me-2 mt-1" aria-hidden="true"></i>
@@ -88,5 +88,5 @@
 {% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='dsgov/vendor/echarts/echarts.min.js') }}"></script>
-<script src="{{ url_for('static', filename='tabler/graficos.js', v='2026-09-23c') }}"></script>
+<script src="{{ url_for('static', filename='tabler/graficos.js', v='2026-09-23d') }}"></script>
 {% endblock %}
