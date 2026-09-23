@@ -251,6 +251,38 @@
     return op;
   }
 
+  /* Rosca com total no furo (graphic de texto "número\nlegenda"): se o número é a soma das fatias, ele passa a
+     acompanhar a legenda — desligar uma fatia tira o valor dela do total. Descobre o formato em que a view
+     escreveu o número (cru, inteiro pt-BR ou moeda) para reescrever igual; se não bate com a soma, não mexe. */
+  function totalDaRosca(op) {
+    var pizza = (op.series || []).filter(function (s) { return s.type === "pie"; })[0];
+    var texto = [].concat(op.graphic || [])[0];
+    if (!pizza || !texto || texto.type !== "text" || !texto.style || typeof texto.style.text !== "string") return null;
+    var valor = function (d) { var v = d && typeof d === "object" ? d.value : d; return typeof v === "number" ? v : 0; };
+    var soma = function (selecionados) {
+      return (pizza.data || []).reduce(function (t, d) {
+        return selecionados && d && selecionados[d.name] === false ? t : t + valor(d);
+      }, 0);
+    };
+    var linhas = texto.style.text.split("\n");
+    var limpo = function (s) { return String(s).replace(/\s/g, " "); };
+    var fmtDecimal = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    var curta = function (v) {   /* moeda_curta do PCA: "165,4 mi", "12,4 mil", abaixo de mil "999,00" */
+      var a = Math.abs(v), s = v < 0 ? "-" : "";
+      if (a >= 1e6) return s + (a / 1e6).toFixed(1).replace(".", ",") + " mi";
+      if (a >= 1e3) return s + (a / 1e3).toFixed(1).replace(".", ",") + " mil";
+      return fmtDecimal.format(v);
+    };
+    var formatos = [String, fmtInteiro.format.bind(fmtInteiro), fmtMoeda.format.bind(fmtMoeda),
+                    fmtDecimal.format.bind(fmtDecimal), curta];
+    var formato = formatos.filter(function (f) { return limpo(f(soma())) === limpo(linhas[0]); })[0];
+    if (!formato) return null;
+    texto.id = texto.id || "pca-total-rosca";
+    return function (selecionados) {
+      return { id: texto.id, style: Object.assign({}, texto.style, { text: [formato(soma(selecionados))].concat(linhas.slice(1)).join("\n") }) };
+    };
+  }
+
   function montar(raiz) {
     (raiz || document).querySelectorAll("[data-grafico]").forEach(function (el) {
       if (el.dataset.graficoMontado) return;
@@ -258,6 +290,7 @@
       if (!script) return;
       var bruto = script.textContent;
       var opcoes = encaixar(aplicarPadroes(JSON.parse(bruto)), el.clientWidth || 600);
+      var totalRosca = totalDaRosca(opcoes);
       el.__pcaBruto = bruto;
       var inst = echarts.init(el, "pca", { renderer: "canvas" });
       inst.setOption(opcoes);
@@ -273,13 +306,18 @@
           var faixa = (el.clientWidth || 600) < 480;
           if (faixa !== ultimaFaixa) {
             ultimaFaixa = faixa;
-            atual.setOption(encaixar(aplicarPadroes(JSON.parse(el.__pcaBruto)), el.clientWidth), true);
+            var novas = encaixar(aplicarPadroes(JSON.parse(el.__pcaBruto)), el.clientWidth);
+            totalDaRosca(novas);   /* mesmo id no texto do furo; a legenda volta toda ligada, e o total também */
+            atual.setOption(novas, true);
           }
           atual.resize();
         };
         if (window.ResizeObserver) new ResizeObserver(ajustar).observe(el);
         else window.addEventListener("resize", ajustar);
       }
+      if (totalRosca) inst.on("legendselectchanged", function (ev) {
+        inst.setOption({ graphic: { elements: [totalRosca(ev.selected)] } });
+      });
       /* Drill-down declarativo: item de dado com `url` navega ao clique */
       inst.on("click", function (p) {
         var url = p && p.data && typeof p.data === "object" ? p.data.url : null;
