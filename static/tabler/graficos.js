@@ -122,6 +122,17 @@
     return new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: cor + "33" }, { offset: 1, color: cor + "00" }]);
   }
 
+  /* Modelos de texto do ECharts ("{b}: {c} ({d}%)") mostram o número cru (138183900.84). Viram função com o
+     número formatado: curto nos rótulos do gráfico ("138,2 mi"), exato no tooltip ("138.183.900,84"). */
+  function modelo(f, curto) {
+    if (typeof f !== "string" || !/\{[bcd]\}/.test(f)) return f;
+    return function (p) {
+      var v = p.value && typeof p.value === "object" ? p.value.value : p.value;
+      return f.replace(/\{b\}/g, p.name).replace(/\{c\}/g, (curto ? fmtEixo : fmtValor)(v))
+              .replace(/\{d\}/g, typeof p.percent === "number" ? fmtCurto.format(p.percent) : "");
+    };
+  }
+
   function aplicarPadroes(op) {
     trocarCores(op);
     [].concat(op.xAxis || [], op.yAxis || []).forEach(function (eixo) {
@@ -129,7 +140,9 @@
     });
     var paleta = op.color || CATEGORICA;
     (op.series || []).forEach(function (s, i) {
-      if (s.label && s.label.show && !s.label.formatter) s.label.formatter = function (p) { return fmtValor(p.value); };
+      /* Rótulo no gráfico: número curto (187 mi, 12,4 mil); o valor exato fica no tooltip e em "Ver dados" */
+      if (s.label && s.label.show && !s.label.formatter) s.label.formatter = function (p) { return fmtEixo(p.value); };
+      if (s.label) s.label.formatter = modelo(s.label.formatter, true);
       /* Rótulo fora da barra/ponto fica sobre o fundo do card: cor de texto da aparência e sem contorno */
       if (s.label && s.label.show && s.type !== "pie" && /^(top|bottom|left|right|outside)$/.test(s.label.position || "")) {
         if (!s.label.color || s.label.color === "inherit") s.label.color = T.texto;
@@ -147,6 +160,7 @@
     });
     op.tooltip = op.tooltip || {};
     if (!op.tooltip.valueFormatter) op.tooltip.valueFormatter = fmtValor;
+    if (op.tooltip.trigger === "item") op.tooltip.formatter = modelo(op.tooltip.formatter, false);
     op.tooltip.confine = true;   /* tooltip nunca sai do card */
     return op;
   }
@@ -345,7 +359,10 @@
       /* Drill-down declarativo: item de dado com `url` navega ao clique */
       inst.on("click", function (p) {
         var url = p && p.data && typeof p.data === "object" ? p.data.url : null;
-        if (typeof url === "string" && url) window.location.assign(url);
+        if (typeof url !== "string" || !url) return;
+        /* ficha de processo (PCA) abre em aba nova, como os links das tabelas */
+        if (/^\/processo\/\d+\/\d+\/?(\?|#|$)/.test(url) && !/^\/processo\//.test(window.location.pathname)) window.open(url, "_blank", "noopener");
+        else window.location.assign(url);
       });
       if ((opcoes.series || []).some(function (s) { return s.data && s.data.some && s.data.some(function (d) { return d && d.url; }); })) el.classList.add("cursor-pointer");
     });
