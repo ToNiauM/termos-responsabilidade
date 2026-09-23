@@ -359,10 +359,7 @@
       /* Drill-down declarativo: item de dado com `url` navega ao clique */
       inst.on("click", function (p) {
         var url = p && p.data && typeof p.data === "object" ? p.data.url : null;
-        if (typeof url !== "string" || !url) return;
-        /* ficha de processo (PCA) abre em aba nova, como os links das tabelas */
-        if (/^\/processo\/\d+\/\d+\/?(\?|#|$)/.test(url) && !/^\/processo\//.test(window.location.pathname)) window.open(url, "_blank", "noopener");
-        else window.location.assign(url);
+        if (typeof url === "string" && url) window.location.assign(url);
       });
       if ((opcoes.series || []).some(function (s) { return s.data && s.data.some && s.data.some(function (d) { return d && d.url; }); })) el.classList.add("cursor-pointer");
     });
