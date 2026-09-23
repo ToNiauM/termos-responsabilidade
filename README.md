@@ -167,6 +167,20 @@ O mesmo código roda em `https://patrimonio.sistemascfc.org`, num container nest
     docker compose logs -f         # acompanhar
     docker compose exec web python usuarios.py criar-admin antonio "Antônio Sousa" antonio@cfc.org.br   # primeiro administrador (ou redefinir a senha de um admin)
 
+### Design das telas: DSGov ou Tabler
+
+A variável `TERMOS_DESIGN` escolhe a aparência; rotas, banco, permissões e robôs são os mesmos nos dois.
+
+- sem a variável (ou `TERMOS_DESIGN=dsgov`): telas de `templates/` (DSGov, padrão);
+- `TERMOS_DESIGN=tabler`: o sistema procura cada tela primeiro em `templates/tabler/` (Tabler.io 1.5.1, arquivos em
+  `static/tabler/`, sem CDN) e só cai em `templates/` se ela não existir lá.
+
+Para trocar o design de um site: pôr ou tirar `TERMOS_DESIGN: tabler` em `environment` do compose e rodar
+`docker compose up -d` (reinicia o container; não precisa trocar de branch nem mexer em código). A prévia em
+`https://patrimonio.analisedados.online` roda o Tabler pelo `compose.previa.yml` (worktree `/opt/web/termos-tabler`,
+container `termos-tabler` em `127.0.0.1:12014`, só o site, sem robô, com uma cópia do banco em `dados-previa/`).
+Os testes da camada Tabler estão em `tests/test_tabler*.py`; a suíte antiga verifica o markup do DSGov.
+
 Publicação da Fase 4 (uma vez): subir o container; criar o administrador pelo comando acima; entrar e criar os
 usuários da comissão do evento aberto com **exatamente** os nomes já gravados nas leituras (Inventário → evento →
 *Comissão* mostra quem já tem leituras); remover `auth_basic` e `auth_basic_user_file` do vhost
