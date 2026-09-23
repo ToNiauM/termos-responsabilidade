@@ -1,4 +1,4 @@
-# Termos de Responsabilidade — CFC
+# Sistema de Patrimônio — CFC
 
 Programa local (Windows) da Gerência de Serviços Administrativos (Gersev) para emitir Termos de Responsabilidade (por centro de
 custo e individuais) e Termos de Devolução, com botão **Copiar para o SEI** e download em `.docx`.

@@ -1,4 +1,4 @@
-"""Termos de Responsabilidade — CFC. Rotas Flask; dados em db.py; documentos em termos_html.py e nos geradores."""
+"""Sistema de Patrimônio — CFC. Rotas Flask; dados em db.py; documentos em termos_html.py e nos geradores."""
 import hmac
 import io
 import os
@@ -65,7 +65,7 @@ def _link_sei(texto, id_interno, tipo="processo"):
     url = robo_sei.url_documento(id_interno) if tipo == "documento" else robo_sei.url_processo(id_interno)
     return Markup(f'<a href="{escape(url)}" target="_blank" rel="noopener">{escape(texto)}</a>')
 
-DSGOV_FIXO = {"SISTEMA": "Termos de Responsabilidade"}
+DSGOV_FIXO = {"SISTEMA": "Sistema de Patrimônio"}
 
 NEGADO = "Seu usuário não tem permissão para esta ação."
 

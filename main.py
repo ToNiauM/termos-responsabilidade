@@ -20,7 +20,7 @@ def avisar(texto: str) -> None:
     """Mostra uma caixa de mensagem no Windows; no terminal, imprime."""
     if sys.platform == "win32":
         import ctypes
-        ctypes.windll.user32.MessageBoxW(None, texto, "Termos de Responsabilidade – CFC", 0x40)
+        ctypes.windll.user32.MessageBoxW(None, texto, "Sistema de Patrimônio – CFC", 0x40)
     else:
         print(texto)
 
@@ -44,7 +44,7 @@ def main():
     threading.Thread(target=servidor, daemon=True).start()
     try:
         import webview
-        webview.create_window("Termos de Responsabilidade – CFC", URL, width=1100, height=750)
+        webview.create_window("Sistema de Patrimônio – CFC", URL, width=1100, height=750)
         webview.start()
     except Exception:
         # Sem WebView2/WebKit: o programa continua rodando no navegador. No Windows, a caixa de
