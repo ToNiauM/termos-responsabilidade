@@ -27,9 +27,9 @@
     </div>
     <div class="col-12 col-md-auto">
       <div class="btn-list">
-        {% if pode('inventario.painel_tela') %}<a class="btn btn-outline-primary" href="{{ url_for('inventario.painel_tela', id=e.id) }}"><i class="fas fa-chart-pie me-2" aria-hidden="true"></i>Painel</a>{% endif %}
-        {% if pode('inventario.relatorio_tela') %}<a class="btn btn-outline-primary" href="{{ url_for('inventario.relatorio_tela', id=e.id) }}"><i class="fas fa-table me-2" aria-hidden="true"></i>Relatório</a>{% endif %}
-        {% if pode('admin.tela') %}<a class="btn btn-outline-secondary" href="{{ url_for('admin.tela') }}"><i class="fas fa-cogs me-2" aria-hidden="true"></i>Administrar</a>{% endif %}
+        {% if pode('inventario.painel_tela') %}<a class="btn" href="{{ url_for('inventario.painel_tela', id=e.id) }}"><i class="fas fa-chart-pie me-2" aria-hidden="true"></i>Painel</a>{% endif %}
+        {% if pode('inventario.relatorio_tela') %}<a class="btn" href="{{ url_for('inventario.relatorio_tela', id=e.id) }}"><i class="fas fa-table me-2" aria-hidden="true"></i>Relatório</a>{% endif %}
+        {% if pode('admin.tela') %}<a class="btn" href="{{ url_for('admin.tela') }}"><i class="fas fa-cogs me-2" aria-hidden="true"></i>Administrar</a>{% endif %}
       </div>
     </div>
   </div>
@@ -53,7 +53,7 @@
   <tbody>{% for s in salas %}
   <tr><td class="col-sala">{{ s.localizacao }}</td><td data-rotulo="Centro">{{ s.ccustos or '—' }}</td><td class="text-end astra-numero" data-rotulo="Bens">{{ s.total }}</td><td class="text-end astra-numero" data-rotulo="Localizados">{{ s.localizados }}</td><td class="text-end astra-numero" data-rotulo="Divergentes">{{ s.divergentes }}</td><td class="text-end astra-numero" data-rotulo="Pendentes">{{ s.pendentes }}</td>
     <td class="col-situacao">{% if s.total and s.pendentes == 0 %}<span class="badge bg-green-lt text-nowrap">completa</span>{% elif s.localizados or s.divergentes %}<span class="badge bg-yellow-lt text-nowrap">em andamento</span>{% else %}<span class="badge bg-secondary-lt text-nowrap">não iniciada</span>{% endif %}</td>
-    <td class="astra-acoes"><a class="btn btn-primary btn-icon" href="{{ url_for('inventario.sala_tela', id=e.id, localizacao=s.localizacao) }}" aria-label="{{ 'Conferir sala' if conferir else 'Ver sala' }} {{ s.localizacao }}" title="{{ 'Conferir sala' if conferir else 'Ver sala' }}"><i class="fas {{ 'fa-barcode' if conferir else 'fa-eye' }}" aria-hidden="true"></i></a></td></tr>
+    <td class="astra-acoes"><a class="btn btn-primary btn-icon btn-sm" href="{{ url_for('inventario.sala_tela', id=e.id, localizacao=s.localizacao) }}" aria-label="{{ 'Conferir sala' if conferir else 'Ver sala' }} {{ s.localizacao }}" title="{{ 'Conferir sala' if conferir else 'Ver sala' }}"><i class="fas {{ 'fa-barcode' if conferir else 'fa-eye' }}" aria-hidden="true"></i></a></td></tr>
   {% endfor %}</tbody>
 {{ fechar_tabela() }}
 {% endblock %}

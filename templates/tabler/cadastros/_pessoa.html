@@ -4,9 +4,9 @@
     <p class="text-secondary">{{ bens_pessoa|length }} bem(ns) sob responsabilidade individual.
       · Matrícula {{ pessoa.matricula or '—' }} · E-mail {{ pessoa.email or 'não cadastrado' }}</p>
     <div class="btn-list">
-      <a class="btn btn-outline-primary" href="{{ link('pessoas_editar', nome=nome) }}"><i class="fas fa-pen me-2" aria-hidden="true"></i>Editar</a>
-      <a class="btn btn-outline-secondary" href="{{ pagina_url(nome='') }}"><i class="fas fa-arrow-left me-2" aria-hidden="true"></i>Voltar à lista de pessoas</a>
-      <a class="btn btn-outline-secondary" href="{{ url_for('termo', tipo='individual', chave=nome) }}"><i class="fas fa-file-alt me-2" aria-hidden="true"></i>Ver termo individual</a>
+      <a class="btn" href="{{ link('pessoas_editar', nome=nome) }}"><i class="fas fa-pen me-2" aria-hidden="true"></i>Editar</a>
+      <a class="btn" href="{{ pagina_url(nome='') }}"><i class="fas fa-arrow-left me-2" aria-hidden="true"></i>Voltar à lista de pessoas</a>
+      <a class="btn" href="{{ url_for('termo', tipo='individual', chave=nome) }}"><i class="fas fa-file-alt me-2" aria-hidden="true"></i>Ver termo individual</a>
     </div>
   </div>
 </div>
@@ -24,7 +24,7 @@
 <div class="card">
   <div class="card-header"><h2 class="card-title">Bens atribuídos</h2></div>
   <div class="table-responsive">
-  <table class="table table-vcenter card-table table-striped"><caption class="visually-hidden">Bens de {{ nome }}</caption><thead><tr><th scope="col">Patrimônio</th><th scope="col">Descrição</th><th scope="col">Complemento</th><th scope="col" class="text-end">Valor atual</th><th scope="col" class="astra-acoes">Ações</th></tr></thead>
+  <table class="table table-vcenter card-table"><caption class="visually-hidden">Bens de {{ nome }}</caption><thead><tr><th scope="col">Patrimônio</th><th scope="col">Descrição</th><th scope="col">Complemento</th><th scope="col" class="text-end">Valor atual</th><th scope="col" class="astra-acoes">Ações</th></tr></thead>
   <tbody>{% for b in bens_pessoa %}<tr><td><a href="{{ url_for('bem', numero=b.numero) }}">{{ b.numero }}</a></td><td>{{ b.descricao }}</td><td>{{ b.complemento }}</td><td class="text-end astra-numero text-nowrap">{{ (b.valor_atual or 0)|moeda }}</td><td class="astra-acoes">{{ acao('pessoas_desatribuir', 'Remover vínculo', origem, {'nome': nome, 'numero': b.numero}) }}</td></tr>{% else %}<tr><td colspan="5" class="text-secondary">Nenhum bem atribuído. Consulte um patrimônio acima para começar.</td></tr>{% endfor %}</tbody>
   </table>
   </div>

@@ -9,7 +9,7 @@
       <div class="d-flex align-items-center"><h1 class="page-title">Inventário</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}</div>
     </div>
     {% if pode_administrar %}<div class="col-12 col-md-auto">
-      <a class="btn btn-outline-primary" href="{{ url_for('admin.tela') }}"><i class="fas fa-cogs me-2" aria-hidden="true"></i>Administrar inventários</a>
+      <a class="btn" href="{{ url_for('admin.tela') }}"><i class="fas fa-cogs me-2" aria-hidden="true"></i>Administrar inventários</a>
     </div>{% endif %}
   </div>
 </div>
@@ -38,7 +38,7 @@
     {% endif %}
     <div class="btn-list">
       <a class="btn btn-primary" href="{{ url_for('inventario.evento_tela', id=corrente.id) }}"><i class="fas fa-door-open me-2" aria-hidden="true"></i>{% if corrente.estado == 'aberto' and pode('inventario.ler', 'POST') %}Salas e leitura{% else %}Salas{% endif %}</a>
-      {% if pode_relatorios %}<a class="btn btn-outline-primary" href="{{ url_for('inventario.relatorio_tela', id=corrente.id) }}"><i class="fas fa-table me-2" aria-hidden="true"></i>Relatório</a>{% endif %}
+      {% if pode_relatorios %}<a class="btn" href="{{ url_for('inventario.relatorio_tela', id=corrente.id) }}"><i class="fas fa-table me-2" aria-hidden="true"></i>Relatório</a>{% endif %}
     </div>
   </div>
 </div>

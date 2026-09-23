@@ -7,7 +7,7 @@
     {% if aba == 'localizacoes' %}<div class="ms-auto text-secondary small" data-selecao-info="localizacoes"><span class="count">0</span> <span class="text">item selecionado</span></div>{% endif %}
   </div>
   <div class="table-responsive">
-  <table class="table table-vcenter card-table table-striped"><caption class="visually-hidden">{{ areas[aba][0] }}</caption>
+  <table class="table table-vcenter card-table"><caption class="visually-hidden">{{ areas[aba][0] }}</caption>
     <thead><tr>
       {% if aba == 'responsaveis' %}{{ coluna('ccustos', 'Centro de custo') }}{{ coluna('responsavel', 'Responsável') }}{{ coluna('funcao', 'Função') }}
       {% elif aba == 'pessoas' %}{{ coluna('nome', 'Nome') }}{{ coluna('email', 'E-mail') }}{{ coluna('quantidade', 'Bens atribuídos') }}

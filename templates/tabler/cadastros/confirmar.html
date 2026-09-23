@@ -9,15 +9,15 @@
 <div class="card mb-3">
   <div class="card-header"><h2 class="card-title">Confira os registros afetados</h2></div>
   <div class="table-responsive">
-  <table class="table table-vcenter card-table table-striped"><caption class="visually-hidden">Revisão da alteração</caption><thead><tr><th scope="col">Registro</th><th scope="col">Situação atual / origem</th><th scope="col">Após confirmar / destino</th></tr></thead>
+  <table class="table table-vcenter card-table"><caption class="visually-hidden">Revisão da alteração</caption><thead><tr><th scope="col">Registro</th><th scope="col">Situação atual / origem</th><th scope="col">Após confirmar / destino</th></tr></thead>
   <tbody>{% for linha in linhas %}<tr>{% for valor in linha %}<td>{{ valor }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
   </div>
 </div>
 {% endif %}
 {% if bloqueado %}
 <div class="btn-list">
-<a class="btn btn-outline-primary" href="{{ retorno }}"><i class="fas fa-arrow-left me-2" aria-hidden="true"></i>Voltar aos cadastros</a>
-{% if aba == 'responsaveis' %}<a class="btn btn-outline-secondary" href="{{ url_for('cadastros', aba='localizacoes', centro=request.form.get('ccustos', '')) }}">Gerenciar localizações</a>{% endif %}
+<a class="btn" href="{{ retorno }}"><i class="fas fa-arrow-left me-2" aria-hidden="true"></i>Voltar aos cadastros</a>
+{% if aba == 'responsaveis' %}<a class="btn" href="{{ url_for('cadastros', aba='localizacoes', centro=request.form.get('ccustos', '')) }}">Gerenciar localizações</a>{% endif %}
 </div>
 {% else %}
 <form method="post" action="{{ acao }}">{{ csrf_campo() }}

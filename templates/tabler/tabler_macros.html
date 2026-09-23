@@ -25,21 +25,20 @@
 {% endmacro %}
 
 {% macro titulo_pagina(titulo, ancora, pre=None) %}
+{# Cabeçalho padrão: pré-título, título com a ajuda colada à direita e, via {% call %}, botões de ação à direita #}
 <div class="page-header d-print-none mb-3">
-  <div class="row align-items-center">
+  <div class="row g-2 align-items-center">
     <div class="col">
       {% if pre %}<div class="page-pretitle">{{ pre }}</div>{% endif %}
-      <h1 class="page-title">{{ titulo }}</h1>
+      <h1 class="page-title">{{ titulo }}{{ ajuda_titulo(ancora) }}</h1>
     </div>
-    {% if ancora %}<div class="col-auto">
-      <a class="btn btn-ghost-secondary btn-icon" href="{{ url_for('ajuda') }}#{{ ancora }}" aria-label="Ajuda desta tela" title="Ajuda desta tela"><i class="fas fa-question-circle" aria-hidden="true"></i></a>
-    </div>{% endif %}
+    {% if caller %}<div class="col-12 col-md-auto ms-auto d-print-none"><div class="btn-list">{{ caller() }}</div></div>{% endif %}
   </div>
 </div>
 {% endmacro %}
 
 {% macro ajuda_titulo(ancora) %}
-{% if ancora %}<a class="btn btn-ghost-secondary btn-icon ms-2" href="{{ url_for('ajuda') }}#{{ ancora }}" aria-label="Ajuda desta tela" title="Ajuda desta tela"><i class="fas fa-question-circle" aria-hidden="true"></i></a>{% endif %}
+{% if ancora %}<a class="astra-ajuda" href="{{ url_for('ajuda') }}#{{ ancora }}" aria-label="Ajuda desta tela" title="Ajuda desta tela"><i class="fas fa-question-circle" aria-hidden="true"></i></a>{% endif %}
 {% endmacro %}
 
 {% macro cabecalho_tabela(titulo, id, selecao=False) %}
@@ -47,10 +46,10 @@
 <div class="card mb-3" id="card-{{ id }}">
   <div class="card-header flex-wrap gap-2">
     <h2 class="card-title">{{ titulo }}</h2>
-    <div class="ms-auto">
+    <div class="ms-auto astra-busca-tabela">
       <div class="input-icon">
         <span class="input-icon-addon"><i class="fas fa-search" aria-hidden="true"></i></span>
-        <input class="form-control form-control-sm" id="campo-busca-{{ id }}" type="search" placeholder="Buscar na tabela" aria-label="Buscar na tabela: {{ titulo }}" data-filtro-tabela="tabela-{{ id }}"/>
+        <input class="form-control" id="campo-busca-{{ id }}" type="search" placeholder="Buscar na tabela" aria-label="Buscar na tabela: {{ titulo }}" data-filtro-tabela="tabela-{{ id }}"/>
       </div>
     </div>
   </div>
@@ -58,7 +57,7 @@
   <div class="card-body py-2 border-bottom text-secondary small" data-selecao-info="check-{{ id }}"><span class="count">0</span> <span class="text">item selecionado</span></div>
   {% endif %}
   <div class="table-responsive">
-  <table class="table table-vcenter card-table table-striped" id="tabela-{{ id }}">
+  <table class="table table-vcenter card-table" id="tabela-{{ id }}">
     <caption class="visually-hidden">{{ titulo }}</caption>
 {% endmacro %}
 

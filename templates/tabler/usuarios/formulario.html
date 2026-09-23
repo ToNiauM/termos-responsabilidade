@@ -62,7 +62,7 @@
 <form method="post" action="{{ url_for('usuarios.nova_senha', id=u.id, retorno=retorno) }}">{{ csrf_campo() }}
   <div class="card"><div class="card-body d-flex flex-column flex-sm-row align-items-sm-center gap-3">
     <div class="flex-fill"><div class="fw-bold">Nova senha temporária</div><div class="small text-secondary">Gera uma senha aleatória, mostrada uma vez; o usuário troca no primeiro acesso. Também desbloqueia a conta.</div></div>
-    <button class="btn btn-outline-secondary" type="submit"><i class="fas fa-key me-2" aria-hidden="true"></i>Nova senha</button>
+    <button class="btn" type="submit"><i class="fas fa-key me-2" aria-hidden="true"></i>Nova senha</button>
   </div></div>
 </form>
 {% endif %}

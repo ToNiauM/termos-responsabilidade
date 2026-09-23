@@ -70,13 +70,13 @@
   </div>
   <div id="aviso" class="alert mt-3 mb-0" hidden><div class="d-flex flex-wrap align-items-center gap-2"><i class="fas fa-info-circle" aria-hidden="true"></i><div role="alert"><span id="aviso-texto"></span></div>
     <button class="btn btn-sm btn-outline-primary ms-auto" type="button" id="btn-sobra" hidden>Registrar sobra</button></div></div>
-  <div id="camera" class="mt-3" hidden><div id="leitor-camera" class="astra-leitor"></div><button class="btn btn-outline-secondary mt-2" type="button" id="btn-fechar-camera"><i class="fas fa-times me-2" aria-hidden="true"></i>Fechar câmera</button></div>
+  <div id="camera" class="mt-3" hidden><div id="leitor-camera" class="astra-leitor"></div><button class="btn mt-2" type="button" id="btn-fechar-camera"><i class="fas fa-times me-2" aria-hidden="true"></i>Fechar câmera</button></div>
 </div></div>
 
 {% if not fechado %}
 <form method="post" action="{{ url_for('inventario.lote', id=e.id, localizacao=localizacao) }}" id="form-lote" class="mb-3 d-flex align-items-center flex-wrap gap-2">{{ csrf_campo() }}
-  <button class="btn btn-outline-success" type="submit" name="acao" value="marcar"{% if not na_comissao %} disabled{% endif %}><i class="fas fa-check-double me-2" aria-hidden="true"></i>Marcar selecionados como localizados</button>
-  <button class="btn btn-outline-secondary" type="submit" name="acao" value="desmarcar"{% if not na_comissao %} disabled{% endif %}><i class="fas fa-undo me-2" aria-hidden="true"></i>Desmarcar</button>
+  <button class="btn" type="submit" name="acao" value="marcar"{% if not na_comissao %} disabled{% endif %}><i class="fas fa-check-double me-2" aria-hidden="true"></i>Marcar selecionados como localizados</button>
+  <button class="btn" type="submit" name="acao" value="desmarcar"{% if not na_comissao %} disabled{% endif %}><i class="fas fa-undo me-2" aria-hidden="true"></i>Desmarcar</button>
   <span class="small text-secondary">plaqueta ilegível ou ausente: marque na lista e use os botões</span>
 </form>
 {% endif %}
@@ -104,7 +104,7 @@
   {% for b in bens %}
   <tr data-numero="{{ b.numero }}" data-situacao="{{ b.situacao_inv }}">
     {% if not fechado %}<td class="col-selecao"><input class="form-check-input m-0 align-middle" id="check-bens-{{ loop.index }}" name="numeros" type="checkbox" value="{{ b.numero }}" aria-label="Selecionar o bem {{ b.numero }}" data-child="check-bens" form="form-lote"/></td>{% endif %}<td class="foto text-nowrap">{% for f in b.fotos[:1] %}<span class="d-inline-flex align-items-center me-1">{% if f.url.startswith(('http://', 'https://')) %}<a href="{{ f.url }}" target="_blank" rel="noopener"><img src="{{ f.url }}" alt="Foto {{ f.nfoto }} do bem {{ b.numero }}" class="astra-miniatura"/></a>{% endif %}{% if not fechado %}<form method="post" action="{{ url_for('inventario.foto_excluir', id=e.id, numero=b.numero, nfoto=f.nfoto) }}" class="d-inline">{{ csrf_campo() }}<input type="hidden" name="volta" value="{{ localizacao }}"/><button class="btn btn-ghost-danger btn-icon" type="submit" aria-label="Excluir foto {{ f.nfoto }}"><i class="fas fa-trash" aria-hidden="true"></i></button></form>{% endif %}</span>{% endfor %}{% if b.fotos|length > 1 %}<span class="badge bg-secondary-lt me-1" title="Todas as fotos no cadastro do bem">+{{ b.fotos|length - 1 }}</span>{% endif %}
-      {% if fotos_ativas and not fechado %}<label class="btn btn-outline-primary btn-icon{% if not b.lido_em %} disabled{% endif %}" aria-label="Nova foto do bem {{ b.numero }}" title="Nova foto"><i class="fas fa-camera" aria-hidden="true"></i><input type="file" accept="image/*" capture="environment" class="foto-input" hidden{% if not b.lido_em %} disabled{% endif %}/></label>{% endif %}</td><td class="col-numero">{{ b.numero }}</td><td class="col-descricao">{{ b.descricao }}{% if b.complemento %} <span class="text-secondary">{{ b.complemento }}</span>{% endif %}</td>
+      {% if fotos_ativas and not fechado %}<label class="btn btn-icon{% if not b.lido_em %} disabled{% endif %}" aria-label="Nova foto do bem {{ b.numero }}" title="Nova foto"><i class="fas fa-camera" aria-hidden="true"></i><input type="file" accept="image/*" capture="environment" class="foto-input" hidden{% if not b.lido_em %} disabled{% endif %}/></label>{% endif %}</td><td class="col-numero">{{ b.numero }}</td><td class="col-descricao">{{ b.descricao }}{% if b.complemento %} <span class="text-secondary">{{ b.complemento }}</span>{% endif %}</td>
     <td class="situacao">{% if b.situacao_inv == 'localizado' %}<span class="badge bg-green-lt text-nowrap">Localizado</span>{% elif b.situacao_inv == 'divergente' %}<span class="badge bg-yellow-lt">Divergente · lido em {{ b.lido_em_sala }}</span>{% else %}<span class="badge bg-secondary-lt text-nowrap">Pendente</span>{% endif %}</td>
     <td class="col-campo" data-rotulo="Conservação"><select class="campo form-select form-select-sm" data-campo="conservacao" aria-label="Conservação do bem {{ b.numero }}"{% if fechado or not b.lido_em %} disabled{% endif %}><option value="">—</option>{% for c in conservacao %}<option{% if b.conservacao == c %} selected{% endif %}>{{ c }}</option>{% endfor %}</select></td>
     <td class="col-campo" data-rotulo="Quem usa"><input class="campo form-control form-control-sm" data-campo="quem_usa" type="text" value="{{ b.quem_usa or '' }}" aria-label="Quem usa o bem {{ b.numero }}"{% if fechado or not b.lido_em %} disabled{% endif %}/></td>
@@ -151,7 +151,7 @@
 {% endif %}
 
 <div class="mt-4">
-  <a class="btn btn-outline-secondary" href="{{ url_for('inventario.evento_tela', id=e.id) }}"><i class="fas fa-arrow-left me-2" aria-hidden="true"></i>Salas</a>
+  <a class="btn" href="{{ url_for('inventario.evento_tela', id=e.id) }}"><i class="fas fa-arrow-left me-2" aria-hidden="true"></i>Salas</a>
 </div>
 {% endblock %}
 {% block scripts %}
@@ -211,7 +211,7 @@
       td.appendChild(wrap);
     });
     if (fotosLista.length > 1) { var mais = document.createElement("span"); mais.className = "badge bg-secondary-lt me-1"; mais.title = "Todas as fotos no cadastro do bem"; mais.textContent = "+" + (fotosLista.length - 1); td.appendChild(mais); }
-    var label = document.createElement("label"); label.className = "btn btn-outline-primary btn-icon"; label.setAttribute("aria-label", "Nova foto do bem " + numero); label.title = "Nova foto";
+    var label = document.createElement("label"); label.className = "btn btn-icon"; label.setAttribute("aria-label", "Nova foto do bem " + numero); label.title = "Nova foto";
     label.innerHTML = '<i class="fas fa-camera" aria-hidden="true"></i>';
     var inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*"; inp.setAttribute("capture", "environment"); inp.className = "foto-input"; inp.hidden = true;
     label.appendChild(inp); td.appendChild(label);

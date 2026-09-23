@@ -49,7 +49,7 @@
     {{ ocultos(origem) }}
     <div class="row g-3 align-items-end">
       <div class="col-md-6">{{ select('ccustos_destino', 'Mover selecionadas para', centros|map(attribute='ccustos')|list) }}</div>
-      <div class="col-md-6"><p class="mb-2 text-secondary" id="contagem-selecao" role="status" aria-live="polite">0 localizações selecionadas</p><button class="btn btn-outline-primary" type="submit" id="revisar-lote"><i class="fas fa-exchange-alt me-2" aria-hidden="true"></i>Revisar transferência</button></div>
+      <div class="col-md-6"><p class="mb-2 text-secondary" id="contagem-selecao" role="status" aria-live="polite">0 localizações selecionadas</p><button class="btn" type="submit" id="revisar-lote"><i class="fas fa-exchange-alt me-2" aria-hidden="true"></i>Revisar transferência</button></div>
     </div>
     <p class="form-hint mt-3 mb-0">Selecione localizações vinculadas na tabela. A seleção vale somente para esta página e é limpa ao buscar, filtrar ou mudar de página.</p>
   </form>
@@ -63,7 +63,7 @@
     <li class="page-item{% if lista.pagina >= lista.paginas %} disabled{% endif %}">{% if lista.pagina < lista.paginas %}<a class="page-link" href="{{ pagina_url(pagina=lista.pagina+1) }}" aria-label="Próxima página">próxima<i class="fas fa-angle-right ms-1" aria-hidden="true"></i></a>{% else %}<span class="page-link" aria-disabled="true" aria-label="Próxima página">próxima<i class="fas fa-angle-right ms-1" aria-hidden="true"></i></span>{% endif %}</li>
   </ul>
 </nav>
-<p class="mt-4"><a class="btn btn-outline-secondary" href="{{ url_for('cadastros_exportar') }}"><i class="fas fa-download me-2" aria-hidden="true"></i>Baixar todos os cadastros</a></p>
+<p class="mt-4"><a class="btn" href="{{ url_for('cadastros_exportar') }}"><i class="fas fa-download me-2" aria-hidden="true"></i>Baixar todos os cadastros</a></p>
 {% endif %}
 {% endblock %}
 {% block scripts %}{% include 'cadastros/_comportamento.html' %}{% endblock %}

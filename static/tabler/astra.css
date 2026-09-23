@@ -63,3 +63,32 @@ button[aria-expanded="true"] > .astra-seta { transform: rotate(180deg); }
 /* Cabeçalho ordenável: o link herda a cor do texto */
 .table th a.astra-ordem { color: inherit; text-decoration: none; }
 .table th a.astra-ordem:hover { text-decoration: underline; }
+
+/* ---------- Harmonização (auditoria de 22/09) ---------- */
+
+/* Ajuda colada ao título, discreta, mesma posição em todas as telas */
+.page-title { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.astra-ajuda { margin-left: .5rem; color: var(--tblr-secondary); font-size: 1rem; line-height: 1; text-decoration: none; }
+.astra-ajuda:hover, .astra-ajuda:focus { color: var(--tblr-primary); }
+
+/* Busca local no cabeçalho do card: largura fixa, ícone alinhado */
+.astra-busca-tabela { width: 16rem; max-width: 100%; }
+@media (max-width: 575.98px) { .astra-busca-tabela { width: 100%; } }
+
+/* Tabelas mais densas e uniformes: sem listras, cabeçalho neutro (links de ordenação herdam a cor) */
+.card-table > :not(caption) > * > * { padding-top: .6rem; padding-bottom: .6rem; }
+.table thead th a { color: inherit; text-decoration: none; }
+.table thead th a:hover { color: var(--tblr-primary); }
+.table tbody tr:hover > * { background-color: var(--tblr-bg-surface-secondary, rgba(0,0,0,.02)); }
+
+/* Grupos de botões com o mesmo espaçamento */
+.btn-list { gap: .5rem; }
+
+/* Celular: trilha só com o nível anterior ("‹ Cadastros"), para não quebrar em duas linhas */
+@media (max-width: 767.98px) {
+  .breadcrumb .breadcrumb-item:not(:nth-last-child(2)) { display: none; }
+  .breadcrumb .breadcrumb-item:nth-last-child(2)::before { content: "‹"; padding-right: .35rem; float: none; }
+  .breadcrumb .breadcrumb-item + .breadcrumb-item::before { content: none; }
+  .page-header .btn-list { width: 100%; }
+}
+.page-title .astra-ajuda { margin-left: .1rem; }

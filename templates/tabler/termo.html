@@ -12,9 +12,9 @@
     <div class="col-12 col-lg-auto">
       <div class="btn-list">
         {% if LOGIN_ATIVO and pode('termo_enviar_sei', 'POST') %}<form method="post" action="{{ url_for('termo_enviar_sei', tipo=tipo, chave=chave) }}" class="d-inline">{{ csrf_campo() }}<button class="btn btn-primary" type="submit"><i class="fas fa-paper-plane me-2" aria-hidden="true"></i>Emitir Termo no SEI</button></form>{% endif %}
-        <button class="btn btn-outline-primary" type="button" id="copiar" data-registrar="{{ url_for('termo_registrar', tipo=tipo, chave=chave) }}"><i class="fas fa-copy me-2" aria-hidden="true"></i>Copiar para o SEI</button>
-        <a class="btn btn-outline-primary" href="{{ url_for('termo_docx', tipo=tipo, chave=chave) }}"><i class="fas fa-download me-2" aria-hidden="true"></i>Baixar .docx</a>
-        {% if tipo == 'ccusto' %}<a class="btn btn-outline-secondary" href="{{ url_for('termo_planilha', chave=chave) }}"><i class="fas fa-file-excel me-2" aria-hidden="true"></i>Baixar planilha</a>{% endif %}
+        <button class="btn" type="button" id="copiar" data-registrar="{{ url_for('termo_registrar', tipo=tipo, chave=chave) }}"><i class="fas fa-copy me-2" aria-hidden="true"></i>Copiar para o SEI</button>
+        <a class="btn" href="{{ url_for('termo_docx', tipo=tipo, chave=chave) }}"><i class="fas fa-download me-2" aria-hidden="true"></i>Baixar .docx</a>
+        {% if tipo == 'ccusto' %}<a class="btn" href="{{ url_for('termo_planilha', chave=chave) }}"><i class="fas fa-file-excel me-2" aria-hidden="true"></i>Baixar planilha</a>{% endif %}
       </div>
     </div>
     {% endif %}

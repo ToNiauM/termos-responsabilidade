@@ -17,7 +17,7 @@
       <div class="d-flex align-items-center"><h1 class="page-title">Relatório · {{ e.nome }}</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}</div>
     </div>
     <div class="col-12 col-md-auto">
-      <a class="btn btn-outline-primary" href="{{ url_for('inventario.painel_tela', id=e.id) }}"><i class="fas fa-chart-pie me-2" aria-hidden="true"></i>Painel</a>
+      <a class="btn" href="{{ url_for('inventario.painel_tela', id=e.id) }}"><i class="fas fa-chart-pie me-2" aria-hidden="true"></i>Painel</a>
     </div>
   </div>
 </div>
@@ -29,11 +29,13 @@
   <div class="col-12 col-sm-6 col-lg-3">{{ select('foto', 'Foto', [('', 'Todas'), ('com', 'Com foto'), ('sem', 'Sem foto')], selecionado=f.foto or '', obrigatorio=False) }}</div>
   <div class="col-12 col-sm-6 col-lg-4"><label class="form-label" for="busca">Busca (nº, descrição, quem usa, observação)</label><input class="form-control" id="busca" name="busca" type="search" value="{{ f.busca or '' }}"/></div>
   {% if f.ordem %}<input type="hidden" name="ordem" value="{{ f.ordem }}"/><input type="hidden" name="dir" value="{{ f.dir or 'asc' }}"/>{% endif %}
-  <div class="col-12 col-lg-5 d-flex align-items-end flex-wrap gap-2">
+  <div class="col-12 col-lg-8 d-flex align-items-end flex-wrap gap-2">
     <button class="btn btn-primary" type="submit"><i class="fas fa-filter me-2" aria-hidden="true"></i>Aplicar</button>
     <a class="btn btn-link" href="{{ url_for('inventario.relatorio_tela', id=e.id) }}">Limpar</a>
-    <label class="form-check form-check-inline mb-0 ms-md-2 align-self-center"><input class="form-check-input" id="fotos" name="fotos" type="checkbox" value="1"/><span class="form-check-label">Incluir fotos</span></label>
-    <button class="btn btn-outline-success" type="submit" formaction="{{ url_for('inventario.xlsx', id=e.id) }}"><i class="fas fa-file-excel me-2" aria-hidden="true"></i>Exportar .xlsx</button>
+    <span class="ms-lg-auto d-inline-flex align-items-center gap-2">
+    <label class="form-check form-check-inline mb-0"><input class="form-check-input" id="fotos" name="fotos" type="checkbox" value="1"/><span class="form-check-label">Incluir fotos</span></label>
+    <button class="btn" type="submit" formaction="{{ url_for('inventario.xlsx', id=e.id) }}"><i class="fas fa-file-excel me-2" aria-hidden="true"></i>Exportar .xlsx</button>
+    </span>
   </div>
 </div></div></form>
 {% set r = e.resumo %}
@@ -59,7 +61,7 @@
       <div class="modal-header"><h2 class="modal-title" id="modal-foto-titulo">Foto</h2>
         <button class="btn-close" type="button" id="modal-foto-fechar" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
       <div class="modal-body text-center"><img id="modal-foto-img" src="" alt="Foto do bem" style="max-width:100%;max-height:70vh"/></div>
-      <div class="modal-footer"><a class="btn btn-outline-primary" id="modal-foto-link" href="#" target="_blank" rel="noopener">Abrir em nova aba</a></div>
+      <div class="modal-footer"><a class="btn" id="modal-foto-link" href="#" target="_blank" rel="noopener">Abrir em nova aba</a></div>
     </div>
   </div>
 </div>
