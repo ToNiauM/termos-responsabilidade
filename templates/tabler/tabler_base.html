@@ -1,3 +1,4 @@
+{% set VERSAO_ESTILO = '2026-09-22c' %}{# trocar a cada mudança em astra.css/astra.js: força o navegador a baixar de novo #}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -7,7 +8,7 @@
   <title>{% block titulo %}{{ DSGOV.SISTEMA }}{% endblock %} — {{ DSGOV.SISTEMA }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='tabler/vendor/tabler.min.css') }}"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/vendor/fontawesome/css/all.min.css') }}"/>
-  <link rel="stylesheet" href="{{ url_for('static', filename='tabler/astra.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='tabler/astra.css', v=VERSAO_ESTILO) }}"/>
   {% block estilos %}{% endblock %}
 </head>
 <body>
@@ -115,7 +116,7 @@
   </div>
 </div>
 <script src="{{ url_for('static', filename='tabler/vendor/tabler.min.js') }}"></script>
-<script src="{{ url_for('static', filename='tabler/astra.js') }}"></script>
+<script src="{{ url_for('static', filename='tabler/astra.js', v=VERSAO_ESTILO) }}"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

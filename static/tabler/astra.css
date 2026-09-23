@@ -23,12 +23,13 @@
 /* Submenu legível no fundo escuro e rótulo do grupo sem reticências */
 .navbar-vertical .astra-submenu .nav-link { color: rgba(255, 255, 255, .72); }
 .navbar-vertical .astra-submenu .nav-link:hover { color: #fff; }
-.navbar-vertical.navbar-expand-lg .navbar-nav .nav-link-title { overflow: visible; text-overflow: clip; white-space: normal; }
 @media (max-width: 991.98px) {
-  .navbar-vertical > .container-fluid { flex-wrap: wrap; }
-  .navbar-vertical > .container-fluid > .navbar-toggler { order: 2; }
-  .astra-marca { flex: 1 1 0; min-width: 0; }
-  .astra-marca span { font-size: .7rem; }
+  /* Celular: linha 1 = marca + botão ☰; linha 2 = menu aberto ocupando a largura toda */
+  .navbar-vertical > .container-fluid { flex-wrap: wrap; align-items: center; }
+  .navbar-vertical > .container-fluid > .astra-marca { order: 1; flex: 1 1 auto; min-width: 0; margin: 0; }
+  .navbar-vertical > .container-fluid > .navbar-toggler { order: 2; flex: 0 0 auto; }
+  .navbar-vertical > .container-fluid > .navbar-collapse { order: 3; flex: 1 1 100%; }
+  .astra-marca span { font-size: .7rem; overflow: hidden; text-overflow: ellipsis; }
 }
 
 /* Gráficos ECharts: altura fixa, largura do card */
@@ -92,3 +93,10 @@ button[aria-expanded="true"] > .astra-seta { transform: rotate(180deg); }
   .page-header .btn-list { width: 100%; }
 }
 .page-title .astra-ajuda { margin-left: .1rem; }
+
+/* Menu lateral largo o bastante para "Termos de Responsabilidade" e o nome do sistema caberem numa linha */
+:root { --tblr-sidebar-width: 19rem; }
+.navbar-vertical .nav-link .astra-seta { margin-left: auto !important; padding-left: .75rem; flex-shrink: 0; box-sizing: content-box; }
+.navbar-vertical .nav-link-title, .navbar-vertical .astra-submenu .nav-link, .astra-marca span { white-space: nowrap; }
+/* Item de grupo ocupa a largura toda: a seta vai para a direita, longe do rótulo */
+.navbar-vertical .navbar-nav > .nav-item > .nav-link { width: 100%; }
