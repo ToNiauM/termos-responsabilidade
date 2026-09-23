@@ -2,7 +2,7 @@
 import secrets
 from urllib.parse import urlsplit
 
-from flask import Blueprint, abort, current_app, flash, g, make_response, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, current_app, flash, g, jsonify, make_response, redirect, render_template, request, session, url_for
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import RequestRedirect
 
@@ -96,6 +96,19 @@ def senha():
         flash("Senha alterada.", "success")
         return redirect(destino_inicial(g.usuario))
     return render_template("senha.html", erro=None, obrigatoria=bool(g.usuario["trocar_senha"]), trilha=[("Trocar senha", None)])
+
+
+@usuarios_bp.route("/aparencia", methods=["POST"])
+def aparencia():
+    """Painel "Personalizar aparência" (casca Tabler): grava na conta a cada troca (fetch, responde JSON) ou
+    tudo de uma vez pelo botão Salvar (sem JS, volta para a página de onde veio)."""
+    nova = usuarios.gravar_aparencia(_conn(), g.usuario["id"], request.form)
+    if request.accept_mimetypes.best == "application/json":
+        return (jsonify(nova), 200) if nova else (jsonify({"erro": "nenhum valor válido"}), 400)
+    destino = request.referrer or url_for("home")
+    if urlsplit(destino).netloc not in ("", request.host):
+        destino = url_for("home")
+    return redirect(destino)
 
 
 @usuarios_bp.route("/meus-acessos")

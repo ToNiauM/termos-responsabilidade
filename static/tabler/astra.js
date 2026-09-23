@@ -94,9 +94,7 @@
 
   /* ---------- Aparência: claro, escuro ou automático (segue o sistema); a escolha fica no navegador ---------- */
   var sistemaEscuro = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-  function escolhaTema() {
-    try { return window.localStorage.getItem('termos-tema') || 'auto'; } catch (e) { return 'auto'; }
-  }
+
   function temaAtual() { return document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light'; }
 
   /* Gráficos (tema ECharts "dsgov", pensado para fundo branco): no escuro, os cinzas de texto, eixo e grade
@@ -143,26 +141,67 @@
   }
   window.addEventListener('load', temaDosGraficos);   /* depois que o echarts-dsgov.js montou os gráficos */
 
-  function aplicarTema(escolha) {
-    var escuro = escolha === 'escuro' || (escolha !== 'claro' && !!(sistemaEscuro && sistemaEscuro.matches));
-    document.querySelectorAll('[data-tema]').forEach(function (b) {
-      var ativo = b.dataset.tema === escolha;
-      b.classList.toggle('active', ativo); b.setAttribute('aria-pressed', ativo ? 'true' : 'false');
-      var marca = b.querySelector('.ti-check'); if (marca) marca.classList.toggle('d-none', !ativo);
-    });
-    var tema = escuro ? 'dark' : 'light';
-    if (document.documentElement.getAttribute('data-bs-theme') === tema) return;
-    document.documentElement.setAttribute('data-bs-theme', tema);
-    temaDosGraficos();
+  /* Aparência por usuário (painel "Personalizar aparência"): claro/escuro, cor principal, tom dos cinzas e
+     cantos. O _tema.html já aplicou a escolha antes de pintar; aqui cada troca muda a tela na hora e, com
+     login, é gravada na conta (POST usuarios.aparencia). Cópia no navegador para a tela de login. */
+  var raiz = document.documentElement;
+  var PADRAO = { tema: 'auto', cor: 'blue', base: 'slate', cantos: '1' };
+  function lerAparencia() {
+    try { return Object.assign({}, PADRAO, JSON.parse(window.localStorage.getItem('termos-aparencia') || '{}')); }
+    catch (e) { return Object.assign({}, PADRAO); }
   }
-  document.addEventListener('click', function (ev) {
-    var b = ev.target.closest && ev.target.closest('[data-tema]');
-    if (!b) return;
-    try { window.localStorage.setItem('termos-tema', b.dataset.tema); } catch (e) { /* sem localStorage */ }
-    aplicarTema(b.dataset.tema);
+  var aparencia = lerAparencia();
+  function aplicarAparencia(a) {
+    var escuro = a.tema === 'escuro' || (a.tema !== 'claro' && !!(sistemaEscuro && sistemaEscuro.matches));
+    var mudouTema = raiz.getAttribute('data-bs-theme') !== (escuro ? 'dark' : 'light');
+    raiz.setAttribute('data-bs-theme', escuro ? 'dark' : 'light');
+    raiz.setAttribute('data-bs-theme-primary', a.cor);
+    raiz.setAttribute('data-bs-theme-base', a.base);
+    raiz.setAttribute('data-bs-theme-radius', a.cantos);
+    try { window.localStorage.setItem('termos-aparencia', JSON.stringify(a)); } catch (e) { /* sem localStorage */ }
+    var form = document.querySelector('[data-aparencia]');
+    if (form) ['tema', 'cor', 'base', 'cantos'].forEach(function (campo) {
+      var marcado = form.querySelector('input[name="' + campo + '"][value="' + a[campo] + '"]');
+      if (marcado) marcado.checked = true;
+    });
+    if (mudouTema) temaDosGraficos();
+  }
+  var gravacao = null;
+  function gravarAparencia(a) {
+    var form = document.querySelector('[data-aparencia]');
+    if (!form || !form.hasAttribute('data-aparencia-grava')) return;
+    var status = form.querySelector('[data-aparencia-status]');
+    var csrf = document.querySelector('meta[name="csrf"]');
+    clearTimeout(gravacao);
+    gravacao = setTimeout(function () {
+      var dados = new FormData();
+      Object.keys(a).forEach(function (k) { dados.append(k, a[k]); });
+      if (status) status.textContent = 'Salvando…';
+      fetch(form.action, { method: 'POST', body: dados, credentials: 'same-origin',
+        headers: { 'Accept': 'application/json', 'X-CSRF': csrf ? csrf.content : '' } })
+        .then(function (r) { if (status) status.textContent = r.ok ? 'Salvo na sua conta.' : 'Não foi possível salvar.'; })
+        .catch(function () { if (status) status.textContent = 'Não foi possível salvar.'; });
+    }, 400);
+  }
+  document.addEventListener('change', function (ev) {
+    var form = ev.target.closest && ev.target.closest('[data-aparencia]');
+    if (!form || !ev.target.name || !(ev.target.name in PADRAO)) return;
+    aparencia[ev.target.name] = ev.target.value;
+    aplicarAparencia(aparencia);
+    gravarAparencia(aparencia);
   });
-  if (sistemaEscuro && sistemaEscuro.addEventListener) sistemaEscuro.addEventListener('change', function () { aplicarTema(escolhaTema()); });
-  aplicarTema(escolhaTema());
+  document.addEventListener('submit', function (ev) {
+    if (!ev.target.matches || !ev.target.matches('[data-aparencia]')) return;
+    ev.preventDefault();
+    gravarAparencia(aparencia);
+  });
+  document.addEventListener('click', function (ev) {
+    if (!ev.target.closest || !ev.target.closest('[data-aparencia-padrao]')) return;
+    aparencia = Object.assign({}, PADRAO);
+    aplicarAparencia(aparencia);
+    gravarAparencia(aparencia);
+  });
+  if (sistemaEscuro && sistemaEscuro.addEventListener) sistemaEscuro.addEventListener('change', function () { if (aparencia.tema === 'auto') aplicarAparencia(aparencia); });
   /* Papel é branco: imprime sempre no claro e volta ao que estava depois */
   var temaAntesDeImprimir = null;
   window.addEventListener('beforeprint', function () {

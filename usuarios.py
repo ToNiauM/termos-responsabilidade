@@ -1,5 +1,6 @@
 """Usuários, senhas e permissões. Só dados e regras: toda função recebe `conn` primeiro e não importa Flask
 (padrão de db.py). Hash de senha com werkzeug.security (scrypt), que já vem com o Flask."""
+import json
 import re
 import secrets
 from datetime import datetime, timedelta
@@ -24,8 +25,40 @@ USUARIO_LOCAL = {"id": None, "login": "local", "nome": "Administrador local", "f
 _HASH_FALSO = generate_password_hash("senha-falsa-para-tempo-constante")
 
 _COLUNAS_LISTA = ("id, login, email, nome, ativo, trocar_senha, falhas, bloqueado_ate, criado_em, ultimo_acesso, "
-                   "sei_login, sei_atualizado_em, spw_login, spw_atualizado_em")
+                   "sei_login, sei_atualizado_em, spw_login, spw_atualizado_em, aparencia")
 _COLUNAS_CONTA = _COLUNAS_LISTA + ", senha_hash"
+# Aparência da casca Tabler (painel "Personalizar aparência"): valores nativos do Tabler (tabler-themes.css).
+APARENCIA_PADRAO = {"tema": "auto", "cor": "blue", "base": "slate", "cantos": "1"}
+APARENCIA_OPCOES = {
+    "tema": ("auto", "claro", "escuro"),
+    "cor": ("blue", "azure", "indigo", "purple", "pink", "red", "orange", "yellow", "lime", "green", "teal", "cyan"),
+    "base": ("slate", "gray", "zinc", "neutral", "stone"),
+    "cantos": ("0", "0.5", "1", "1.5", "2"),
+}
+
+
+def aparencia(usuario) -> dict:
+    """Aparência gravada na conta (ou o padrão: sem login, modo desktop, nunca escolhida, JSON estragado)."""
+    bruto = (usuario or {}).get("aparencia") if isinstance(usuario, dict) else None
+    try:
+        dados = json.loads(bruto) if bruto else {}
+    except (TypeError, ValueError):
+        dados = {}
+    return {**APARENCIA_PADRAO, **{k: v for k, v in dados.items() if v in APARENCIA_OPCOES.get(k, ())}}
+
+
+def gravar_aparencia(conn, usuario_id, dados) -> dict | None:
+    """Mistura na aparência atual só os valores das listas; devolve a nova, ou None se nada era válido."""
+    validos = {k: dados[k] for k, opcoes in APARENCIA_OPCOES.items() if dados.get(k) in opcoes}
+    if not validos or usuario_id is None:
+        return None
+    atual = aparencia(por_id(conn, usuario_id))
+    nova = {**atual, **validos}
+    conn.execute("UPDATE usuarios SET aparencia=? WHERE id=?", (json.dumps(nova), usuario_id))
+    conn.commit()
+    return nova
+
+
 _MANTER = object()     # editar(): "não mexer no e-mail"
 
 

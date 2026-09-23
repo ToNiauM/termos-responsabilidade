@@ -268,6 +268,9 @@ def criar_esquema(conn: sqlite3.Connection) -> None:
     for coluna in ("spw_login", "spw_senha", "spw_atualizado_em"):
         if coluna not in _colunas(conn, "usuarios"):
             conn.execute(f"ALTER TABLE usuarios ADD COLUMN {coluna} TEXT")
+    # Aparência da casca Tabler por usuário (2026-09-23): JSON {tema, cor, base, cantos}; vazio = padrão.
+    if "aparencia" not in _colunas(conn, "usuarios"):
+        conn.execute("ALTER TABLE usuarios ADD COLUMN aparencia TEXT")
     conn.commit()
     # Fase 5A: perfil único de usuários.perfil vira funções (usuarios_funcoes); a comissão de
     # inventário ganha identidade de usuário quando o nome não é ambíguo. Reserva a própria transação.

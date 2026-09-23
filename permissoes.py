@@ -26,6 +26,7 @@ ajuda GET
 usuarios.login GET POST
 usuarios.sair POST
 usuarios.senha GET POST
+usuarios.aparencia POST
 usuarios.acessos GET
 usuarios.salvar_acesso_sei POST
 usuarios.apagar_acesso_sei POST

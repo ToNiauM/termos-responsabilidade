@@ -1,4 +1,4 @@
-{% set VERSAO_ESTILO = '2026-09-23a' %}{# trocar a cada mudança em astra.css/astra.js: força o navegador a baixar de novo #}
+{% set VERSAO_ESTILO = '2026-09-23b' %}{# trocar a cada mudança em astra.css/astra.js: força o navegador a baixar de novo #}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -8,6 +8,7 @@
   {% include "_tema.html" %}
   <title>{% block titulo %}{{ DSGOV.SISTEMA }}{% endblock %} — {{ DSGOV.SISTEMA }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='tabler/vendor/tabler.min.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='tabler/vendor/tabler-themes.min.css') }}"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='tabler/vendor/tabler-icons/tabler-icons.min.css') }}"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/vendor/fontawesome/css/all.min.css') }}"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='tabler/astra.css', v=VERSAO_ESTILO) }}"/>
@@ -70,16 +71,10 @@
             </div>
           </form>
           {% endif %}
-          <div class="nav-item dropdown">
-            <button type="button" class="btn btn-ghost-secondary btn-icon" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Aparência" title="Aparência">
-              <i class="ti ti-moon hide-theme-dark" aria-hidden="true"></i><i class="ti ti-sun hide-theme-light" aria-hidden="true"></i>
+          <div class="nav-item">
+            <button type="button" class="btn btn-ghost-secondary btn-icon" data-bs-toggle="offcanvas" data-bs-target="#painel-aparencia" aria-controls="painel-aparencia" aria-label="Personalizar aparência" title="Personalizar aparência">
+              <i class="ti ti-palette" aria-hidden="true"></i>
             </button>
-            <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-              <h6 class="dropdown-header">Aparência</h6>
-              <button class="dropdown-item" type="button" data-tema="claro"><i class="ti ti-sun me-2" aria-hidden="true"></i>Claro<i class="ti ti-check ms-auto d-none" aria-hidden="true"></i></button>
-              <button class="dropdown-item" type="button" data-tema="escuro"><i class="ti ti-moon me-2" aria-hidden="true"></i>Escuro<i class="ti ti-check ms-auto d-none" aria-hidden="true"></i></button>
-              <button class="dropdown-item" type="button" data-tema="auto"><i class="ti ti-device-desktop me-2" aria-hidden="true"></i>Automático (sistema)<i class="ti ti-check ms-auto d-none" aria-hidden="true"></i></button>
-            </div>
           </div>
           {% if USUARIO and USUARIO.id %}
           <div class="nav-item dropdown">
@@ -93,6 +88,7 @@
             <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
               <a class="dropdown-item" href="{{ url_for('usuarios.acessos') }}">Meus acessos</a>
               <a class="dropdown-item" href="{{ url_for('usuarios.senha') }}">Trocar senha</a>
+              <button class="dropdown-item" type="button" data-bs-toggle="offcanvas" data-bs-target="#painel-aparencia" aria-controls="painel-aparencia">Personalizar aparência</button>
               <div class="dropdown-divider"></div>
               <form method="post" action="{{ url_for('usuarios.sair') }}">
                 {{ csrf_campo() }}
@@ -128,6 +124,7 @@
     </footer>
   </div>
 </div>
+{% include "_painel_aparencia.html" %}
 <script src="{{ url_for('static', filename='tabler/vendor/tabler.min.js') }}"></script>
 <script src="{{ url_for('static', filename='tabler/astra.js', v=VERSAO_ESTILO) }}"></script>
 {% block scripts %}{% endblock %}

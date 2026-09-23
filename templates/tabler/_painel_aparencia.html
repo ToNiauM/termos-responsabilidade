@@ -1,0 +1,74 @@
+{# Painel "Personalizar aparência" (offcanvas nativo do Tabler): claro/escuro, cor principal, tom dos cinzas e cantos. Cada troca muda a tela na hora (atributos data-bs-theme-* do Tabler) e, com login, é gravada na conta (usuarios.aparencia) — astra.js cuida das duas coisas. Sem conta (modo desktop), fica só neste navegador. #}
+{% set NOMES_COR = {"blue": "Azul", "azure": "Azul-céu", "indigo": "Índigo", "purple": "Roxo", "pink": "Rosa", "red": "Vermelho", "orange": "Laranja", "yellow": "Amarelo", "lime": "Lima", "green": "Verde", "teal": "Verde-azulado", "cyan": "Ciano"} %}
+{% set NOMES_BASE = {"slate": "Ardósia", "gray": "Cinza", "zinc": "Zinco", "neutral": "Neutro", "stone": "Pedra"} %}
+{% set NOMES_CANTOS = {"0": "Retos", "0.5": "Suaves", "1": "Padrão", "1.5": "Arredondados", "2": "Bem arredondados"} %}
+{% set GRAVA_NA_CONTA = USUARIO and USUARIO.id %}
+<div class="offcanvas offcanvas-end" tabindex="-1" id="painel-aparencia" aria-labelledby="painel-aparencia-titulo">
+  <div class="offcanvas-header">
+    <h2 class="offcanvas-title h3" id="painel-aparencia-titulo"><i class="ti ti-palette me-2" aria-hidden="true"></i>Personalizar aparência</h2>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
+  </div>
+  <div class="offcanvas-body">
+    <form method="post" action="{{ url_for('usuarios.aparencia') }}" data-aparencia{% if GRAVA_NA_CONTA %} data-aparencia-grava{% endif %}>
+      {{ csrf_campo() }}
+      <p class="text-secondary small mb-4">{% if GRAVA_NA_CONTA %}Fica gravado na sua conta: vale em qualquer computador ou celular em que você entrar.{% else %}Fica gravado neste navegador.{% endif %}</p>
+
+      <fieldset class="mb-4">
+        <legend class="form-label">Claro ou escuro</legend>
+        <div class="btn-group w-100" role="group">
+          {% for valor, rotulo, icone in [("claro", "Claro", "sun"), ("escuro", "Escuro", "moon"), ("auto", "Automático", "device-desktop")] %}
+          <input type="radio" class="btn-check" name="tema" id="aparencia-tema-{{ valor }}" value="{{ valor }}"{% if APARENCIA.tema == valor %} checked{% endif %}/>
+          <label class="btn" for="aparencia-tema-{{ valor }}"><i class="ti ti-{{ icone }} me-1" aria-hidden="true"></i>{{ rotulo }}</label>
+          {% endfor %}
+        </div>
+        <div class="form-hint">Automático segue o que está configurado no seu computador ou celular.</div>
+      </fieldset>
+
+      <fieldset class="mb-4">
+        <legend class="form-label">Cor principal</legend>
+        <div class="row g-2">
+          {% for cor in APARENCIA_OPCOES.cor %}
+          <div class="col-auto">
+            <label class="form-colorinput" title="{{ NOMES_COR[cor] }}">
+              <input name="cor" type="radio" value="{{ cor }}" class="form-colorinput-input"{% if APARENCIA.cor == cor %} checked{% endif %} aria-label="{{ NOMES_COR[cor] }}"/>
+              <span class="form-colorinput-color bg-{{ cor }}"></span>
+            </label>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="form-hint">Botões, links, menu e destaques. Os gráficos mantêm as cores de sempre, porque elas têm significado.</div>
+      </fieldset>
+
+      <fieldset class="mb-4">
+        <legend class="form-label">Tom dos cinzas</legend>
+        <div class="form-selectgroup">
+          {% for base in APARENCIA_OPCOES.base %}
+          <label class="form-selectgroup-item">
+            <input type="radio" name="base" value="{{ base }}" class="form-selectgroup-input"{% if APARENCIA.base == base %} checked{% endif %}/>
+            <span class="form-selectgroup-label">{{ NOMES_BASE[base] }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <div class="form-hint">Fundo, bordas e textos secundários: dos mais azulados (ardósia) aos mais quentes (pedra).</div>
+      </fieldset>
+
+      <fieldset class="mb-4">
+        <legend class="form-label">Cantos</legend>
+        <div class="form-selectgroup">
+          {% for cantos in APARENCIA_OPCOES.cantos %}
+          <label class="form-selectgroup-item">
+            <input type="radio" name="cantos" value="{{ cantos }}" class="form-selectgroup-input"{% if APARENCIA.cantos == cantos %} checked{% endif %}/>
+            <span class="form-selectgroup-label">{{ NOMES_CANTOS[cantos] }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <div class="d-flex gap-2 align-items-center">
+        {% if GRAVA_NA_CONTA %}<button type="submit" class="btn">Salvar</button>{% endif %}
+        <button type="button" class="btn btn-ghost-secondary" data-aparencia-padrao><i class="ti ti-restore me-1" aria-hidden="true"></i>Voltar ao padrão</button>
+        <span class="small text-secondary ms-auto" data-aparencia-status aria-live="polite"></span>
+      </div>
+    </form>
+  </div>
+</div>

@@ -161,6 +161,7 @@ def contexto_dsgov():
     dsgov = dict(DSGOV_FIXO, ORGAO=t["orgao_nome"], SUBTITULO=t["unidade_sigla"])
     usuario = getattr(g, "usuario", None)
     contexto = {"DSGOV": dsgov, "USUARIO": usuario, "MENU": [], "CSRF": _csrf_token(),
+                "APARENCIA": usuarios.aparencia(usuario), "APARENCIA_OPCOES": usuarios.APARENCIA_OPCOES,
                 "URL_INICIAL": url_for("home"), "pode": lambda *_a, **_k: False,
                 "SECOES_AJUDA": [], "AJUDA_ANCORA": None, "LOGIN_ATIVO": config.exigir_login()}
     if not usuario:
