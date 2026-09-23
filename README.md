@@ -276,8 +276,12 @@ estão fixas no `Dockerfile`), mas os scripts de spike em `docs/superpowers/note
     scripts/zerar_banco.sh              # histórico de cargas (importações, execuções do robô) e emissões — mantém bens,
                                   # atribuições, pessoas, centros de custo, localizações, processos, textos, usuários
     scripts/zerar_banco.sh --inventario # idem, apagando também o inventário (eventos, leituras, fotos, sobras)
+    scripts/zerar_inventario.sh         # eventos de inventário inteiros, escolhidos na lista (ou --ALL), COM as
+                                  # fotos no bucket R2: antes baixa uma cópia delas em /opt/backups/termos/
+                                  # fotos-inventario-<data>/ e para sem apagar nada se alguma não baixar;
+                                  # --manter-fotos apaga só o banco; roda a parte do bucket no container web
 
-Os dois listam o que vai apagar, pedem confirmação (ou `--sim`) e deixam uma cópia em `dados/termos-antes-de-*.db`.
+Os três listam o que vai apagar, pedem confirmação (ou `--sim`) e deixam uma cópia em `dados/termos-antes-de-*.db`.
 Documentos já criados no SEI não são tocados. A numeração dos termos é automática: por unidade do SEI, por tipo de
 termo (centro de custo, individual, devolução) e por ano.
 
@@ -300,7 +304,7 @@ termo (centro de custo, individual, devolução) e por ano.
 | `inventario.py`, `fotos.py`, `app_inventario.py` | módulo de inventário (dados, fotos no R2, rotas) |
 | `usuarios.py`, `app_usuarios.py` | usuários, senhas, matriz de permissões e telas de login/usuários |
 | `app_admin.py` | Tela Administração (aba Inventários; a aba Usuários é `app_usuarios.py`) |
-| `scripts/apagar_termos_emitidos.sh`, `scripts/zerar_banco.sh` | limpeza do banco antes da produção (ver acima) |
+| `scripts/apagar_termos_emitidos.sh`, `scripts/zerar_banco.sh`, `scripts/zerar_inventario.sh` | limpeza do banco antes da produção (ver acima) |
 | `cofre.py` | cifra (Fernet) das senhas do SEI e do SPW guardadas por usuário; chave em `secrets/chaves.env` |
 | `scripts/atualizar_base.sh` | Chama o robô do SPW dentro do container `robo` via `docker compose exec` (`--teste` usa uma cópia da base); o cron chama o mesmo script |
 | `importar_spw.py` | Robô do SPW: exporta, converte e importa os bens (roda no container `robo`, por cron) |
