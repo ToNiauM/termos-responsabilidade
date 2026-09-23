@@ -13,7 +13,6 @@ services:
         required: false
     environment:
       TERMOS_LOGIN: "1"     # site pede usuário e senha (o programa Windows não define e entra direto)
-      TERMOS_DESIGN: tabler # aparência Tabler; tirar esta linha (e docker compose up -d) volta ao DSGov
       TZ: America/Sao_Paulo # hora de Brasília nos logs e no mtime de dados/
     ports:
       - "127.0.0.1:12012:8000"
