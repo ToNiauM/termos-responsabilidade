@@ -3,7 +3,7 @@
 {% block titulo %}{{ localizacao }}{% endblock %}
 
 {# Sala virtual: três seções (Pendentes, Divergentes, Localizados) escolhidas pelos cards do topo.
-   Item de bem: avatar | linhas de informação | ações. O mesmo conteúdo serve à lista (celular) e à grade de cards (desktop).
+   Cada bem aparece duas vezes: na Lista (compacta, sem foto) e nos Quadros (foto em destaque); o botão Lista/Quadros escolhe qual se vê.
    secao: pendente | localizado | divergente (onde o bem aparece). Só componentes e classes nativos do Tabler. #}
 {% macro situacao_badge(b, secao) %}
 {% if secao == 'localizado' %}<span class="badge flex-shrink-0 bg-green-lt" data-papel="situacao">Localizado</span>
@@ -14,67 +14,91 @@
 
 {% macro icone_categoria(classificacao) %}{% set c = (classificacao or '')|upper %}{% if 'MÓVE' in c %}ti-armchair{% elif 'PROCESSAMENTO' in c or 'SOFTWARE' in c %}ti-device-desktop{% elif 'MÁQUINA' in c %}ti-tool{% elif 'COPA' in c or 'COZINHA' in c %}ti-tools-kitchen-2{% elif 'VEÍCULO' in c %}ti-car{% elif 'MUSEU' in c or 'ARTE' in c %}ti-palette{% else %}ti-package{% endif %}{% endmacro %}
 
-{% macro avatar_bem(b) %}
+{# Foto do bem no topo do quadro (primeira foto); sem foto, o ícone da categoria no mesmo espaço #}
+{% macro foto_topo(b) %}
 {% set f = b.fotos[0] if b.fotos else None %}
-{% if f and f.url.startswith(('http://', 'https://')) %}<span data-papel="avatar"><img class="avatar avatar-lg avatar-square object-cover" src="{{ f.url }}" alt="Foto {{ f.nfoto }} do bem {{ b.numero }}"/></span>
-{% else %}<span class="avatar avatar-lg avatar-square" data-papel="avatar"><i class="ti {{ icone_categoria(b.classificacao) }}" aria-hidden="true"></i></span>{% endif %}
+{% if f and f.url.startswith(('http://', 'https://')) %}<div class="ratio ratio-16x9" data-papel="avatar"><img class="card-img-top object-cover" src="{{ f.url }}" alt="Foto {{ f.nfoto }} do bem {{ b.numero }}"/></div>
+{% else %}<div class="ratio ratio-16x9 card-img-top bg-secondary-lt" data-papel="avatar"><div class="d-flex align-items-center justify-content-center text-secondary"><i class="ti {{ icone_categoria(b.classificacao) }} display-6" aria-hidden="true"></i></div></div>{% endif %}
 {% endmacro %}
 
 {% macro data_curta(iso) %}{{ iso[8:10] }}/{{ iso[5:7] }}/{{ iso[:4] }} {{ iso[11:16] }}{% endmacro %}
 
-{% macro item_bem(b, secao, fechado) %}
-<div class="row g-3 align-items-center">
-  <div class="col-auto">{{ avatar_bem(b) }}</div>
-  <div class="col text-truncate">
-    <div class="d-flex align-items-center justify-content-between gap-2">
-      <a class="fw-bold" href="{{ url_for('bem', numero=b.numero) }}" data-papel="numero" title="Abrir o cadastro do bem {{ b.numero }}">{{ b.numero }}</a>
-      {{ situacao_badge(b, secao) }}
-    </div>
-    <div class="fw-bold text-truncate" data-papel="descricao">{{ b.descricao }}{% if b.complemento %} {{ b.complemento }}{% endif %}</div>
-    <div class="text-secondary small text-truncate"><i class="ti ti-map-pin me-1" aria-hidden="true"></i><span data-papel="local">{% if secao == 'divergente' %}Cadastrado em {{ b.localizacao or '—' }}{% if b.situacao != 'ATIVO' %} · {{ b.situacao }}{% endif %}{% else %}{{ b.localizacao }}{% endif %}</span></div>
-    {% if secao == 'pendente' and b.lido_em %}<div class="text-truncate" data-papel="encontrado"><span class="badge bg-yellow-lt d-inline-block text-truncate mw-100" title="Lido em outra sala: continua pendente aqui">Encontrado em {{ b.lido_em_sala }}</span></div>{% endif %}
-    <div class="text-secondary small text-truncate" data-papel="leitura"{% if not b.lido_em %} hidden{% endif %}><i class="ti ti-scan me-1" aria-hidden="true"></i><span data-papel="leitura-texto">{% if b.lido_em %}{{ 'Lido aqui' if secao == 'divergente' else 'Lido' }} por {{ b.integrante }} em {{ data_curta(b.lido_em) }}{% endif %}</span></div>
-    <div class="text-secondary small text-truncate"><i class="ti ti-user me-1" aria-hidden="true"></i><span data-papel="responsavel">{{ b.pessoa or b.responsavel_centro or '—' }}</span></div>
-    <div class="text-secondary small text-truncate"><i class="ti ti-calendar me-1" aria-hidden="true"></i><span data-papel="entrada">{{ b.data_entrada or '—' }} · {{ b.valor_atual|moeda if b.valor_atual is not none else 'valor não informado' }}</span></div>
-    <div class="d-flex flex-wrap gap-1 mt-1" data-papel="selos">
-      {% if b.conservacao %}<span class="badge bg-blue-lt">{{ b.conservacao }}</span>{% endif %}
-      {% if b.lido_em and not b.conservacao %}<span class="badge bg-orange-lt">sem conservação</span>{% endif %}
-      {% if b.lido_em and fotos_ativas and not b.fotos %}<span class="badge bg-orange-lt">sem foto</span>{% endif %}
-      {% if b.fotos|length > 1 %}<span class="badge bg-secondary-lt" title="Todas as fotos estão nos detalhes do bem">+{{ b.fotos|length - 1 }} foto(s)</span>{% endif %}
-    </div>
-  </div>
-  <div class="col-auto">
-    <div class="d-flex flex-column align-items-center gap-2">
-      {% if not fechado %}<input class="form-check-input m-0" type="checkbox" value="{{ b.numero }}" data-papel="selecao" aria-label="Selecionar o bem {{ b.numero }}"/>{% endif %}
-      <div class="dropdown">
-        <button class="btn btn-ghost-secondary btn-icon" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Ações do bem {{ b.numero }}"><i class="ti ti-dots-vertical" aria-hidden="true"></i></button>
-        <div class="dropdown-menu dropdown-menu-end">
-          <button class="dropdown-item" type="button" data-acao="detalhes" data-bs-toggle="modal" data-bs-target="#modal-bem"><i class="ti ti-list-details me-2" aria-hidden="true"></i>Detalhes</button>
-          {% if not fechado %}
-          <button class="dropdown-item" type="button" data-acao="ler"><i class="ti ti-check me-2" aria-hidden="true"></i>Registrar leitura nesta sala</button>
-          <button class="dropdown-item text-danger" type="button" data-acao="desfazer"{% if not b.lido_em %} hidden{% endif %}><i class="ti ti-arrow-back-up me-2" aria-hidden="true"></i>Desfazer leitura</button>
-          {% if fotos_ativas %}<label class="dropdown-item{% if not b.lido_em %} disabled{% endif %}" data-papel="nova-foto" aria-label="Nova foto do bem {{ b.numero }}"><i class="ti ti-camera me-2" aria-hidden="true"></i>Nova foto<input type="file" accept="image/*" capture="environment" class="foto-input" hidden{% if not b.lido_em %} disabled{% endif %}/></label>{% endif %}
-          {% endif %}
-        </div>
-      </div>
-    </div>
+{# Peças comuns às duas visualizações (os data-papel são os ganchos do JS) #}
+{% macro numero_bem(b) %}<a class="fw-bold" href="{{ url_for('bem', numero=b.numero) }}" data-papel="numero" title="Abrir o cadastro do bem {{ b.numero }}">{{ b.numero }}</a>{% endmacro %}
+{% macro descricao_bem(b, classe) %}<div class="{{ classe }} text-truncate" data-papel="descricao">{{ b.descricao }}{% if b.complemento %} {{ b.complemento }}{% endif %}</div>{% endmacro %}
+{% macro local_bem(b, secao) %}<span data-papel="local">{% if secao == 'divergente' %}Cadastrado em {{ b.localizacao or '—' }}{% if b.situacao != 'ATIVO' %} · {{ b.situacao }}{% endif %}{% else %}{{ b.localizacao }}{% endif %}</span>{% endmacro %}
+{% macro encontrado_bem(b, secao) %}{% if secao == 'pendente' and b.lido_em %}<span class="badge bg-yellow-lt d-inline-block text-truncate mw-100" data-papel="encontrado" title="Lido em outra sala: continua pendente aqui">Encontrado em {{ b.lido_em_sala }}</span>{% endif %}{% endmacro %}
+{% macro leitura_bem(b, secao, tag) %}<{{ tag }} class="text-secondary small text-truncate" data-papel="leitura"{% if not b.lido_em %} hidden{% endif %}><i class="ti ti-scan me-1" aria-hidden="true"></i><span data-papel="leitura-texto">{% if b.lido_em %}{{ 'Lido aqui' if secao == 'divergente' else 'Lido' }} por {{ b.integrante }} em {{ data_curta(b.lido_em) }}{% endif %}</span></{{ tag }}>{% endmacro %}
+{% macro selos_bem(b) %}<span class="d-inline-flex flex-wrap gap-1" data-papel="selos">
+  {%- if b.conservacao %}<span class="badge bg-blue-lt">{{ b.conservacao }}</span>{% endif %}
+  {%- if b.lido_em and not b.conservacao %}<span class="badge bg-orange-lt">sem conservação</span>{% endif %}
+  {%- if b.lido_em and fotos_ativas and not b.fotos %}<span class="badge bg-orange-lt">sem foto</span>{% endif %}
+  {%- if b.fotos|length > 1 %}<span class="badge bg-secondary-lt" title="Todas as fotos estão nos detalhes do bem">+{{ b.fotos|length - 1 }} foto(s)</span>{% endif -%}
+</span>{% endmacro %}
+{% macro selecao_bem(b, fechado) %}{% if not fechado %}<input class="form-check-input m-0" type="checkbox" value="{{ b.numero }}" data-papel="selecao" aria-label="Selecionar o bem {{ b.numero }}"/>{% endif %}{% endmacro %}
+{% macro acoes_bem(b, fechado) %}
+<div class="dropdown">
+  <button class="btn btn-ghost-secondary btn-icon" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Ações do bem {{ b.numero }}"><i class="ti ti-dots-vertical" aria-hidden="true"></i></button>
+  <div class="dropdown-menu dropdown-menu-end">
+    <button class="dropdown-item" type="button" data-acao="detalhes" data-bs-toggle="modal" data-bs-target="#modal-bem"><i class="ti ti-list-details me-2" aria-hidden="true"></i>Detalhes</button>
+    {% if not fechado %}
+    <button class="dropdown-item" type="button" data-acao="ler"><i class="ti ti-check me-2" aria-hidden="true"></i>Registrar leitura nesta sala</button>
+    <button class="dropdown-item text-danger" type="button" data-acao="desfazer"{% if not b.lido_em %} hidden{% endif %}><i class="ti ti-arrow-back-up me-2" aria-hidden="true"></i>Desfazer leitura</button>
+    {% if fotos_ativas %}<label class="dropdown-item{% if not b.lido_em %} disabled{% endif %}" data-papel="nova-foto" aria-label="Nova foto do bem {{ b.numero }}"><i class="ti ti-camera me-2" aria-hidden="true"></i>Nova foto<input type="file" accept="image/*" capture="environment" class="foto-input" hidden{% if not b.lido_em %} disabled{% endif %}/></label>{% endif %}
+    {% endif %}
   </div>
 </div>
 {% endmacro %}
 
 {% macro atributos(b, secao) %}data-bem="{{ b.numero }}" data-secao="{{ secao }}" data-ativo="{{ 'sim' if b.situacao == 'ATIVO' else 'nao' }}" data-icone="{{ icone_categoria(b.classificacao) }}"{% endmacro %}
 
-{% macro item_lista(b, secao, fechado) %}<div class="list-group-item cursor-pointer" {{ atributos(b, secao) }}>{{ item_bem(b, secao, fechado) }}</div>{% endmacro %}
-{% macro item_grade(b, secao, fechado) %}<div class="col-sm-6 col-lg-4" {{ atributos(b, secao) }}><div class="card h-100 cursor-pointer"><div class="card-body">{{ item_bem(b, secao, fechado) }}</div></div></div>{% endmacro %}
+{# Lista: compacta, sem foto — seleção | número, descrição, situação / onde está, quem responde / leitura e selos | ações #}
+{% macro item_lista(b, secao, fechado) %}
+<div class="list-group-item cursor-pointer py-2" {{ atributos(b, secao) }}>
+  <div class="row g-2 align-items-center">
+    {% if not fechado %}<div class="col-auto">{{ selecao_bem(b, fechado) }}</div>{% endif %}
+    <div class="col text-truncate">
+      <div class="d-flex align-items-center gap-2">{{ numero_bem(b) }}{{ descricao_bem(b, 'flex-fill') }}{{ situacao_badge(b, secao) }}</div>
+      <div class="text-secondary small text-truncate"><i class="ti ti-map-pin me-1" aria-hidden="true"></i>{{ local_bem(b, secao) }} · <i class="ti ti-user me-1" aria-hidden="true"></i><span data-papel="responsavel">{{ b.pessoa or b.responsavel_centro or '—' }}</span></div>
+      <div class="d-flex flex-wrap align-items-center gap-2 mt-1">{{ encontrado_bem(b, secao) }}{{ leitura_bem(b, secao, 'span') }}{{ selos_bem(b) }}</div>
+    </div>
+    <div class="col-auto">{{ acoes_bem(b, fechado) }}</div>
+  </div>
+</div>
+{% endmacro %}
 
-{# Uma seção: lista no celular, grade de cards no desktop; a caixa da lista some quando a seção está vazia #}
+{# Quadros: foto em destaque no topo e as informações embaixo; seleção e ações no rodapé #}
+{% macro item_grade(b, secao, fechado) %}
+<div class="col-12 col-md-6 col-xl-4" {{ atributos(b, secao) }}>
+  <div class="card h-100 cursor-pointer">
+    {{ foto_topo(b) }}
+    <div class="card-body">
+      <div class="d-flex align-items-center justify-content-between gap-2">{{ numero_bem(b) }}{{ situacao_badge(b, secao) }}</div>
+      {{ descricao_bem(b, 'fw-bold') }}
+      <div class="text-secondary small text-truncate"><i class="ti ti-map-pin me-1" aria-hidden="true"></i>{{ local_bem(b, secao) }}</div>
+      {{ encontrado_bem(b, secao) }}
+      {{ leitura_bem(b, secao, 'div') }}
+      <div class="text-secondary small text-truncate"><i class="ti ti-user me-1" aria-hidden="true"></i><span data-papel="responsavel">{{ b.pessoa or b.responsavel_centro or '—' }}</span></div>
+      <div class="text-secondary small text-truncate"><i class="ti ti-calendar me-1" aria-hidden="true"></i><span data-papel="entrada">{{ b.data_entrada or '—' }} · {{ b.valor_atual|moeda if b.valor_atual is not none else 'valor não informado' }}</span></div>
+      <div class="mt-1">{{ selos_bem(b) }}</div>
+    </div>
+    <div class="card-footer d-flex align-items-center justify-content-between py-2">
+      {% if not fechado %}<label class="d-flex align-items-center gap-2 mb-0 small text-secondary">{{ selecao_bem(b, fechado) }}Selecionar</label>{% else %}<span></span>{% endif %}
+      {{ acoes_bem(b, fechado) }}
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+{# Uma seção nas duas visualizações (Lista e Quadros; o botão acima da busca escolhe). Sem JS: lista no
+   celular e quadros no desktop. A caixa da lista some quando a seção está vazia. #}
 {% macro secao_bens(nome, itens, secao, fechado) %}
 <div class="card mb-3 d-md-none" data-papel="caixa-lista"{% if not itens %} hidden{% endif %}>
   <div class="list-group list-group-flush" id="lista-{{ nome }}">
     {% for b in itens %}{{ item_lista(b, secao, fechado) }}{% endfor %}
   </div>
 </div>
-<div class="row row-cards mb-3 d-none d-md-flex" id="grade-{{ nome }}">
+<div class="row row-cards mb-3 d-none d-md-flex" id="grade-{{ nome }}" data-papel="caixa-grade">
   {% for b in itens %}{{ item_grade(b, secao, fechado) }}{% endfor %}
 </div>
 {% endmacro %}
@@ -164,6 +188,10 @@
   <div class="input-icon flex-fill">
     <span class="input-icon-addon"><i class="ti ti-search" aria-hidden="true"></i></span>
     <input class="form-control" id="busca-bens" type="search" placeholder="Buscar bens da sala" aria-label="Buscar bens da sala"/>
+  </div>
+  <div class="btn-group flex-shrink-0" role="group" aria-label="Visualização dos bens">
+    <button class="btn" type="button" data-visao="lista" aria-pressed="false" aria-label="Ver em lista" title="Lista"><i class="ti ti-list" aria-hidden="true"></i><span class="d-none d-md-inline ms-2">Lista</span></button>
+    <button class="btn" type="button" data-visao="quadros" aria-pressed="false" aria-label="Ver em quadros" title="Quadros"><i class="ti ti-layout-grid" aria-hidden="true"></i><span class="d-none d-md-inline ms-2">Quadros</span></button>
   </div>
 </div>
 
@@ -351,20 +379,44 @@
   }
   abas.forEach(function (a) { a.addEventListener("click", function (ev) { ev.preventDefault(); abrirSecao(a.dataset.aba); }); });
 
+  // Visualização Lista ou Quadros, lembrada neste aparelho; sem escolha salva, lista no celular e quadros no desktop.
+  var CHAVE_VISAO = "inventario.sala.visao";
+  function aplicarVisao(visao) {
+    document.querySelectorAll('[data-papel="caixa-lista"]').forEach(function (c) { c.classList.remove("d-md-none"); c.classList.toggle("d-none", visao !== "lista"); });
+    document.querySelectorAll('[data-papel="caixa-grade"]').forEach(function (c) { c.classList.remove("d-md-flex"); c.classList.toggle("d-none", visao !== "quadros"); });
+    document.querySelectorAll("[data-visao]").forEach(function (b) {
+      var ativa = b.dataset.visao === visao; b.classList.toggle("active", ativa); b.setAttribute("aria-pressed", ativa ? "true" : "false");
+    });
+  }
+  var visaoSalva = null;
+  try { visaoSalva = localStorage.getItem(CHAVE_VISAO); } catch (e) {}
+  aplicarVisao(visaoSalva === "lista" || visaoSalva === "quadros" ? visaoSalva : (window.matchMedia("(min-width: 768px)").matches ? "quadros" : "lista"));
+  document.querySelectorAll("[data-visao]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      aplicarVisao(b.dataset.visao);
+      try { localStorage.setItem(CHAVE_VISAO, b.dataset.visao); } catch (e) {}
+    });
+  });
+
   function rotulo(f) {
     if (f.secao === "localizado") return ["Localizado", "bg-green-lt"];
     if (f.secao === "divergente") return f.situacao === "ATIVO" ? ["Divergente", "bg-yellow-lt"] : ["Não ativo", "bg-red-lt"];
     return ["Pendente", "bg-secondary-lt"];
   }
+  // Foto no topo do quadro (a lista não tem foto): primeira foto ou o ícone da categoria.
   function trocarAvatar(el, numero, fotos) {
-    var atual = el.querySelector('[data-papel="avatar"]'), novo = document.createElement("span"), f = fotos[0];
+    var atual = el.querySelector('[data-papel="avatar"]'), novo = document.createElement("div"), f = fotos[0];
+    if (!atual) return;
     novo.dataset.papel = "avatar";
     if (f && /^https?:\/\//.test(f.url)) {
-      var img = document.createElement("img"); img.className = "avatar avatar-lg avatar-square object-cover"; img.src = f.url; img.alt = "Foto " + f.nfoto + " do bem " + numero;
+      novo.className = "ratio ratio-16x9";
+      var img = document.createElement("img"); img.className = "card-img-top object-cover"; img.src = f.url; img.alt = "Foto " + f.nfoto + " do bem " + numero;
       novo.appendChild(img);
     } else {
-      novo.className = "avatar avatar-lg avatar-square";
-      var i = document.createElement("i"); i.className = "ti " + (el.dataset.icone || "ti-package"); i.setAttribute("aria-hidden", "true"); novo.appendChild(i);
+      novo.className = "ratio ratio-16x9 card-img-top bg-secondary-lt";
+      var centro = document.createElement("div"); centro.className = "d-flex align-items-center justify-content-center text-secondary";
+      var i = document.createElement("i"); i.className = "ti " + (el.dataset.icone || "ti-package") + " display-6"; i.setAttribute("aria-hidden", "true");
+      centro.appendChild(i); novo.appendChild(centro);
     }
     atual.replaceWith(novo);
   }
@@ -399,7 +451,8 @@
       el.querySelector('[data-papel="descricao"]').textContent = f.descricao + (f.complemento ? " " + f.complemento : "");
       el.querySelector('[data-papel="local"]').textContent = "Cadastrado em " + (f.localizacao || "—") + (f.situacao !== "ATIVO" ? " · " + f.situacao : "");
       el.querySelector('[data-papel="responsavel"]').textContent = f.pessoa || f.responsavel_centro || "—";
-      el.querySelector('[data-papel="entrada"]').textContent = (f.data_entrada || "—") + " · " + (f.valor_atual || "valor não informado");
+      var entrada = el.querySelector('[data-papel="entrada"]');   // só no quadro
+      if (entrada) entrada.textContent = (f.data_entrada || "—") + " · " + (f.valor_atual || "valor não informado");
       trocarAvatar(el, f.numero, f.fotos);
       return el;
     });

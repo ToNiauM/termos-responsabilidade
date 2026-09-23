@@ -83,12 +83,14 @@ def test_sala_no_tabler_leitura_lote_e_fotos(tabler, monkeypatch):
     inventario.adicionar_foto(db.conectar(), eid, 1001, lambda c: "https://x/1.webp")
     inventario.adicionar_foto(db.conectar(), eid, 1001, lambda c: "https://x/2.webp")
     html = tabler.get(url).text
-    item = html.split('id="lista-localizados"')[1].split('data-bem="1001"')[1].split('data-bem="')[0]
-    assert item.count('class="avatar avatar-lg avatar-square object-cover"') == 1 and "+1 foto(s)" in item   # excluir foto: na ficha (modal)
-    assert 'class="foto-input" hidden/>' in item and ">Localizado<" in item and "sem conservação" in item
-    assert "JAQUELINE PORTELA" in item and "ti ti-armchair" not in item   # responsável do centro; tem foto, sem ícone
-    item2 = html.split('id="lista-pendentes"')[1].split('data-bem="1002"')[1].split('data-bem="')[0]
-    assert 'class="foto-input" hidden disabled' in item2 and ">Pendente<" in item2 and "ti ti-package" in item2   # classificação genérica
+    item = html.split('id="lista-localizados"')[1].split('data-bem="1001"')[1].split('data-bem="')[0]   # Lista: sem foto
+    assert "<img" not in item and "avatar" not in item and "+1 foto(s)" in item   # excluir foto: na ficha (modal)
+    assert 'class="foto-input" hidden/>' in item and ">Localizado<" in item and "sem conservação" in item and "JAQUELINE PORTELA" in item
+    quadro = html.split('id="grade-localizados"')[1].split('data-bem="1001"')[1].split('data-bem="')[0]   # Quadros: foto no topo
+    assert quadro.count('<img class="card-img-top object-cover" src="https://x/1.webp"') == 1 and "+1 foto(s)" in quadro
+    assert "JAQUELINE PORTELA" in quadro and "ti ti-armchair" not in quadro   # responsável do centro; tem foto, sem ícone
+    item2 = html.split('id="grade-pendentes"')[1].split('data-bem="1002"')[1].split('data-bem="')[0]
+    assert 'class="foto-input" hidden disabled' in item2 and ">Pendente<" in item2 and "ti ti-package" in item2   # sem foto: ícone genérico
     assert 'data-acao="desfazer" hidden' in item2
     r = tabler.post(f"{url}/lote", data={"acao": "marcar", "numeros": ["1002"]}, follow_redirects=True)
     assert "1 bem(ns) marcado(s)" in r.text and r.text.count(">Localizado<") == 4 and _e_tabler(r.text)   # lista + grade
@@ -272,3 +274,30 @@ def test_foto_excluir_responde_json(tabler, monkeypatch):
     r = tabler.post(f"/inventario/{eid}/leitura/1001/foto/3/excluir", headers=json_)
     assert r.status_code == 403 and r.get_json()["erro"] and apagadas[-1] == "https://x/2.webp"
     assert len(inventario.fotos_do_bem_no_evento(db.conectar(), eid, 1001)) == 1
+
+
+def test_sala_visoes_lista_e_quadros(tabler, monkeypatch):
+    import db, fotos, inventario
+    for v in fotos.VARIAVEIS:
+        monkeypatch.setenv(v, "x")
+    eid, url = _cenario_sala(tabler)
+    inventario.adicionar_foto(db.conectar(), eid, 1001, lambda c: "https://x/1.webp")
+    inventario.adicionar_foto(db.conectar(), eid, 1004, lambda c: "https://x/3.webp")
+    html = tabler.get(url).text
+    assert ' style="' not in html and "<style" not in html.split("<body")[1]
+    # botão Lista/Quadros perto da busca, lembrado no aparelho
+    assert 'role="group" aria-label="Visualização dos bens"' in html
+    assert 'data-visao="lista" aria-pressed="false" aria-label="Ver em lista"' in html and "ti ti-list" in html
+    assert 'data-visao="quadros" aria-pressed="false" aria-label="Ver em quadros"' in html and "ti ti-layout-grid" in html
+    assert "localStorage" in html
+    for secao, numeros in (("pendentes", [1002]), ("divergentes", [1003, 1004]), ("localizados", [1001])):
+        lista = html.split(f'id="lista-{secao}"')[1].split('data-papel="caixa-grade"')[0]
+        grade = html.split(f'id="grade-{secao}"')[1].split('data-papel="vazio"')[0]
+        for n in numeros:   # o mesmo bem nas duas visualizações
+            assert f'data-bem="{n}"' in lista and f'data-bem="{n}"' in grade
+        assert "<img" not in lista and 'data-papel="avatar"' not in lista and "avatar" not in lista   # Lista nunca tem foto
+        assert grade.count('data-papel="avatar"') == len(numeros)   # Quadros: foto ou ícone em todo bem
+    assert '<img class="card-img-top object-cover" src="https://x/1.webp"' in html and '<img class="card-img-top object-cover" src="https://x/3.webp"' in html
+    # os modelos do bem lido ao vivo também seguem as duas visualizações
+    modelos = html.split('<template id="modelo-lista">')[1]
+    assert "<img" not in modelos.split("</template>")[0] and 'data-papel="avatar"' in modelos.split('<template id="modelo-grade">')[1].split("</template>")[0]
