@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='tabler/vendor/tabler.min.css') }}"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/vendor/fontawesome/css/all.min.css') }}"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='tabler/astra.css') }}"/>
+  {% block estilos %}{% endblock %}
 </head>
 <body>
 <a class="visually-hidden-focusable" href="#conteudo">Ir para o conteúdo</a>
@@ -62,7 +63,7 @@
           <form class="d-none d-md-block" method="get" action="{{ url_for('pesquisa') }}" role="search">
             <div class="input-icon">
               <span class="input-icon-addon"><i class="fas fa-search" aria-hidden="true"></i></span>
-              <input class="form-control" name="q" type="search" value="{{ q or '' }}" placeholder="Número, descrição, nome ou centro de custo" aria-label="Pesquisar" size="36"/>
+              <input class="form-control" id="busca-header" name="q" type="search" value="{{ q or '' }}" placeholder="Número, descrição, nome ou centro de custo" aria-label="Pesquisar" size="36"/>
             </div>
           </form>
           {% endif %}

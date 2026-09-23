@@ -37,3 +37,90 @@
   </div>
 </div>
 {% endmacro %}
+
+{% macro ajuda_titulo(ancora) %}
+{% if ancora %}<a class="btn btn-ghost-secondary btn-icon ms-2" href="{{ url_for('ajuda') }}#{{ ancora }}" aria-label="Ajuda desta tela" title="Ajuda desta tela"><i class="fas fa-question-circle" aria-hidden="true"></i></a>{% endif %}
+{% endmacro %}
+
+{% macro cabecalho_tabela(titulo, id, selecao=False) %}
+{# abre card + tabela com busca local (e barra de seleção, se selecao); quem chama fecha com fechar_tabela() #}
+<div class="card mb-3" id="card-{{ id }}">
+  <div class="card-header flex-wrap gap-2">
+    <h2 class="card-title">{{ titulo }}</h2>
+    <div class="ms-auto">
+      <div class="input-icon">
+        <span class="input-icon-addon"><i class="fas fa-search" aria-hidden="true"></i></span>
+        <input class="form-control form-control-sm" id="campo-busca-{{ id }}" type="search" placeholder="Buscar na tabela" aria-label="Buscar na tabela: {{ titulo }}" data-filtro-tabela="tabela-{{ id }}"/>
+      </div>
+    </div>
+  </div>
+  {% if selecao %}
+  <div class="card-body py-2 border-bottom text-secondary small" data-selecao-info="check-{{ id }}"><span class="count">0</span> <span class="text">item selecionado</span></div>
+  {% endif %}
+  <div class="table-responsive">
+  <table class="table table-vcenter card-table table-striped" id="tabela-{{ id }}">
+    <caption class="visually-hidden">{{ titulo }}</caption>
+{% endmacro %}
+
+{% macro fechar_tabela() %}
+  </table>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro th_selecao(id) %}
+<th class="w-1" scope="col"><input class="form-check-input m-0 align-middle" id="check-all-{{ id }}" name="check-all-{{ id }}" type="checkbox" aria-label="Selecionar todas as linhas" data-parent="check-{{ id }}"/></th>
+{% endmacro %}
+
+{% macro td_selecao(id, indice, name, value, form=None) %}
+<td><input class="form-check-input m-0 align-middle" id="check-{{ id }}-{{ indice }}" name="{{ name }}" type="checkbox" value="{{ value }}" aria-label="Selecionar linha" data-child="check-{{ id }}"{% if form %} form="{{ form }}"{% endif %}/></td>
+{% endmacro %}
+
+{% macro tag_termo(s) %}
+{# s = dict de db.situacao_termo #}
+{% if s.estado == 'vigente' %}<span class="badge bg-green-lt text-nowrap">vigente</span>
+{% elif s.estado == 'desatualizado' %}<span class="badge bg-yellow-lt text-nowrap">desatualizado +{{ s.entraram }} −{{ s.sairam }}</span>
+{% else %}<span class="badge bg-secondary-lt text-nowrap">sem termo</span>{% endif %}
+{% endmacro %}
+
+{% macro tag_email(s) %}
+{# s = dict de db.situacao_termo; sinaliza o pedido de assinatura do último termo e leva ao registro #}
+{% if not s.ultimo %}—
+{% elif s.ultimo.email_enviado_em %}<a href="{{ url_for('termo_emitido_tela', id=s.ultimo.id) }}" class="badge bg-green-lt text-nowrap">enviado {{ s.ultimo.email_enviado_em[8:10] }}/{{ s.ultimo.email_enviado_em[5:7] }}</a>
+{% elif s.ultimo.documento_sei and s.ultimo.bloco_sei %}<a href="{{ url_for('termo_emitido_tela', id=s.ultimo.id) }}" class="badge bg-yellow-lt text-nowrap">não enviado</a>
+{% else %}<a href="{{ url_for('termo_emitido_tela', id=s.ultimo.id) }}" class="badge bg-secondary-lt text-nowrap">sem doc./bloco</a>{% endif %}
+{% endmacro %}
+
+{% macro grafico(g) %}
+{# g = {id, titulo, subtitulo, opcoes (dict ECharts), resumo (aria-label), alto (bool), altura, col, tabela (graficos.tabela_dados)} #}
+<div class="{{ g.col or 'col-sm-12 col-md-6' }} mb-3">
+  <div class="card h-100">
+    <div class="card-header d-block">
+      <h3 class="card-title">{{ g.titulo }}</h3>
+      {% if g.subtitulo %}<div class="card-subtitle mt-1">{{ g.subtitulo }}</div>{% endif %}
+    </div>
+    <div class="card-body">
+      <script type="application/json" id="{{ g.id }}">{{ g.opcoes|tojson }}</script>
+      <div class="{% if g.altura == 'extra' %}astra-grafico-extra{% elif g.alto %}astra-grafico-alto{% else %}astra-grafico{% endif %}" data-grafico="{{ g.id }}" role="img" aria-label="{{ g.resumo }}"></div>
+      {% if g.tabela %}
+      <button class="btn btn-sm btn-ghost-secondary mt-2 collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#acc-{{ g.id }}-dados" aria-controls="acc-{{ g.id }}-dados" aria-expanded="false">
+        <i class="fas fa-angle-down me-1 astra-seta" aria-hidden="true"></i>Ver dados
+      </button>
+      <div class="collapse" id="acc-{{ g.id }}-dados">
+        <div class="table-responsive mt-2">
+          <table class="table table-sm table-vcenter">
+            <caption class="visually-hidden">{{ g.titulo }} — dados</caption>
+            <thead><tr>{% for c in g.tabela.colunas %}<th scope="col"{% if not loop.first %} class="text-end"{% endif %}>{{ c }}</th>{% endfor %}</tr></thead>
+            <tbody>
+            {% for linha in g.tabela.linhas %}
+            <tr>{% for cel in linha %}<td{% if not loop.first %} class="text-end astra-numero"{% endif %}>{% if cel.url %}<a href="{{ cel.url }}">{{ cel.valor }}</a>{% else %}{{ cel.valor }}{% endif %}</td>{% endfor %}</tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endmacro %}
