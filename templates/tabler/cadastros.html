@@ -20,6 +20,14 @@
 {% else %}
 <p class="text-secondary">{{ areas[aba][1] }}.</p>
 {% if salvo %}<div class="alert alert-info" role="status"><div class="d-flex"><i class="fas fa-info-circle me-2 mt-1" aria-hidden="true"></i><div>O registro {{ salvo[0] }} foi salvo e não aparece nesta página com os filtros atuais. <a href="{{ salvo[1] }}">Acessar registro</a></div></div></div>{% endif %}
+{% if individuais_sem_pessoa %}
+<div class="alert alert-warning" role="alert">
+  <div class="d-flex"><i class="fas fa-exclamation-triangle me-2 mt-1" aria-hidden="true"></i>
+  <div><strong>{{ individuais_sem_pessoa|length }} bem(ns) de termo individual sem pessoa atribuída</strong> (ficam fora de todo termo):
+    {% for b in individuais_sem_pessoa %}<a href="{{ url_for('bem', numero=b.numero) }}">{{ b.numero }}</a> {{ b.descricao }}{% if not loop.last %} · {% endif %}{% endfor %}.
+    Atribua cada um à pessoa em <a href="{{ url_for('cadastros', aba='pessoas') }}">Cadastros › Pessoas</a>.</div></div>
+</div>
+{% endif %}
 {% if aba == 'localizacoes' and pendentes %}
 <div class="alert alert-warning" role="status"><div class="d-flex"><i class="fas fa-exclamation-triangle me-2 mt-1" aria-hidden="true"></i><div>{{ pendentes|length }} localização(ões) com bens ativos sem centro de custo. <a href="{{ url_for('cadastros', aba=aba, situacao='sem_centro') }}">Resolver vínculos</a></div></div></div>
 {% endif %}

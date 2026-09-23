@@ -93,8 +93,8 @@ def test_localizacoes_sem_centro(dados):
 
 def test_localizacoes_sem_centro_ignora_bens_atribuidos(dados):
     semear(dados)
-    dados.execute("INSERT INTO bens VALUES (2003,'ATIVO','TABLET','','EQUIPAMENTOS','TERMOS INDIVIDUAIS','01/02/2023',900,800)")
-    assert db.localizacoes_sem_centro(dados) == ["99 - SEM MAPA", "TERMOS INDIVIDUAIS"]
+    dados.execute("INSERT INTO bens VALUES (2003,'ATIVO','TABLET','','EQUIPAMENTOS','98 - SALA NOVA','01/02/2023',900,800)")
+    assert db.localizacoes_sem_centro(dados) == ["98 - SALA NOVA", "99 - SEM MAPA"]
     dados.execute("INSERT INTO atribuicoes VALUES ('ANA SILVA', 2003)")
     assert db.localizacoes_sem_centro(dados) == ["99 - SEM MAPA"]
 
@@ -309,7 +309,8 @@ def test_importar_a_propria_exportacao_e_idempotente(dados, tmp_path):
     semear(dados)
     arq = db.exportar_cadastros(dados, tmp_path / "c.xlsx")
     resumo = db.importar_cadastros(dados, arq)
-    assert resumo == {"responsaveis": 1, "localizacoes": 1, "pessoas": 1, "atribuicoes": 1, "sem_centro": ["99 - SEM MAPA"]}
+    assert resumo == {"responsaveis": 1, "localizacoes": 1, "pessoas": 1, "atribuicoes": 1, "sem_centro": ["99 - SEM MAPA"],
+                      "localizacoes_ignoradas": []}
     assert db.ficha_do_bem(dados, 1002)["pessoa"] == "ANA SILVA"
 
 

@@ -37,6 +37,14 @@
   {% else %}<span class="text-gray-70">Busca a relação de bens no SPW agora, sem esperar a atualização automática da madrugada.</span>{% endif %}
 </div></div>
 {% endif %}
+{% if individuais_sem_pessoa %}
+<div class="br-message warning">
+  <div class="icon"><i class="fas fa-exclamation-triangle fa-lg" aria-hidden="true"></i></div>
+  <div class="content" role="alert"><span class="message-title">{{ individuais_sem_pessoa|length }} bem(ns) de termo individual sem pessoa atribuída</span>
+    <span class="message-body"> (ficam fora de todo termo): {% for b in individuais_sem_pessoa %}<a href="{{ url_for('bem', numero=b.numero) }}">{{ b.numero }}</a> {{ b.descricao }}{% if not loop.last %} · {% endif %}{% endfor %}.
+    Atribua cada um à pessoa em <a href="{{ url_for('cadastros', aba='pessoas') }}">Cadastros › Pessoas</a>.</span></div>
+</div>
+{% endif %}
 {% if sem_centro %}
 <div class="br-message warning">
   <div class="icon"><i class="fas fa-exclamation-triangle fa-lg" aria-hidden="true"></i></div>

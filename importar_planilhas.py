@@ -39,7 +39,7 @@ def migrar(conn, acervo: Path, geral: Path) -> dict:
 
     for r in _linhas(acervo, "ccustos"):
         loc, sigla = db._texto(r["localizacao"]), db._texto(r["ccustos"]).upper()
-        if not loc or not sigla or sigla == "TERMOS INDIVIDUAIS":
+        if not loc or not sigla or sigla == "TERMOS INDIVIDUAIS" or db.localizacao_individual(loc):
             continue
         if not db.responsavel(conn, sigla):
             conn.execute("INSERT INTO responsaveis (ccustos, responsavel) VALUES (?, '(preencher)')", (sigla,))

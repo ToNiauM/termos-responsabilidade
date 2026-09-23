@@ -218,6 +218,28 @@ def _colunas(conn, tabela: str) -> list[str]:
     return [r[1] for r in conn.execute(f"PRAGMA table_info({tabela})")]
 
 
+# Localizações do SPW que marcam os bens com termo individual (decisão de 2026-09-23): nunca pertencem a
+# centro de custo — não se vinculam, não são pendência de mapeamento — e bem ativo nelas sem pessoa é pendência
+# própria (bens_individuais_sem_pessoa). No inventário continuam como sala virtual (a comissão confere ali).
+LOCALIZACOES_INDIVIDUAIS = ("TERMOS INDIVIDUAIS",)
+
+
+def _chave_localizacao(valor) -> str:
+    """Comparação sem diferenciar maiúsculas, acentos e espaços repetidos."""
+    import unicodedata
+    texto = " ".join(str(valor or "").split()).casefold()
+    return "".join(c for c in unicodedata.normalize("NFD", texto) if not unicodedata.combining(c))
+
+
+def localizacao_individual(localizacao) -> bool:
+    return bool(localizacao) and _chave_localizacao(localizacao) in {_chave_localizacao(l) for l in LOCALIZACOES_INDIVIDUAIS}
+
+
+def _recusar_localizacao_individual(localizacao) -> None:
+    if localizacao_individual(localizacao):
+        raise ErroDeNegocio(f"{localizacao} é a localização dos bens com termo individual e não pertence a centro de custo.")
+
+
 def criar_esquema(conn: sqlite3.Connection) -> None:
     conn.executescript(ESQUEMA)
     # Bancos criados antes de 2026-09-16: tratamento (Prezado/Prezada) saiu; pessoas ganhou e-mail e matrícula.
@@ -271,6 +293,9 @@ def criar_esquema(conn: sqlite3.Connection) -> None:
     # Aparência da casca Tabler por usuário (2026-09-23): JSON {tema, cor, base, cantos}; vazio = padrão.
     if "aparencia" not in _colunas(conn, "usuarios"):
         conn.execute("ALTER TABLE usuarios ADD COLUMN aparencia TEXT")
+    # Localização de termo individual nunca tem centro (2026-09-23): desfaz vínculo feito antes da regra.
+    conn.executemany("DELETE FROM localizacoes WHERE localizacao = ?",
+                     [(l,) for (l,) in conn.execute("SELECT localizacao FROM localizacoes").fetchall() if localizacao_individual(l)])
     conn.commit()
     # Fase 5A: perfil único de usuários.perfil vira funções (usuarios_funcoes); a comissão de
     # inventário ganha identidade de usuário quando o nome não é ambíguo. Reserva a própria transação.
@@ -406,7 +431,18 @@ def localizacoes_sem_centro(conn: sqlite3.Connection) -> list[str]:
     return [r[0] for r in conn.execute(
         "SELECT DISTINCT localizacao FROM bens WHERE situacao='ATIVO' AND localizacao <> '' "
         "AND localizacao NOT IN (SELECT localizacao FROM localizacoes) "
-        "AND numero NOT IN (SELECT numero FROM atribuicoes) ORDER BY localizacao")]
+        "AND numero NOT IN (SELECT numero FROM atribuicoes) ORDER BY localizacao") if not localizacao_individual(r[0])]
+
+
+def bens_individuais_sem_pessoa(conn) -> list[dict]:
+    """Bens ATIVOS numa localização de termo individual sem pessoa atribuída: sem dono, ficam fora de todo termo."""
+    locais = [r[0] for r in conn.execute("SELECT DISTINCT localizacao FROM bens WHERE situacao = 'ATIVO'")
+              if localizacao_individual(r[0])]
+    if not locais:
+        return []
+    marcadores = ",".join("?" * len(locais))
+    return _todos(conn, f"""SELECT * FROM bens WHERE situacao = 'ATIVO' AND localizacao IN ({marcadores})
+        AND numero NOT IN (SELECT numero FROM atribuicoes) ORDER BY numero""", *locais)
 
 
 def localizacoes_ativas(conn) -> list[str]:
@@ -519,16 +555,17 @@ def listar_cadastros(conn, aba, filtros):
                        if not unicodedata.combining(c))
 
     conn.create_function("cadastro_busca", 1, normalizar, deterministic=True)
+    conn.create_function("localizacao_individual", 1, lambda v: int(localizacao_individual(v)), deterministic=True)
     fontes = {
         "responsaveis": ("SELECT *, ccustos AS chave FROM responsaveis", ["ccustos", "responsavel", "funcao"]),
         "pessoas": ("""SELECT p.nome, p.nome AS chave, p.email, p.matricula, COUNT(a.numero) AS quantidade
                         FROM pessoas p LEFT JOIN atribuicoes a ON a.nome = p.nome GROUP BY p.nome""",
                     ["nome", "email", "quantidade"]),
-        "localizacoes": ("""SELECT localizacao, ccustos, localizacao AS chave FROM localizacoes
-            UNION ALL SELECT DISTINCT b.localizacao, '', b.localizacao FROM bens b
+        "localizacoes": ("""SELECT localizacao, ccustos, localizacao AS chave, 0 AS individual FROM localizacoes
+            UNION ALL SELECT DISTINCT b.localizacao, '', b.localizacao, localizacao_individual(b.localizacao) FROM bens b
             WHERE b.situacao = 'ATIVO' AND b.localizacao <> ''
             AND b.localizacao NOT IN (SELECT localizacao FROM localizacoes)
-            AND b.numero NOT IN (SELECT numero FROM atribuicoes)""",
+            AND (b.numero NOT IN (SELECT numero FROM atribuicoes) OR localizacao_individual(b.localizacao))""",
                          ["localizacao", "ccustos"]),
         "processos": ("SELECT *, CAST(id AS TEXT) AS chave FROM processos_sei",
                       ["numero_sei", "descricao", "tipo", "vigente", "criado_em"]),
@@ -751,6 +788,7 @@ def renomear_centro(conn, antigo: str, novo: str) -> None:
 
 def incluir_localizacao(conn, localizacao: str, ccustos: str) -> None:
     loc = _obrigatorio(localizacao, "Localização")
+    _recusar_localizacao_individual(loc)
     if not responsavel(conn, ccustos):
         raise ErroDeNegocio(f"Centro de custo {ccustos} não cadastrado.")
     conn.execute("INSERT OR REPLACE INTO localizacoes VALUES (?, ?)", (loc, ccustos))
@@ -766,6 +804,8 @@ def mover_localizacoes(conn, localizacoes: list[str], ccustos: str) -> int:
     """De-Para: muda o centro de custo de uma ou várias localizações de uma vez."""
     if not localizacoes:
         raise ErroDeNegocio("Selecione ao menos uma localização.")
+    for loc in localizacoes:
+        _recusar_localizacao_individual(loc)
     if not responsavel(conn, ccustos):
         raise ErroDeNegocio(f"Centro de custo {ccustos} não cadastrado.")
     marcadores = ",".join("?" * len(localizacoes))
@@ -1245,11 +1285,13 @@ def importar_cadastros(conn, arquivo) -> dict:
             responsaveis.append((sigla, nome, _texto(r["email"]), _texto(r["matricula"]), _texto(r["funcao"]),
                                  _texto(r["unidade_sei"]) or None))
 
-    localizacoes, locs = [], set()
+    localizacoes, locs, ignoradas = [], set(), []
     for r in brutos["localizacoes"]:
         loc, sigla = _texto(r["localizacao"]), _texto(r["ccustos"]).upper()
         if not loc:
             problemas.append(f"localizacoes linha {r['_linha']}: localização vazia")
+        elif localizacao_individual(loc):
+            ignoradas.append(loc)   # termo individual não tem centro: a linha da planilha é ignorada
         elif loc in locs:
             problemas.append(f"localizacoes linha {r['_linha']}: localização {loc} repetida")
         elif sigla not in siglas:
@@ -1309,7 +1351,8 @@ def importar_cadastros(conn, arquivo) -> dict:
         conn.rollback()
         raise
     resultado = {"responsaveis": len(responsaveis), "localizacoes": len(localizacoes), "pessoas": len(nomes),
-                "atribuicoes": len(atribuicoes), "sem_centro": localizacoes_sem_centro(conn)}
+                "atribuicoes": len(atribuicoes), "sem_centro": localizacoes_sem_centro(conn),
+                "localizacoes_ignoradas": ignoradas}
     if tem_inventario:
         resultado.update({aba: len(l) for aba, l in inv_linhas.items() if l is not None})
     return resultado

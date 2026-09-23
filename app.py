@@ -615,6 +615,7 @@ def upload():
         return redirect(url_for("upload"))
     conn = obter_conn()
     return render_template("upload.html", sem_centro=db.localizacoes_sem_centro(conn),
+                           individuais_sem_pessoa=db.bens_individuais_sem_pessoa(conn),
                            importacoes=db.importacoes(conn), execucoes=db.execucoes_robo(conn),
                            pedido_spw=db.pedido_spw_ativo(conn), ultimo_spw=db.ultimo_pedido_spw(conn),
                            descricao_passo=db.DESCRICAO_PASSO, trilha=[("Atualizar base", None)])
@@ -735,6 +736,9 @@ def importar_cadastros():
            f"{r['pessoas']} pessoa(s), {r['atribuicoes']} atribuição(ões).")
     if "inv_eventos" in r:
         msg += f" Inventário: {r['inv_eventos']} evento(s), {r['inv_leituras']} leitura(s), {r['inv_sobras']} sobra(s)."
+    if r.get("localizacoes_ignoradas"):
+        msg += (f" Ignorada(s) na aba localizacoes: {', '.join(r['localizacoes_ignoradas'])} "
+                "(localização de termo individual não tem centro de custo).")
     flash(msg, "success")
     return redirect(url_for("upload"))
 

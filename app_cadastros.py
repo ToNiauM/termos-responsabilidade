@@ -159,6 +159,7 @@ def registrar_cadastros(app, obter_conn):
         return render_template("cadastros.html", **contexto(aba), lista=lista, filtros=filtros, origem=origem,
                                link=link, pagina_url=pagina_url, ancora=ancora, salvo=salvo, registro=registro,
                                centros=db.centros(conn), pendentes=db.localizacoes_sem_centro(conn),
+                               individuais_sem_pessoa=db.bens_individuais_sem_pessoa(conn) if aba == "localizacoes" else [],
                                tipos=list(db.ROTULO_TIPO.items()), nome=nome, pessoa=db.pessoa(conn, nome) if nome else None,
                                bens_pessoa=db.bens_da_pessoa(conn, nome) if nome else [],
                                vigentes={tipo: db.processo_vigente(conn, tipo) for tipo in db.TIPOS_TERMO})
