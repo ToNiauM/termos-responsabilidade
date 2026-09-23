@@ -29,7 +29,7 @@
   .navbar-vertical > .container-fluid > .astra-marca { order: 1; flex: 1 1 auto; min-width: 0; margin: 0; }
   .navbar-vertical > .container-fluid > .navbar-toggler { order: 2; flex: 0 0 auto; }
   .navbar-vertical > .container-fluid > .navbar-collapse { order: 3; flex: 1 1 100%; }
-  .astra-marca span { font-size: .7rem; overflow: hidden; text-overflow: ellipsis; }
+  .astra-marca span { font-size: .7rem; overflow: hidden; text-overflow: ellipsis; line-height: 1.6; } /* sem o 1.6 o acento de PATRIMÔNIO era cortado */
 }
 
 /* Gráficos ECharts: altura fixa, largura do card */
