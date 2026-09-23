@@ -6,21 +6,70 @@
 .astra-leitor { max-width: 480px; }
 .astra-contador { min-width: 3rem; font-size: 1rem; padding: .45em .7em; }
 #leitor-camera button { margin: .25rem; }
-/* Celular: cada bem vira um bloco (Nº e descrição em cima; situação, foto e campos embaixo), sem rolagem lateral */
+/* ---------- Celular: experiência de aplicativo (mesmo modelo da lista de salas do evento) ---------- */
 @media (max-width: 767.98px) {
-  #tabela-sala thead { display: none; }
-  #tabela-sala, #tabela-sala tbody { display: block; }
-  #tabela-sala tr { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; padding: .75rem 1rem; border-bottom: 1px solid var(--tblr-border-color); }
-  #tabela-sala td { display: block; flex: 1 1 100%; padding: 0; border: 0; background: none; box-shadow: none; }
-  #tabela-sala td[data-rotulo]::before { content: attr(data-rotulo); display: block; font-size: .75rem; color: var(--tblr-secondary); margin-bottom: .15rem; }
-  #tabela-sala td.col-selecao { flex: 0 0 auto; order: 1; }
-  #tabela-sala td.col-selecao .form-check-input { width: 1.5rem; height: 1.5rem; }
-  #tabela-sala td.col-numero { flex: 0 0 auto; order: 2; font-weight: 600; }
-  #tabela-sala td.col-descricao { flex: 1 1 0; min-width: 10rem; order: 3; }
-  #tabela-sala td.situacao { order: 4; }
-  #tabela-sala td.foto { order: 5; }
-  #tabela-sala td.col-campo { order: 6; }
-  #tabela-sala .campo { font-size: 1rem; min-height: 2.5rem; }
+  /* Faixa de leitura fixa no topo enquanto a lista rola */
+  .astra-faixa { position: sticky; top: 0; z-index: 1020; margin-left: calc(-1 * var(--tblr-gutter-x, 1.5rem) * .5); margin-right: calc(-1 * var(--tblr-gutter-x, 1.5rem) * .5); border-radius: 0; border-left: 0; border-right: 0; box-shadow: 0 .25rem .75rem rgba(0,0,0,.08); }
+  .astra-faixa .card-body { padding: .6rem .75rem; }
+  .astra-faixa #leitura { font-size: 1.1rem; }
+  .astra-btn-leitor { width: 3.25rem; padding-left: 0; padding-right: 0; }
+  .astra-faixa #camera { max-height: 55vh; overflow: auto; }
+  .astra-contador { min-width: 0; font-size: .8rem; padding: .35em .55em; }
+
+  /* Lista de bens em cartões, no jeito de app de entrega/marketplace: foto à esquerda, título, nº + situação, locais */
+  #card-bens { background: transparent; border: 0; box-shadow: none; }
+  #card-bens > .card-header, #card-bens > .card-body { background: transparent; border: 0; padding-left: 0; padding-right: 0; }
+  #card-bens .table-responsive { overflow: visible; }
+  .astra-lista-bens thead { display: none; }
+  .astra-lista-bens, .astra-lista-bens tbody { display: block; width: 100%; }
+  .astra-lista-bens tr {
+    display: grid; grid-template-columns: auto 4.5rem minmax(0, 1fr) auto auto;
+    grid-template-areas: "sel foto desc desc abrir" "sel foto num sit sit" "sel foto loc loc loc";
+    column-gap: .75rem; row-gap: .2rem; align-items: center;
+    margin-bottom: .6rem; padding: .75rem; background: var(--tblr-bg-surface); border: 1px solid var(--tblr-border-color); border-radius: .75rem; box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  }
+  .astra-lista-bens.sem-selecao tr { grid-template-columns: 0 4.5rem minmax(0, 1fr) auto auto; column-gap: .6rem; }
+  .astra-lista-bens td { display: block; padding: 0 !important; border: 0; background: none !important; box-shadow: none; min-width: 0; }
+  .astra-lista-bens td.col-selecao { grid-area: sel; }
+  .astra-lista-bens td.col-selecao .form-check-input { width: 1.4rem; height: 1.4rem; }
+  .astra-lista-bens td.foto { grid-area: foto; align-self: start; display: flex; flex-direction: column; align-items: center; gap: .25rem; }
+  .astra-lista-bens .astra-miniatura, .astra-lista-bens .astra-sem-foto, .astra-lista-bens td.foto > .astra-nova-foto { width: 4.5rem; height: 4.5rem; border-radius: .6rem; object-fit: cover; }
+  .astra-lista-bens .astra-sem-foto, .astra-lista-bens td.foto > .astra-nova-foto { background: var(--tblr-bg-surface-secondary); color: var(--tblr-secondary); border: 0; font-size: 1.4rem; display: inline-flex; align-items: center; justify-content: center; }
+  .astra-lista-bens td.col-descricao { grid-area: desc; font-weight: 600; font-size: .92rem; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .astra-lista-bens td.col-descricao .text-secondary { font-weight: 400; }
+  .astra-lista-bens td.col-abrir { grid-area: abrir; align-self: start; }
+  .astra-lista-bens td.col-numero { grid-area: num; font-size: .85rem; color: var(--tblr-secondary); }
+  .astra-lista-bens td.col-numero::before { content: "Nº "; }
+  .astra-lista-bens td.situacao { grid-area: sit; justify-self: end; }
+  .astra-lista-bens td.situacao .badge { background: none !important; padding: 0; font-size: .85rem; font-weight: 700; text-transform: none; }
+  .astra-lista-bens td.col-locais { grid-area: loc; font-size: .78rem; color: var(--tblr-secondary); display: flex; flex-wrap: wrap; column-gap: .9rem; row-gap: .1rem; }
+  .astra-lista-bens td.col-locais strong { color: var(--tblr-body-color); font-weight: 600; }
+  .astra-lista-bens.sem-selecao td.col-selecao { display: none; }
+
+  /* Detalhes (conservação, quem usa, observação, excluir foto): só com o bem aberto */
+  .astra-lista-bens td.col-campo { grid-column: 1 / -1; display: none; margin-top: .35rem; }
+  .astra-lista-bens td.col-campo::before { content: attr(data-rotulo); display: block; font-size: .75rem; color: var(--tblr-secondary); margin-bottom: .15rem; }
+  .astra-lista-bens .campo { font-size: 1rem; min-height: 2.5rem; }
+  .astra-lista-bens tr:not(.aberto) .astra-so-detalhe { display: none !important; }
+  .astra-lista-bens tr.aberto { border-color: var(--tblr-primary); }
+  .astra-lista-bens tr.aberto td.col-campo { display: block; }
+  .astra-lista-bens tr.aberto .astra-abrir i { transform: rotate(180deg); }
+
+  /* Trazidos: mesma ideia, com rótulos pequenos */
+  .astra-lista-rotulada thead { display: none; }
+  .astra-lista-rotulada, .astra-lista-rotulada tbody { display: block; }
+  .astra-lista-rotulada tr { display: flex; flex-wrap: wrap; column-gap: .9rem; row-gap: .15rem; padding: .75rem 1rem; border-bottom: 1px solid var(--tblr-border-color); }
+  .astra-lista-rotulada td { display: block; padding: 0 !important; border: 0; background: none !important; }
+  .astra-lista-rotulada td:nth-child(2) { flex: 1 1 100%; font-size: .85rem; order: 2; }
+  .astra-lista-rotulada td[data-rotulo] { order: 3; font-size: .78rem; color: var(--tblr-secondary); }
+  .astra-lista-rotulada td[data-rotulo]::before { content: attr(data-rotulo) " "; }
+
+  /* Barra de ações do lote: fixa embaixo, só quando há bens marcados */
+  .astra-barra-lote { display: none !important; }
+  body.astra-com-selecao .astra-barra-lote { display: flex !important; position: fixed; left: 0; right: 0; bottom: 0; z-index: 1030; margin: 0 !important; padding: .6rem .75rem calc(.6rem + env(safe-area-inset-bottom)); background: var(--tblr-bg-surface); border-top: 1px solid var(--tblr-border-color); box-shadow: 0 -.25rem .75rem rgba(0,0,0,.08); flex-wrap: nowrap !important; }
+  body.astra-com-selecao .astra-barra-lote .btn { flex: 1 1 0; }
+  body.astra-com-selecao .astra-barra-lote .btn:first-of-type { background: var(--tblr-primary); color: #fff; border-color: var(--tblr-primary); }
+  body.astra-com-selecao .page-body { padding-bottom: 5rem; }
 }
 </style>
 {% endblock %}
@@ -34,12 +83,6 @@
       <div class="text-secondary mt-1">{{ e.nome }}{% if sala.ccustos %} · centro {{ sala.ccustos }}{% endif %} ·
         {% if na_comissao %}lendo como <strong>{{ integrante }}</strong>{% else %}<strong>Você não faz parte da comissão deste evento</strong>{% endif %}
         (<a href="{{ url_for('inventario.evento_tela', id=e.id) }}">evento</a>)</div>
-    </div>
-    <div class="col-12 col-md-auto text-md-end" id="contadores" data-total="{{ sala.total }}">
-      <span class="badge bg-green-lt astra-contador" title="localizados"><span id="n-localizados">{{ sala.localizados }}</span></span>
-      <span class="badge bg-yellow-lt astra-contador" title="divergentes"><span id="n-divergentes">{{ sala.divergentes }}</span></span>
-      <span class="badge bg-secondary-lt astra-contador" title="pendentes"><span id="n-pendentes">{{ sala.pendentes }}</span></span>
-      <div class="small text-secondary mt-1">localizados · divergentes · pendentes de {{ sala.total }}</div>
     </div>
   </div>
 </div>
@@ -55,29 +98,37 @@
 <div class="alert alert-info mb-3" role="alert"><div class="d-flex"><i class="fas fa-camera me-2 mt-1" aria-hidden="true"></i><div>Fotos desativadas: bucket não configurado. Leituras e sobras funcionam sem foto.</div></div></div>
 {% endif %}
 
-<div class="card mb-3"><div class="card-body">
-  <label class="form-label" for="leitura">Ler plaqueta (leitor de código de barras ou câmera)</label>
-  <div class="row g-2 align-items-center">
-    <div class="col-12 col-md">
-      <input class="form-control form-control-lg" id="leitura" type="text" inputmode="none" autocomplete="off" enterkeyhint="done" placeholder="Aproxime o leitor…"{% if fechado or not na_comissao %} disabled{% endif %} autofocus/>
-    </div>
-    <div class="col-6 col-md-auto d-grid">
-      <button class="btn btn-lg btn-primary" type="button" id="btn-camera"{% if fechado or not na_comissao %} disabled{% endif %}><i class="fas fa-camera me-2" aria-hidden="true"></i>Câmera</button>
-    </div>
-    <div class="col-6 col-md-auto d-grid">
-      <button class="btn btn-lg btn-outline-secondary" type="button" id="btn-digitar"{% if fechado or not na_comissao %} disabled{% endif %}><i class="fas fa-keyboard me-2" aria-hidden="true"></i>Digitar</button>
+<div class="card mb-3 astra-faixa" id="faixa-leitura"><div class="card-body">
+  <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+    <label class="form-label mb-0" for="leitura"><span class="d-none d-md-inline">Ler plaqueta (leitor de código de barras ou câmera)</span><span class="d-md-none">Plaqueta</span></label>
+    <div id="contadores" data-total="{{ sala.total }}" class="d-flex align-items-center gap-1" title="localizados · divergentes · pendentes de {{ sala.total }}">
+      <span class="badge bg-green-lt astra-contador" title="localizados"><i class="fas fa-check me-1" aria-hidden="true"></i><span id="n-localizados">{{ sala.localizados }}</span></span>
+      <span class="badge bg-yellow-lt astra-contador" title="divergentes"><i class="fas fa-exchange-alt me-1" aria-hidden="true"></i><span id="n-divergentes">{{ sala.divergentes }}</span></span>
+      <span class="badge bg-secondary-lt astra-contador" title="pendentes"><i class="far fa-clock me-1" aria-hidden="true"></i><span id="n-pendentes">{{ sala.pendentes }}</span></span>
+      <span class="small text-secondary d-none d-lg-inline ms-1">localizados · divergentes · pendentes de {{ sala.total }}</span>
     </div>
   </div>
-  <div id="aviso" class="alert mt-3 mb-0" hidden><div class="d-flex flex-wrap align-items-center gap-2"><i class="fas fa-info-circle" aria-hidden="true"></i><div role="alert"><span id="aviso-texto"></span></div>
+  <div class="row g-2 align-items-center flex-nowrap">
+    <div class="col">
+      <input class="form-control form-control-lg" id="leitura" type="text" inputmode="none" autocomplete="off" enterkeyhint="done" placeholder="Aproxime o leitor…"{% if fechado or not na_comissao %} disabled{% endif %} autofocus/>
+    </div>
+    <div class="col-auto d-grid">
+      <button class="btn btn-lg btn-primary astra-btn-leitor" type="button" id="btn-camera" aria-label="Ler com a câmera"{% if fechado or not na_comissao %} disabled{% endif %}><i class="fas fa-camera" aria-hidden="true"></i><span class="d-none d-md-inline ms-2">Câmera</span></button>
+    </div>
+    <div class="col-auto d-grid">
+      <button class="btn btn-lg astra-btn-leitor" type="button" id="btn-digitar" aria-label="Digitar o número"{% if fechado or not na_comissao %} disabled{% endif %}><i class="fas fa-keyboard" aria-hidden="true"></i><span class="d-none d-md-inline ms-2">Digitar</span></button>
+    </div>
+  </div>
+  <div id="aviso" class="alert mt-2 mb-0" hidden><div class="d-flex flex-wrap align-items-center gap-2"><i class="fas fa-info-circle" aria-hidden="true"></i><div role="alert"><span id="aviso-texto"></span></div>
     <button class="btn btn-sm btn-outline-primary ms-auto" type="button" id="btn-sobra" hidden>Registrar sobra</button></div></div>
   <div id="camera" class="mt-3" hidden><div id="leitor-camera" class="astra-leitor"></div><button class="btn mt-2" type="button" id="btn-fechar-camera"><i class="fas fa-times me-2" aria-hidden="true"></i>Fechar câmera</button></div>
 </div></div>
 
 {% if not fechado %}
-<form method="post" action="{{ url_for('inventario.lote', id=e.id, localizacao=localizacao) }}" id="form-lote" class="mb-3 d-flex align-items-center flex-wrap gap-2">{{ csrf_campo() }}
-  <button class="btn" type="submit" name="acao" value="marcar"{% if not na_comissao %} disabled{% endif %}><i class="fas fa-check-double me-2" aria-hidden="true"></i>Marcar selecionados como localizados</button>
+<form method="post" action="{{ url_for('inventario.lote', id=e.id, localizacao=localizacao) }}" id="form-lote" class="mb-3 d-flex align-items-center flex-wrap gap-2 astra-barra-lote">{{ csrf_campo() }}
+  <button class="btn" type="submit" name="acao" value="marcar"{% if not na_comissao %} disabled{% endif %}><i class="fas fa-check-double me-2" aria-hidden="true"></i><span class="d-none d-md-inline">Marcar selecionados como localizados</span><span class="d-md-none">Localizados (<span data-selecao-n>0</span>)</span></button>
   <button class="btn" type="submit" name="acao" value="desmarcar"{% if not na_comissao %} disabled{% endif %}><i class="fas fa-undo me-2" aria-hidden="true"></i>Desmarcar</button>
-  <span class="small text-secondary">plaqueta ilegível ou ausente: marque na lista e use os botões</span>
+  <span class="small text-secondary d-none d-md-inline">plaqueta ilegível ou ausente: marque na lista e use os botões</span>
 </form>
 {% endif %}
 <div class="card mb-3" id="card-bens">
@@ -97,15 +148,17 @@
   </div>
   {% endif %}
   <div class="table-responsive">
-  <table class="table table-vcenter card-table" id="tabela-sala">
+  <table class="table table-vcenter card-table astra-lista-bens{% if fechado %} sem-selecao{% endif %}" id="tabela-sala">
     <caption class="visually-hidden">Bens da sala</caption>
   <thead><tr>{% if not fechado %}{{ th_selecao('bens') }}{% endif %}<th scope="col">Foto</th><th scope="col">Nº</th><th scope="col">Descrição</th><th scope="col">Situação</th><th scope="col">Conservação</th><th scope="col">Quem usa</th><th scope="col">Observação</th></tr></thead>
   <tbody id="tabela-bens">
   {% for b in bens %}
   <tr data-numero="{{ b.numero }}" data-situacao="{{ b.situacao_inv }}">
-    {% if not fechado %}<td class="col-selecao"><input class="form-check-input m-0 align-middle" id="check-bens-{{ loop.index }}" name="numeros" type="checkbox" value="{{ b.numero }}" aria-label="Selecionar o bem {{ b.numero }}" data-child="check-bens" form="form-lote"/></td>{% endif %}<td class="foto text-nowrap">{% for f in b.fotos[:1] %}<span class="d-inline-flex align-items-center me-1">{% if f.url.startswith(('http://', 'https://')) %}<a href="{{ f.url }}" target="_blank" rel="noopener"><img src="{{ f.url }}" alt="Foto {{ f.nfoto }} do bem {{ b.numero }}" class="astra-miniatura"/></a>{% endif %}{% if not fechado %}<form method="post" action="{{ url_for('inventario.foto_excluir', id=e.id, numero=b.numero, nfoto=f.nfoto) }}" class="d-inline">{{ csrf_campo() }}<input type="hidden" name="volta" value="{{ localizacao }}"/><button class="btn btn-ghost-danger btn-icon" type="submit" aria-label="Excluir foto {{ f.nfoto }}"><i class="fas fa-trash" aria-hidden="true"></i></button></form>{% endif %}</span>{% endfor %}{% if b.fotos|length > 1 %}<span class="badge bg-secondary-lt me-1" title="Todas as fotos no cadastro do bem">+{{ b.fotos|length - 1 }}</span>{% endif %}
-      {% if fotos_ativas and not fechado %}<label class="btn btn-icon{% if not b.lido_em %} disabled{% endif %}" aria-label="Nova foto do bem {{ b.numero }}" title="Nova foto"><i class="fas fa-camera" aria-hidden="true"></i><input type="file" accept="image/*" capture="environment" class="foto-input" hidden{% if not b.lido_em %} disabled{% endif %}/></label>{% endif %}</td><td class="col-numero">{{ b.numero }}</td><td class="col-descricao">{{ b.descricao }}{% if b.complemento %} <span class="text-secondary">{{ b.complemento }}</span>{% endif %}</td>
-    <td class="situacao">{% if b.situacao_inv == 'localizado' %}<span class="badge bg-green-lt text-nowrap">Localizado</span>{% elif b.situacao_inv == 'divergente' %}<span class="badge bg-yellow-lt">Divergente · lido em {{ b.lido_em_sala }}</span>{% else %}<span class="badge bg-secondary-lt text-nowrap">Pendente</span>{% endif %}</td>
+    {% if not fechado %}<td class="col-selecao"><input class="form-check-input m-0 align-middle" id="check-bens-{{ loop.index }}" name="numeros" type="checkbox" value="{{ b.numero }}" aria-label="Selecionar o bem {{ b.numero }}" data-child="check-bens" form="form-lote"/></td>{% endif %}<td class="foto text-nowrap">{% if not b.fotos and not (fotos_ativas and not fechado) %}<span class="avatar astra-sem-foto d-md-none" aria-hidden="true"><i class="fas fa-box"></i></span>{% endif %}{% for f in b.fotos[:1] %}<span class="d-inline-flex align-items-center me-1">{% if f.url.startswith(('http://', 'https://')) %}<a href="{{ f.url }}" target="_blank" rel="noopener"><img src="{{ f.url }}" alt="Foto {{ f.nfoto }} do bem {{ b.numero }}" class="astra-miniatura"/></a>{% endif %}{% if not fechado %}<form method="post" action="{{ url_for('inventario.foto_excluir', id=e.id, numero=b.numero, nfoto=f.nfoto) }}" class="d-inline astra-so-detalhe">{{ csrf_campo() }}<input type="hidden" name="volta" value="{{ localizacao }}"/><button class="btn btn-ghost-danger btn-icon" type="submit" aria-label="Excluir foto {{ f.nfoto }}"><i class="fas fa-trash" aria-hidden="true"></i></button></form>{% endif %}</span>{% endfor %}{% if b.fotos|length > 1 %}<span class="badge bg-secondary-lt me-1 astra-so-detalhe" title="Todas as fotos no cadastro do bem">+{{ b.fotos|length - 1 }}</span>{% endif %}
+      {% if fotos_ativas and not fechado %}<label class="btn btn-icon astra-nova-foto{% if b.fotos %} astra-so-detalhe{% endif %}{% if not b.lido_em %} disabled{% endif %}" aria-label="Nova foto do bem {{ b.numero }}" title="Nova foto"><i class="fas fa-camera" aria-hidden="true"></i><input type="file" accept="image/*" capture="environment" class="foto-input" hidden{% if not b.lido_em %} disabled{% endif %}/></label>{% endif %}</td><td class="col-numero">{{ b.numero }}</td><td class="col-descricao">{{ b.descricao }}{% if b.complemento %} <span class="text-secondary">{{ b.complemento }}</span>{% endif %}</td>
+    <td class="col-locais d-md-none"><span class="astra-local"><i class="fas fa-map-marker-alt" aria-hidden="true"></i> Leitura: <strong class="leitura-local">{{ b.lido_em_sala or '—' }}</strong></span> <span class="astra-local"><i class="fas fa-database" aria-hidden="true"></i> Sistema: <strong>{{ b.localizacao }}</strong></span></td>
+    <td class="col-abrir d-md-none"><button class="btn btn-ghost-secondary btn-icon astra-abrir" type="button" aria-expanded="false" aria-label="Detalhes do bem {{ b.numero }}"><i class="fas fa-chevron-down" aria-hidden="true"></i></button></td>
+    <td class="situacao">{% if b.situacao_inv == 'localizado' %}<span class="badge bg-green-lt text-nowrap">Localizado</span>{% elif b.situacao_inv == 'divergente' %}<span class="badge bg-yellow-lt">Divergente<span class="d-none d-md-inline"> · lido em {{ b.lido_em_sala }}</span></span>{% else %}<span class="badge bg-secondary-lt text-nowrap">Pendente</span>{% endif %}</td>
     <td class="col-campo" data-rotulo="Conservação"><select class="campo form-select form-select-sm" data-campo="conservacao" aria-label="Conservação do bem {{ b.numero }}"{% if fechado or not b.lido_em %} disabled{% endif %}><option value="">—</option>{% for c in conservacao %}<option{% if b.conservacao == c %} selected{% endif %}>{{ c }}</option>{% endfor %}</select></td>
     <td class="col-campo" data-rotulo="Quem usa"><input class="campo form-control form-control-sm" data-campo="quem_usa" type="text" value="{{ b.quem_usa or '' }}" aria-label="Quem usa o bem {{ b.numero }}"{% if fechado or not b.lido_em %} disabled{% endif %}/></td>
     <td class="col-campo" data-rotulo="Observação"><input class="campo form-control form-control-sm" data-campo="observacao" type="text" value="{{ b.observacao or '' }}" aria-label="Observação do bem {{ b.numero }}"{% if fechado or not b.lido_em %} disabled{% endif %}/></td>
@@ -118,9 +171,9 @@
 
 <div class="card mb-3">
   <div class="card-header"><h2 class="card-title">Trazidos de outras salas ou não ativos</h2></div>
-  <div class="table-responsive"><table class="table table-vcenter card-table"><thead><tr><th scope="col">Nº</th><th scope="col">Descrição</th><th scope="col">Cadastrado em</th><th scope="col">Situação</th><th scope="col">Lido em</th></tr></thead>
+  <div class="table-responsive"><table class="table table-vcenter card-table astra-lista-rotulada"><thead><tr><th scope="col">Nº</th><th scope="col">Descrição</th><th scope="col">Cadastrado em</th><th scope="col">Situação</th><th scope="col">Lido em</th></tr></thead>
 <tbody id="tabela-trazidos">
-{% for t in trazidos %}<tr data-numero="{{ t.numero }}" data-ativo="{{ 'sim' if t.situacao == 'ATIVO' else 'nao' }}"><td>{{ t.numero }}</td><td>{{ t.descricao }}</td><td>{{ t.localizacao }}</td><td>{{ t.situacao }}</td><td>{{ t.lido_em[8:10] }}/{{ t.lido_em[5:7] }} {{ t.lido_em[11:16] }} · {{ t.integrante }}</td></tr>{% endfor %}
+{% for t in trazidos %}<tr data-numero="{{ t.numero }}" data-ativo="{{ 'sim' if t.situacao == 'ATIVO' else 'nao' }}"><td class="fw-bold">{{ t.numero }}</td><td>{{ t.descricao }}</td><td data-rotulo="Sistema">{{ t.localizacao }}</td><td data-rotulo="Situação">{{ t.situacao }}</td><td data-rotulo="Lido">{{ t.lido_em[8:10] }}/{{ t.lido_em[5:7] }} {{ t.lido_em[11:16] }} · {{ t.integrante }}</td></tr>{% endfor %}
 </tbody></table></div>
 </div>
 
@@ -177,7 +230,7 @@
 
   function focar() { if (!campo.disabled) { campo.value = ""; campo.focus(); } }
   function mostrar(tipo, texto, sobra) {
-    aviso.className = "alert mt-3 mb-0 alert-" + tipo; avisoTexto.textContent = texto; aviso.hidden = false;
+    aviso.className = "alert mt-2 mb-0 alert-" + tipo; avisoTexto.textContent = texto; aviso.hidden = false;
     btnSobra.hidden = !sobra; clearTimeout(timerAviso); if (!sobra) timerAviso = setTimeout(function () { aviso.hidden = true; }, 4000);
   }
   function contar() {
@@ -188,10 +241,11 @@
     document.getElementById("n-divergentes").textContent = trazidos;
     document.getElementById("n-pendentes").textContent = document.getElementById("contadores").dataset.total - loc;
   }
-  function celula(texto) { var td = document.createElement("td"); td.textContent = texto; return td; }
-  function chip(classe, texto) {
+  function celula(texto, rotulo) { var td = document.createElement("td"); td.textContent = texto; if (rotulo) td.dataset.rotulo = rotulo; return td; }
+  function chip(classe, texto, detalhe) {
     var span = document.createElement("span"); span.className = "badge " + classe;
     span.textContent = texto;
+    if (detalhe) { var d = document.createElement("span"); d.className = "d-none d-md-inline"; d.textContent = detalhe; span.appendChild(d); }
     return span;
   }
   function preencherFoto(td, fotosLista, numero) {
@@ -201,7 +255,7 @@
       var a = document.createElement("a"); a.href = f.url; a.target = "_blank"; a.rel = "noopener";
       var img = document.createElement("img"); img.src = f.url; img.alt = "Foto " + f.nfoto; img.className = "astra-miniatura";
       a.appendChild(img); wrap.appendChild(a);
-      var form = document.createElement("form"); form.method = "post"; form.className = "d-inline";
+      var form = document.createElement("form"); form.method = "post"; form.className = "d-inline astra-so-detalhe";
       form.action = URL_FOTO_EXCLUIR.replace(/\/0\/foto\/0\/excluir$/, "/" + numero + "/foto/" + f.nfoto + "/excluir");
       var input = document.createElement("input"); input.type = "hidden"; input.name = "volta"; input.value = SALA;
       var tok = document.createElement("input"); tok.type = "hidden"; tok.name = "csrf"; tok.value = CSRF; form.appendChild(tok);
@@ -210,8 +264,8 @@
       form.appendChild(input); form.appendChild(btn); wrap.appendChild(form);
       td.appendChild(wrap);
     });
-    if (fotosLista.length > 1) { var mais = document.createElement("span"); mais.className = "badge bg-secondary-lt me-1"; mais.title = "Todas as fotos no cadastro do bem"; mais.textContent = "+" + (fotosLista.length - 1); td.appendChild(mais); }
-    var label = document.createElement("label"); label.className = "btn btn-icon"; label.setAttribute("aria-label", "Nova foto do bem " + numero); label.title = "Nova foto";
+    if (fotosLista.length > 1) { var mais = document.createElement("span"); mais.className = "badge bg-secondary-lt me-1 astra-so-detalhe"; mais.title = "Todas as fotos no cadastro do bem"; mais.textContent = "+" + (fotosLista.length - 1); td.appendChild(mais); }
+    var label = document.createElement("label"); label.className = "btn btn-icon astra-nova-foto" + (fotosLista.length ? " astra-so-detalhe" : ""); label.setAttribute("aria-label", "Nova foto do bem " + numero); label.title = "Nova foto";
     label.innerHTML = '<i class="fas fa-camera" aria-hidden="true"></i>';
     var inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*"; inp.setAttribute("capture", "environment"); inp.className = "foto-input"; inp.hidden = true;
     label.appendChild(inp); td.appendChild(label);
@@ -222,7 +276,8 @@
       tr.dataset.situacao = j.situacao;
       var situacaoTd = tr.querySelector(".situacao");
       situacaoTd.textContent = "";
-      situacaoTd.appendChild(j.situacao === "localizado" ? chip("bg-green-lt text-nowrap", "Localizado") : chip("bg-yellow-lt", "Divergente · lido em " + SALA));
+      situacaoTd.appendChild(j.situacao === "localizado" ? chip("bg-green-lt text-nowrap", "Localizado") : chip("bg-yellow-lt", "Divergente", " · lido em " + SALA));
+      var localLeitura = tr.querySelector(".leitura-local"); if (localLeitura) localLeitura.textContent = SALA;
       tr.querySelectorAll(".campo, .foto-input").forEach(function (el) { el.disabled = false; });
       var rotulo = tr.querySelector("label.disabled"); if (rotulo) rotulo.classList.remove("disabled");
       document.getElementById("tabela-bens").prepend(tr);
@@ -232,11 +287,11 @@
       var novo = document.createElement("tr");
       novo.dataset.numero = j.numero;
       novo.dataset.ativo = j.ativo ? "sim" : "nao";
-      novo.appendChild(celula(j.numero));
+      novo.appendChild(celula(j.numero)); novo.firstChild.className = "fw-bold";
       novo.appendChild(celula(j.descricao));
-      novo.appendChild(celula(j.cadastrado_em));
-      novo.appendChild(celula(j.situacao_bem));
-      novo.appendChild(celula("agora · " + j.integrante));
+      novo.appendChild(celula(j.cadastrado_em, "Sistema"));
+      novo.appendChild(celula(j.situacao_bem, "Situação"));
+      novo.appendChild(celula("agora · " + j.integrante, "Lido"));
       document.getElementById("tabela-trazidos").prepend(novo);
     }
     contar();
@@ -299,7 +354,23 @@
         .catch(function () { mostrar("danger", "Sem conexão; alteração não salva."); });
     }
   });
-  document.addEventListener("click", function (ev) { if (!ev.target.closest("input, select, textarea, button, label, a, #camera")) focar(); });
+  // Celular: tocar no bem (ou na seta) abre os detalhes; os controles da linha continuam funcionando normalmente
+  document.getElementById("tabela-bens").addEventListener("click", function (ev) {
+    var tr = ev.target.closest("tr"); if (!tr || !window.matchMedia("(max-width: 767.98px)").matches) return;
+    var botao = ev.target.closest(".astra-abrir");
+    if (!botao && ev.target.closest("input, select, textarea, button, label, a")) return;
+    var aberto = tr.classList.toggle("aberto");
+    var b = tr.querySelector(".astra-abrir"); if (b) b.setAttribute("aria-expanded", String(aberto));
+    ev.stopPropagation();
+  });
+  function atualizarBarraLote() {
+    var n = document.querySelectorAll('input[name="numeros"]:checked').length;
+    document.body.classList.toggle("astra-com-selecao", n > 0);
+    document.querySelectorAll("[data-selecao-n]").forEach(function (el) { el.textContent = n; });
+  }
+  document.addEventListener("change", function () { setTimeout(atualizarBarraLote, 0); });
+  atualizarBarraLote();
+  document.addEventListener("click", function (ev) { if (!ev.target.closest("input, select, textarea, button, label, a, #camera, #tabela-bens")) focar(); });
   focar();
 })();
 </script>
