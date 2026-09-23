@@ -91,4 +91,86 @@
     try { if (!document.referrer || new URL(document.referrer).pathname !== window.location.pathname) return; } catch (e) { return; }
     window.scrollTo(0, parseInt(valor, 10) || 0);
   })();
+
+  /* ---------- Aparência: claro, escuro ou automático (segue o sistema); a escolha fica no navegador ---------- */
+  var sistemaEscuro = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function escolhaTema() {
+    try { return window.localStorage.getItem('termos-tema') || 'auto'; } catch (e) { return 'auto'; }
+  }
+  function temaAtual() { return document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light'; }
+
+  /* Gráficos (tema ECharts "dsgov", pensado para fundo branco): no escuro, os cinzas de texto, eixo e grade
+     clareiam e a borda das fatias acompanha o card. A opção clara original fica guardada para voltar. */
+  var CINZAS_ESCURO = { '#333333': '#e5e7eb', '#555555': '#9ca3af', '#888888': '#4b5563', '#e6e6e6': '#263041', '#cccccc': '#374151' };
+  function copiar(v) {
+    if (Array.isArray(v)) return v.map(copiar);
+    if (v && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) {
+      var o = {}; Object.keys(v).forEach(function (k) { o[k] = copiar(v[k]); }); return o;
+    }
+    return v;
+  }
+  function escurecer(v, chave) {
+    if (Array.isArray(v)) return v.map(function (x) { return escurecer(x, chave); });
+    if (v && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) {
+      Object.keys(v).forEach(function (k) { v[k] = escurecer(v[k], k); }); return v;
+    }
+    if (typeof v === 'string') {
+      var c = v.toLowerCase();
+      if ((chave === 'borderColor' || chave === 'textBorderColor') && (c === '#ffffff' || c === '#fff')) return chave === 'borderColor' ? '#1f2937' : 'transparent';
+      return CINZAS_ESCURO[c] || v;
+    }
+    return v;
+  }
+  /* Número fora da barra fica sobre o card escuro: texto claro, sem contorno */
+  function rotulosNoEscuro(op) {
+    (op.series || []).forEach(function (s) {
+      var l = s.label;
+      if (s.type !== 'pie' && l && l.show && /^(top|bottom|left|right|outside)$/.test(l.position || '')) {
+        l.color = '#e5e7eb'; l.textBorderWidth = 0;
+      }
+    });
+    return op;
+  }
+  function temaDosGraficos() {
+    if (!window.echarts) return;
+    var escuro = temaAtual() === 'dark';
+    document.querySelectorAll('[data-grafico]').forEach(function (el) {
+      var inst = window.echarts.getInstanceByDom(el);
+      if (!inst) return;
+      if (!el.astraOpcaoClara) { if (!escuro) return; el.astraOpcaoClara = inst.getOption(); }
+      inst.setOption(escuro ? rotulosNoEscuro(escurecer(copiar(el.astraOpcaoClara))) : el.astraOpcaoClara, true);
+    });
+  }
+  window.addEventListener('load', temaDosGraficos);   /* depois que o echarts-dsgov.js montou os gráficos */
+
+  function aplicarTema(escolha) {
+    var escuro = escolha === 'escuro' || (escolha !== 'claro' && !!(sistemaEscuro && sistemaEscuro.matches));
+    document.querySelectorAll('[data-tema]').forEach(function (b) {
+      var ativo = b.dataset.tema === escolha;
+      b.classList.toggle('active', ativo); b.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+      var marca = b.querySelector('.ti-check'); if (marca) marca.classList.toggle('d-none', !ativo);
+    });
+    var tema = escuro ? 'dark' : 'light';
+    if (document.documentElement.getAttribute('data-bs-theme') === tema) return;
+    document.documentElement.setAttribute('data-bs-theme', tema);
+    temaDosGraficos();
+  }
+  document.addEventListener('click', function (ev) {
+    var b = ev.target.closest && ev.target.closest('[data-tema]');
+    if (!b) return;
+    try { window.localStorage.setItem('termos-tema', b.dataset.tema); } catch (e) { /* sem localStorage */ }
+    aplicarTema(b.dataset.tema);
+  });
+  if (sistemaEscuro && sistemaEscuro.addEventListener) sistemaEscuro.addEventListener('change', function () { aplicarTema(escolhaTema()); });
+  aplicarTema(escolhaTema());
+  /* Papel é branco: imprime sempre no claro e volta ao que estava depois */
+  var temaAntesDeImprimir = null;
+  window.addEventListener('beforeprint', function () {
+    temaAntesDeImprimir = temaAtual();
+    if (temaAntesDeImprimir === 'dark') { document.documentElement.setAttribute('data-bs-theme', 'light'); temaDosGraficos(); }
+  });
+  window.addEventListener('afterprint', function () {
+    if (temaAntesDeImprimir === 'dark') { document.documentElement.setAttribute('data-bs-theme', 'dark'); temaDosGraficos(); }
+    temaAntesDeImprimir = null;
+  });
 })();

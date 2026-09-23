@@ -1,10 +1,11 @@
-{% set VERSAO_ESTILO = '2026-09-22c' %}{# trocar a cada mudança em astra.css/astra.js: força o navegador a baixar de novo #}
+{% set VERSAO_ESTILO = '2026-09-23a' %}{# trocar a cada mudança em astra.css/astra.js: força o navegador a baixar de novo #}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta name="csrf" content="{{ CSRF }}"/>
+  {% include "_tema.html" %}
   <title>{% block titulo %}{{ DSGOV.SISTEMA }}{% endblock %} — {{ DSGOV.SISTEMA }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='tabler/vendor/tabler.min.css') }}"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='tabler/vendor/tabler-icons/tabler-icons.min.css') }}"/>
@@ -69,6 +70,17 @@
             </div>
           </form>
           {% endif %}
+          <div class="nav-item dropdown">
+            <button type="button" class="btn btn-ghost-secondary btn-icon" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Aparência" title="Aparência">
+              <i class="ti ti-moon hide-theme-dark" aria-hidden="true"></i><i class="ti ti-sun hide-theme-light" aria-hidden="true"></i>
+            </button>
+            <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+              <h6 class="dropdown-header">Aparência</h6>
+              <button class="dropdown-item" type="button" data-tema="claro"><i class="ti ti-sun me-2" aria-hidden="true"></i>Claro<i class="ti ti-check ms-auto d-none" aria-hidden="true"></i></button>
+              <button class="dropdown-item" type="button" data-tema="escuro"><i class="ti ti-moon me-2" aria-hidden="true"></i>Escuro<i class="ti ti-check ms-auto d-none" aria-hidden="true"></i></button>
+              <button class="dropdown-item" type="button" data-tema="auto"><i class="ti ti-device-desktop me-2" aria-hidden="true"></i>Automático (sistema)<i class="ti ti-check ms-auto d-none" aria-hidden="true"></i></button>
+            </div>
+          </div>
           {% if USUARIO and USUARIO.id %}
           <div class="nav-item dropdown">
             <button type="button" class="nav-link d-flex lh-1 p-0 px-2 border-0 bg-transparent" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Abrir o menu do usuário">
