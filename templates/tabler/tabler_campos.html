@@ -1,0 +1,16 @@
+{# Campos do formulário de cadastro no protótipo Tabler; mesma assinatura de cadastros/_campos.html #}
+{% from 'tabler_macros.html' import select %}
+{% macro campo(nome, rotulo, valores, erros, obrigatorio=False, tipo='text', ajuda='') %}
+<div class="mb-3">
+  <label class="form-label{% if obrigatorio %} required{% endif %}" for="campo-{{ nome }}">{{ rotulo }}</label>
+  <input class="form-control{% if erros.get(nome) %} is-invalid{% endif %}" id="campo-{{ nome }}" name="{{ nome }}" type="{{ tipo }}" value="{{ valores.get(nome, '') or '' }}"{% if obrigatorio %} required aria-required="true"{% endif %}{% if erros.get(nome) %} aria-invalid="true"{% endif %} aria-describedby="ajuda-{{ nome }}{% if erros.get(nome) %} erro-{{ nome }}{% endif %}"/>
+  {% if erros.get(nome) %}<div class="invalid-feedback" id="erro-{{ nome }}" role="alert">{{ erros[nome] }}</div>{% endif %}
+  <small class="form-hint" id="ajuda-{{ nome }}">{{ ajuda }}</small>
+</div>
+{% endmacro %}
+
+{% macro escolha(nome, rotulo, opcoes, valores, erros) %}
+<div class="mb-3">{{ select(nome, rotulo, opcoes, selecionado=valores.get(nome), erro=erros.get(nome)) }}</div>
+{% endmacro %}
+
+{% macro ocultos(origem) %}<input type="hidden" name="retorno" value="{{ origem }}"/>{% endmacro %}

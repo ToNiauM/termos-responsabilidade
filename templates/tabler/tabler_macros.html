@@ -1,0 +1,39 @@
+{# Componentes repetidos no protótipo Tabler; equivalentes aos de _macros.html #}
+
+{% macro mensagens() %}
+<div id="mensagens">
+{% for categoria, texto in get_flashed_messages(with_categories=true) %}
+  {% set tipo, icone = {'error': ('danger', 'fa-times-circle'), 'warning': ('warning', 'fa-exclamation-triangle'), 'success': ('success', 'fa-check-circle')}.get(categoria, ('info', 'fa-info-circle')) %}
+  <div class="alert alert-{{ tipo }} alert-dismissible" role="alert">
+    <div class="d-flex"><i class="fas {{ icone }} me-2 mt-1" aria-hidden="true"></i><div>{{ texto }}</div></div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar a mensagem"></button>
+  </div>
+{% endfor %}
+</div>
+{% endmacro %}
+
+{% macro select(nome, rotulo, opcoes, selecionado=None, obrigatorio=True, erro=None) %}
+<label class="form-label{% if obrigatorio %} required{% endif %}" for="campo-{{ nome }}">{{ rotulo }}</label>
+<select class="form-select{% if erro %} is-invalid{% endif %}" id="campo-{{ nome }}" name="{{ nome }}"{% if obrigatorio %} required aria-required="true"{% endif %}{% if erro %} aria-invalid="true" aria-describedby="erro-{{ nome }}"{% endif %}>
+  {% if obrigatorio %}<option value="">Selecione</option>{% endif %}
+  {% for opcao in opcoes %}
+  {% set valor, texto = (opcao, opcao) if opcao is string else opcao %}
+  <option value="{{ valor }}"{% if valor == selecionado %} selected{% endif %}>{{ texto }}</option>
+  {% endfor %}
+</select>
+{% if erro %}<div class="invalid-feedback" id="erro-{{ nome }}" role="alert">{{ erro }}</div>{% endif %}
+{% endmacro %}
+
+{% macro titulo_pagina(titulo, ancora, pre=None) %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      {% if pre %}<div class="page-pretitle">{{ pre }}</div>{% endif %}
+      <h1 class="page-title">{{ titulo }}</h1>
+    </div>
+    {% if ancora %}<div class="col-auto">
+      <a class="btn btn-ghost-secondary btn-icon" href="{{ url_for('ajuda') }}#{{ ancora }}" aria-label="Ajuda desta tela" title="Ajuda desta tela"><i class="fas fa-question-circle" aria-hidden="true"></i></a>
+    </div>{% endif %}
+  </div>
+</div>
+{% endmacro %}

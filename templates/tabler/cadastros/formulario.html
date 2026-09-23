@@ -1,0 +1,74 @@
+{% extends 'tabler_base.html' %}
+{% from 'tabler_macros.html' import titulo_pagina %}
+{% from 'tabler_campos.html' import campo, escolha, ocultos %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+{{ titulo_pagina(titulo ~ (': ' ~ chave if chave and aba == 'responsaveis' else ''), AJUDA_ANCORA, 'Cadastros') }}
+<div class="row">
+<div class="col-lg-8">
+{% if erros %}
+<div class="alert alert-danger" role="alert" tabindex="-1" id="erros-formulario">
+  <div class="d-flex"><i class="fas fa-times-circle me-2 mt-1" aria-hidden="true"></i><div><strong>Confira os campos indicados.</strong> Seus dados foram mantidos para correção.</div></div>
+</div>
+{% endif %}
+<form method="post" action="{{ request.path if chave else url_for(aba ~ '_incluir') }}" class="card" novalidate>{{ csrf_campo() }}
+  {{ ocultos(retorno) }}
+  <div class="card-body">
+  <p class="text-secondary">Campos com <span class="text-danger">*</span> são obrigatórios.</p>
+  {% if aba == 'responsaveis' %}
+    {{ campo('ccustos', 'Sigla do centro de custo', valores, erros, True, ajuda='Ao alterar a sigla, as localizações e as referências dos termos acompanham a mudança.') }}
+    {{ campo('responsavel', 'Nome do responsável', valores, erros, True) }}
+    {{ campo('funcao', 'Função', valores, erros) }}
+    {{ campo('matricula', 'Matrícula', valores, erros, ajuda='Informe como consta no cadastro funcional, incluindo zeros à esquerda.') }}
+    {{ campo('email', 'E-mail', valores, erros, tipo='email', ajuda='Usado no e-mail de assinatura do termo no SEI.') }}
+    {{ campo('unidade_sei', 'Unidade no SEI', valores, erros, ajuda='Sigla da unidade que assina no SEI. Vazio = a própria sigla do centro de custo.') }}
+    {% if chave %}
+    <div class="card card-sm bg-muted-lt mb-3"><div class="card-body">
+      <h2 class="card-title">Localizações vinculadas ({{ locais|length }})</h2>
+      {% if locais %}<ul>{% for loc in locais %}<li>{{ loc }}</li>{% endfor %}</ul>{% else %}<p>Nenhuma localização vinculada.</p>{% endif %}
+      <a href="{{ url_for('cadastros', aba='localizacoes', centro=chave) }}">Gerenciar localizações deste centro</a>
+    </div></div>
+    {% endif %}
+  {% elif aba == 'pessoas' %}
+    {{ campo('nome', 'Nome completo', valores, erros, True, ajuda='Os bens atribuídos e as referências dos termos acompanham a alteração do nome.') }}
+    {{ campo('matricula', 'Matrícula', valores, erros, ajuda='Informe como consta no cadastro funcional, incluindo zeros à esquerda.') }}
+    {{ campo('email', 'E-mail', valores, erros, tipo='email', ajuda='Usado no e-mail de assinatura do termo no SEI.') }}
+    {{ campo('unidade_sei', 'Unidade no SEI', valores, erros, ajuda='Sigla da unidade da pessoa no SEI; necessária para emitir o termo no SEI.') }}
+  {% elif aba == 'localizacoes' %}
+    {% if not centros %}<div class="alert alert-info">Cadastre um centro de custo antes de vincular uma localização. <a href="{{ url_for('cadastro_novo', aba='responsaveis') }}">Cadastrar centro de custo</a></div>{% endif %}
+    {% if not pendentes %}<div class="alert alert-info">Não há localizações com bens ativos sem centro de custo.</div>{% endif %}
+    {{ escolha('localizacao', 'Localização sem centro de custo', pendentes, valores, erros) }}
+    {{ escolha('ccustos', 'Centro de custo', centros|map(attribute='ccustos')|list, valores, erros) }}
+    <p class="text-secondary">As localizações vêm da base patrimonial. Aqui você define qual centro responde por elas.</p>
+  {% elif aba == 'processos' %}
+    {{ escolha('tipo', 'Tipo de termo', tipos, valores, erros) }}
+    {{ campo('descricao', 'Descrição', valores, erros, True, ajuda='Ex.: Termos de responsabilidade 2026.') }}
+    {{ campo('numero_sei', 'Número do processo SEI', valores, erros, True) }}
+    <label class="form-check form-switch mb-1">
+      <input class="form-check-input" id="vigente" name="vigente" type="checkbox" value="1"{% if valores.get('vigente') %} checked{% endif %}/>
+      <span class="form-check-label">Usar como processo vigente</span>
+    </label>
+    <small class="form-hint">O processo vigente é usado nas novas emissões deste tipo de termo. Se já houver outro, você revisará a substituição antes de salvar.</small>
+  {% endif %}
+  </div>
+  <div class="card-footer d-flex justify-content-end gap-2">
+    <a class="btn btn-link" href="{{ retorno }}">Cancelar</a>
+    <button class="btn btn-primary" type="submit"{% if aba == 'localizacoes' and (not centros or not pendentes) %} disabled{% endif %}><i class="fas fa-save me-2" aria-hidden="true"></i>{{ 'Salvar alterações' if chave else 'Salvar' }}</button>
+  </div>
+</form>
+</div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  // Foco no resumo de erros (ou no primeiro campo inválido) para leitor de tela e teclado
+  var erro = document.getElementById('erros-formulario') || document.querySelector('.is-invalid');
+  if (erro) erro.focus();
+  if (!erro && /^#registro-[a-f0-9]{16}$/.test(window.location.hash)) {
+    var registro = document.getElementById(window.location.hash.slice(1));
+    if (registro) { registro.setAttribute('tabindex', '-1'); registro.focus(); }
+  }
+})();
+</script>
+{% endblock %}

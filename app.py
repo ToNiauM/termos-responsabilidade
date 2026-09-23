@@ -1,11 +1,13 @@
 """Termos de Responsabilidade — CFC. Rotas Flask; dados em db.py; documentos em termos_html.py e nos geradores."""
 import hmac
 import io
+import os
 import re
 import secrets
 from datetime import timedelta
 
 from flask import Flask, abort, flash, g, redirect, render_template, request, send_file, session, url_for
+from jinja2 import ChoiceLoader, FileSystemLoader
 from markupsafe import Markup
 
 from app_admin import admin_bp
@@ -29,6 +31,18 @@ from termo_devolucao import gerar_termo_devolucao
 
 app = Flask(__name__, template_folder=str(config.pasta_recursos() / "templates"),
             static_folder=str(config.pasta_recursos() / "static"))
+
+
+def carregador_templates(tabler):
+    """Protótipo Tabler (branch tabler): com ASTRA_UI=tabler, templates/tabler/ vence templates/ quando tem a tela;
+    as telas ainda não migradas herdam base.html e seguem no DSGov."""
+    pasta = config.pasta_recursos() / "templates"
+    if not tabler:
+        return FileSystemLoader(str(pasta))
+    return ChoiceLoader([FileSystemLoader(str(pasta / "tabler")), FileSystemLoader(str(pasta))])
+
+
+app.jinja_loader = carregador_templates(os.environ.get("ASTRA_UI") == "tabler")
 app.secret_key = config.chave_secreta()   # por instalação: TERMOS_SEGREDO ou dados/segredo.txt
 app.config.update(PERMANENT_SESSION_LIFETIME=timedelta(hours=12), SESSION_COOKIE_HTTPONLY=True,
                   SESSION_COOKIE_SAMESITE="Lax", SESSION_COOKIE_SECURE=config.exigir_login())   # site é só https

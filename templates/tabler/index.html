@@ -1,0 +1,88 @@
+{% extends "tabler_base.html" %}
+{% from 'tabler_macros.html' import titulo_pagina %}
+{% block titulo %}Início{% endblock %}
+{% block conteudo %}
+{{ titulo_pagina('Início', AJUDA_ANCORA, DSGOV.SUBTITULO) }}
+
+<div class="row row-cards mb-4" role="list" aria-label="Acesso rápido">
+{% for rotulo,icone,descricao,ep,permissao,metodo in [
+ ('Termo por centro de custo','fa-building','Bens sob guarda de um setor','centro_custos','centro_custos','GET'),
+ ('Termo individual','fa-user-check','Bens atribuídos a uma pessoa','termos_individuais','termos_individuais','GET'),
+ ('Termo de devolução','fa-box-open','Devolução de bens ao patrimônio','termo_devolucao','termo_devolucao','GET'),
+ ('Termos emitidos','fa-history','Histórico e documentos SEI','termos_emitidos_tela','termos_emitidos_tela','GET'),
+ ('Realizar inventário','fa-clipboard-check','Conferência de bens por sala','inventario.eventos_tela','inventario.ler','POST'),
+ ('Análise','fa-chart-bar','Filtros, gráficos e exportação do acervo','analise','analise','GET')
+] %}
+{% if pode(permissao,metodo) %}
+<div class="col-sm-6 col-lg-4" role="listitem">
+  <a class="card card-sm card-link card-link-pop h-100" href="{{ url_for(ep) }}" data-atalho>
+    <div class="card-body"><div class="row align-items-center">
+      <div class="col-auto"><span class="avatar bg-primary-lt"><i class="fas {{ icone }}" aria-hidden="true"></i></span></div>
+      <div class="col"><div class="fw-semibold">{{ rotulo }}</div><div class="text-secondary small">{{ descricao }}</div></div>
+    </div></div>
+  </a>
+</div>
+{% endif %}{% endfor %}
+</div>
+
+{% if p.valor_nao_informado %}
+<div class="alert alert-warning" role="alert">
+  <div class="d-flex"><i class="fas fa-exclamation-triangle me-2 mt-1" aria-hidden="true"></i>
+  <div><strong>{{ p.valor_nao_informado }} bem(ns) ativo(s) com valor não informado.</strong> Não entram nas somas. <a href="{{ url_recorte(f, valor_status='nao_informado') }}">Ver quais</a>.</div></div>
+</div>
+{% endif %}
+{% if p.valor_zero %}<p class="text-secondary">{{ p.valor_zero }} bem(ns) ativo(s) com valor zero.
+  <a href="{{ url_recorte(f, valor_status='zero') }}">Ver bens com valor zero</a>.</p>{% endif %}
+
+{% macro kpi(url, valor, legenda, detalhe=None, alerta=False) %}
+<div class="col-sm-6 col-lg-4">
+  {% if url %}<a class="card card-link h-100{% if alerta %} astra-alerta{% endif %}" href="{{ url }}">{% else %}<div class="card h-100{% if alerta %} astra-alerta{% endif %}">{% endif %}
+    {% if alerta %}<div class="card-status-start bg-danger"></div>{% endif %}
+    <div class="card-body">
+      <div class="h1 mb-1">{{ valor }}</div>
+      {% if detalhe %}<div class="fw-medium mb-1">{{ detalhe }}</div>{% endif %}
+      <div class="text-secondary">{{ legenda }}</div>
+      {{ caller() if caller }}
+    </div>
+  {% if url %}</a>{% else %}</div>{% endif %}
+</div>
+{% endmacro %}
+
+<div class="row row-cards mb-4">
+  {{ kpi(url_recorte(f), p.ativos, 'bens ativos') }}
+  {{ kpi(url_recorte(f, classificacao='sem-imoveis'), moeda(p.valor_sem_imoveis), 'valor dos ativos (sem imóveis)') }}
+  {{ kpi(url_recorte(f, classificacao='imoveis'), p.imoveis, 'imóveis (SEDE, TERRENOS)', moeda(p.valor_imoveis)) }}
+  {{ kpi(url_recorte(f, ccusto='-', pessoa='-'), p.sem_centro, 'ativos sem centro nem pessoa') }}
+  {{ kpi(url_for('centro_custos'), p.a_emitir_centros ~ ' centro(s)', 'termos a emitir ou reemitir', p.a_emitir_pessoas ~ ' pessoa(s)') }}
+  {% if pode('importacao_tela') %}
+  {% set robo = p.robo %}
+  {% set alerta = p.importacao_desatualizada or (robo and robo.resultado == 'erro') %}
+  {% set ult = p.ultima_importacao %}
+  {% call kpi(url_for('importacao_tela', id=ult.id) if ult else None,
+              (ult.importado_em[8:10] ~ '/' ~ ult.importado_em[5:7]) if ult else '—',
+              ('última importação · ' ~ ult.novos ~ ' novos, ' ~ ult.removidos ~ ' removidos') if ult else 'Nenhuma importação registrada',
+              alerta=alerta) %}
+    {% if robo and robo.resultado == 'erro' %}<div class="text-danger small mt-1"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i>SPW falhou {{ robo.iniciado_em[8:10] }}/{{ robo.iniciado_em[5:7] }}: {{ robo.mensagem|truncate(80) }}</div>
+    {% elif robo and ult %}<div class="text-secondary small mt-1">SPW ok · {{ robo.iniciado_em[8:10] }}/{{ robo.iniciado_em[5:7] }}</div>{% endif %}
+    {% if alerta and (not robo or robo.resultado != 'erro') %}<div class="text-danger small mt-1"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i>base desatualizada</div>{% endif %}
+  {% endcall %}
+  {% endif %}
+  {% if pode('inventario.eventos_tela') %}
+  {% set ev = inventario_corrente %}
+  {{ kpi(url_for('inventario.evento_tela', id=ev.id) if ev else url_for('inventario.eventos_tela'),
+         (ev.resumo.pct_bens ~ '%') if ev else '—',
+         (('Inventário fechado' if ev.estado == 'fechado' else 'Inventário em andamento') ~ ' · ' ~ ev.resumo.divergentes ~ ' divergentes') if ev else 'Nenhum inventário aberto',
+         alerta=ev and ev.estado == 'fechado') }}
+  {% endif %}
+</div>
+
+<section class="card" aria-labelledby="sobre-patrimonio">
+  <div class="card-header"><h2 class="card-title" id="sobre-patrimonio">Sobre o patrimônio</h2></div>
+  <div class="card-body">
+    <p>Este sistema reúne o cadastro dos bens do Conselho Federal de Contabilidade, os responsáveis por sua guarda, os termos de responsabilidade e o inventário.</p>
+    <p>O Termo de Responsabilidade registra a guarda dos bens por um centro de custo ou por uma pessoa. O Termo de Devolução registra a devolução dos bens. Os documentos são preparados aqui para uso no SEI.</p>
+    <p>Use os atalhos para suas atividades e a pesquisa do cabeçalho para localizar bens, pessoas ou centros de custo. O guia explica as funções disponíveis para você.</p>
+    <a class="btn btn-outline-primary" href="{{ url_for('ajuda') }}"><i class="fas fa-book-open me-2" aria-hidden="true"></i>Ver guia</a>
+  </div>
+</section>
+{% endblock %}

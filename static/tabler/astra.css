@@ -1,0 +1,32 @@
+/* astra.css — ajustes do protótipo Tabler. Cores e espaços vêm das variáveis do Tabler (var(--tblr-...)). */
+
+.astra-marca { flex-direction: column; align-items: flex-start; gap: .5rem; white-space: normal; }
+.astra-marca img { height: auto; width: 150px; max-width: 100%; background: #fff; border-radius: var(--tblr-border-radius); padding: 4px 6px; }
+.astra-marca span { font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; opacity: .85; }
+@media (max-width: 991.98px) { .astra-marca { flex-direction: row; align-items: center; } .astra-marca img { width: 96px; } }
+
+/* Rótulos longos do menu quebram linha em vez de cortar */
+
+/* Seta do grupo do menu gira quando o grupo abre */
+.navbar-vertical .astra-seta { transition: transform .15s; }
+.navbar-vertical .nav-link[aria-expanded="true"] .astra-seta { transform: rotate(180deg); }
+.navbar-vertical .astra-submenu { padding-left: 2.25rem; }
+.navbar-vertical .astra-submenu .nav-link { padding-top: .35rem; padding-bottom: .35rem; }
+.navbar-vertical .astra-submenu .nav-link.active { color: var(--tblr-navbar-active-color, #fff); font-weight: 600; }
+
+/* Valores numéricos alinham pelas casas */
+.astra-numero { font-variant-numeric: tabular-nums; }
+
+/* Card de indicador em alerta ganha a borda do status à esquerda (card-status-start) */
+.astra-alerta { border-color: var(--tblr-danger); }
+
+/* Submenu legível no fundo escuro e rótulo do grupo sem reticências */
+.navbar-vertical .astra-submenu .nav-link { color: rgba(255, 255, 255, .72); }
+.navbar-vertical .astra-submenu .nav-link:hover { color: #fff; }
+.navbar-vertical.navbar-expand-lg .navbar-nav .nav-link-title { overflow: visible; text-overflow: clip; white-space: normal; }
+@media (max-width: 991.98px) {
+  .navbar-vertical > .container-fluid { flex-wrap: wrap; }
+  .navbar-vertical > .container-fluid > .navbar-toggler { order: 2; }
+  .astra-marca { flex: 1 1 0; min-width: 0; }
+  .astra-marca span { font-size: .7rem; }
+}

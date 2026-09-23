@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="csrf" content="{{ CSRF }}"/>
+  <title>{% block titulo %}{{ DSGOV.SISTEMA }}{% endblock %} — {{ DSGOV.SISTEMA }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='tabler/vendor/tabler.min.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/vendor/fontawesome/css/all.min.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='tabler/astra.css') }}"/>
+</head>
+<body>
+<a class="visually-hidden-focusable" href="#conteudo">Ir para o conteúdo</a>
+<div class="page">
+  <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
+    <div class="container-fluid">
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menu-lateral" aria-controls="menu-lateral" aria-expanded="false" aria-label="Abrir o menu">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <a class="navbar-brand navbar-brand-autodark astra-marca" href="{{ URL_INICIAL }}">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ DSGOV.ORGAO }}"/>
+        <span>{{ DSGOV.SISTEMA }}</span>
+      </a>
+      <div class="collapse navbar-collapse" id="menu-lateral">
+        <ul class="navbar-nav pt-lg-3">
+          {% for i in MENU %}
+          {% if i.filhos %}
+          <li class="nav-item">
+            <a class="nav-link{% if not i.aberto %} collapsed{% endif %}" href="#menu-{{ i.id }}" data-bs-toggle="collapse" role="button" aria-expanded="{{ 'true' if i.aberto else 'false' }}" aria-controls="menu-{{ i.id }}">
+              <span class="nav-link-icon"><i class="fas {{ i.icone }}" aria-hidden="true"></i></span>
+              <span class="nav-link-title">{{ i.rotulo }}</span>
+              <i class="fas fa-angle-down ms-auto astra-seta" aria-hidden="true"></i>
+            </a>
+            <div class="collapse{% if i.aberto %} show{% endif %}" id="menu-{{ i.id }}">
+              <ul class="nav nav-pills flex-column astra-submenu">
+                {% for f in i.filhos %}
+                <li class="nav-item"><a class="nav-link{% if f.ativo %} active{% endif %}" href="{{ f.url }}"{% if f.ativo %} aria-current="page"{% endif %}>{{ f.rotulo }}</a></li>
+                {% endfor %}
+              </ul>
+            </div>
+          </li>
+          {% else %}
+          <li class="nav-item{% if i.ativo %} active{% endif %}">
+            <a class="nav-link" href="{{ i.url }}"{% if i.ativo %} aria-current="page"{% endif %}>
+              <span class="nav-link-icon"><i class="fas {{ i.icone }}" aria-hidden="true"></i></span>
+              <span class="nav-link-title">{{ i.rotulo }}</span>
+            </a>
+          </li>
+          {% endif %}
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </aside>
+
+  <div class="page-wrapper">
+    <header class="navbar navbar-expand-md d-print-none{% if not (USUARIO and USUARIO.id) %} d-none d-md-flex{% endif %}">
+      <div class="container-xl">
+        <div class="astra-orgao text-secondary d-none d-md-block">{{ DSGOV.ORGAO }} · {{ DSGOV.SUBTITULO }}</div>
+        <div class="navbar-nav flex-row order-md-last ms-auto align-items-center gap-2">
+          {% if pode('pesquisa') %}
+          <form class="d-none d-md-block" method="get" action="{{ url_for('pesquisa') }}" role="search">
+            <div class="input-icon">
+              <span class="input-icon-addon"><i class="fas fa-search" aria-hidden="true"></i></span>
+              <input class="form-control" name="q" type="search" value="{{ q or '' }}" placeholder="Número, descrição, nome ou centro de custo" aria-label="Pesquisar" size="36"/>
+            </div>
+          </form>
+          {% endif %}
+          {% if USUARIO and USUARIO.id %}
+          <div class="nav-item dropdown">
+            <a href="#" class="nav-link d-flex lh-1 p-0 px-2" data-bs-toggle="dropdown" aria-label="Abrir o menu do usuário">
+              <span class="avatar avatar-sm">{{ USUARIO.nome[:1] }}</span>
+              <div class="d-none d-xl-block ps-2 text-start">
+                <div>{{ USUARIO.nome }}</div>
+                <div class="mt-1 small text-secondary">{{ USUARIO.funcoes|map('rotulo_funcao')|join(', ') }}</div>
+              </div>
+            </a>
+            <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+              <a class="dropdown-item" href="{{ url_for('usuarios.acessos') }}">Meus acessos</a>
+              <a class="dropdown-item" href="{{ url_for('usuarios.senha') }}">Trocar senha</a>
+              <div class="dropdown-divider"></div>
+              <form method="post" action="{{ url_for('usuarios.sair') }}">
+                {{ csrf_campo() }}
+                <button class="dropdown-item" type="submit"><i class="fas fa-sign-out-alt me-2" aria-hidden="true"></i>Sair</button>
+              </form>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </header>
+
+    <div class="page-body" id="conteudo">
+      <div class="container-xl">
+        {% if trilha %}
+        <nav aria-label="Trilha de navegação">
+          <ol class="breadcrumb mb-3">
+            <li class="breadcrumb-item"><a href="{{ URL_INICIAL }}">Início</a></li>
+            {% for rotulo, url in trilha %}
+            {% if url %}<li class="breadcrumb-item"><a href="{{ url }}">{{ rotulo }}</a></li>
+            {% else %}<li class="breadcrumb-item active" aria-current="page">{{ rotulo }}</li>{% endif %}
+            {% endfor %}
+          </ol>
+        </nav>
+        {% endif %}
+        {% from "tabler_macros.html" import mensagens %}{{ mensagens() }}
+        {% block conteudo %}{% endblock %}
+      </div>
+    </div>
+
+    <footer class="footer footer-transparent d-print-none">
+      <div class="container-xl text-secondary small">{{ DSGOV.ORGAO }} · {{ DSGOV.SISTEMA }} · {{ DSGOV.SUBTITULO }}</div>
+    </footer>
+  </div>
+</div>
+<script src="{{ url_for('static', filename='tabler/vendor/tabler.min.js') }}"></script>
+<script src="{{ url_for('static', filename='tabler/astra.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,44 @@
+{% extends "tabler_base.html" %}
+{% from 'tabler_macros.html' import titulo_pagina, select %}
+{% block titulo %}Termos emitidos{% endblock %}
+{% block conteudo %}
+{{ titulo_pagina('Termos emitidos', AJUDA_ANCORA, 'Termos de Responsabilidade') }}
+<div class="card">
+  <div class="card-body border-bottom">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-3">{{ select('tipo', 'Tipo', [('', 'Todos')] + rotulos.items()|list, selecionado=tipo or '', obrigatorio=False) }}</div>
+      <div class="col-md-4"><label class="form-label" for="chave">Centro de custo ou pessoa</label><input class="form-control" id="chave" name="chave" type="text" value="{{ chave or '' }}" placeholder="contém..."/></div>
+      <div class="col-md-auto"><button class="btn btn-primary" type="submit"><i class="fas fa-filter me-2" aria-hidden="true"></i>Filtrar</button></div>
+      <div class="col-md ms-auto">
+        <label class="form-label" for="busca-emitidos">Buscar nesta lista</label>
+        <div class="input-icon">
+          <span class="input-icon-addon"><i class="fas fa-search" aria-hidden="true"></i></span>
+          <input class="form-control" id="busca-emitidos" type="search" placeholder="Número, processo, centro…" data-filtro-tabela="tabela-emitidos"/>
+        </div>
+      </div>
+    </form>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table table-striped" id="tabela-emitidos">
+      <caption class="visually-hidden">Registros de emissão</caption>
+      <thead><tr><th scope="col">Emitido em</th><th scope="col">Tipo</th><th scope="col">Centro / pessoa</th><th scope="col" class="text-end">Bens</th><th scope="col" class="text-end">Valor</th><th scope="col">Número</th><th scope="col">Processo SEI</th><th scope="col">Documento · bloco</th><th scope="col">E-mail</th></tr></thead>
+      <tbody>
+      {% for t in termos %}
+      <tr>
+        <td class="text-nowrap"><a href="{{ url_for('termo_emitido_tela', id=t.id) }}">{{ t.emitido_em[8:10] }}/{{ t.emitido_em[5:7] }}/{{ t.emitido_em[:4] }} {{ t.emitido_em[11:16] }}</a></td>
+        <td>{{ rotulos[t.tipo] }}</td><td>{{ t.chave }}</td>
+        <td class="text-end astra-numero">{{ t.quantidade }}</td><td class="text-end astra-numero text-nowrap">{{ (t.valor_total)|moeda }}</td>
+        <td>{{ t.numero_termo or '—' }}</td>
+        <td>{{ t.numero_sei|link_sei(t.id_procedimento) }} · {{ t.processo }}</td>
+        <td>{% if t.id in enviando %}<span class="badge bg-blue-lt">enviando…</span>{% else %}{{ t.documento_sei|link_sei(t.id_documento, 'documento') if t.documento_sei else '—' }} · {{ t.bloco_sei or '—' }}{% endif %}</td>
+        <td>{% if t.email_enviado_em %}<span class="badge bg-green-lt">{{ t.email_enviado_em[8:10] }}/{{ t.email_enviado_em[5:7] }}/{{ t.email_enviado_em[:4] }}</span>{% else %}—{% endif %}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="text-secondary">Nenhum termo registrado{% if tipo or chave %} com esse filtro{% endif %}.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer text-secondary small" data-contagem-tabela="tabela-emitidos">{{ termos|length }} registro(s)</div>
+</div>
+{% endblock %}
