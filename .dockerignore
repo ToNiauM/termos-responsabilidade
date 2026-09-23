@@ -19,3 +19,4 @@ tests
 **/*.gz
 **/*.md
 scripts/backup.sh
+dados-previa

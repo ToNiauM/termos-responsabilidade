@@ -32,3 +32,6 @@ secrets/
 scripts/backup.sh
 
 # Planilha de dados reais deixada solta na raiz
+
+# Cópia do banco usada pela prévia do Tabler (compose.previa.yml)
+dados-previa/

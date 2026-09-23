@@ -1,0 +1,20 @@
+# Prévia do protótipo Tabler (branch tabler) em patrimonio.analisedados.online.
+# Só o site: sem o serviço robo, nada vai ao SEI nem ao SPW. Banco é uma CÓPIA do de produção (dados-previa/).
+#   Atualizar a cópia: ver README do branch ou refazer o sqlite3 .backup a partir de ../termos-responsabilidade/dados.
+#   Subir: docker compose -f compose.previa.yml up -d --build
+services:
+  web:
+    build:
+      context: .
+      target: web
+    image: termos-patrimonio-tabler:latest
+    container_name: termos-tabler
+    restart: unless-stopped
+    environment:
+      TERMOS_LOGIN: "1"
+      ASTRA_UI: tabler
+      TZ: America/Sao_Paulo
+    ports:
+      - "127.0.0.1:12014:8000"
+    volumes:
+      - ./dados-previa:/app/dados
