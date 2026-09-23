@@ -8,6 +8,7 @@ import comissoes
 import db
 import fotos
 import inventario
+import painel
 import painel_inventario
 import usuarios
 
@@ -221,6 +222,35 @@ def _bem_json(r):
 _ORDEM_SITUACAO = {"pendente": 0, "localizado": 1, "divergente": 2}
 
 
+def _data_hora_br(iso) -> str | None:
+    """'2026-09-22 10:11:12' → '22/09/2026 10:11:12'."""
+    return f"{iso[8:10]}/{iso[5:7]}/{iso[:4]} {iso[11:19]}" if iso else None
+
+
+def _quer_json() -> bool:
+    """A tela pede JSON (fetch com Accept: application/json); o post comum do formulário segue com redirect."""
+    return request.accept_mimetypes.best == "application/json"
+
+
+def _dados_bem(b: dict, secao: str) -> dict:
+    """Ficha do bem para o modal da sala virtual (mesmos campos da página /bem, mais a leitura deste evento).
+    secao: pendente | localizado | divergente (seção onde o bem aparece)."""
+    def moeda(v):
+        return painel.moeda(v) if v is not None else None
+    ccustos, pessoa = b.get("ccustos"), b.get("pessoa")
+    return {"numero": b["numero"], "url_bem": url_for("bem", numero=b["numero"]), "descricao": b["descricao"],
+            "complemento": b["complemento"], "classificacao": b["classificacao"], "localizacao": b["localizacao"],
+            "situacao": b["situacao"], "secao": secao, "data_entrada": b.get("data_entrada"),
+            "valor_compra": moeda(b.get("valor_compra")), "valor_atual": moeda(b.get("valor_atual")),
+            "ccustos": ccustos, "responsavel_centro": b.get("responsavel_centro"),
+            "url_ccustos": url_for("termo", tipo="ccusto", chave=ccustos) if ccustos else None,
+            "pessoa": pessoa, "url_pessoa": url_for("termo", tipo="individual", chave=pessoa) if pessoa else None,
+            "lido": bool(b["lido_em"]), "lido_em_sala": b["lido_em_sala"], "integrante": b["integrante"],
+            "lido_em": _data_hora_br(b["lido_em"]),
+            "conservacao": b["conservacao"] or "", "quem_usa": b["quem_usa"] or "", "observacao": b["observacao"] or "",
+            "fotos": [{"nfoto": f["nfoto"], "url": f["url"]} for f in b["fotos"]]}
+
+
 @inventario_bp.route("/<int:id>/sala/<path:localizacao>")
 def sala_tela(id, localizacao):
     conn = _conn()
@@ -231,7 +261,11 @@ def sala_tela(id, localizacao):
         abort(404)
     d = inventario.bens_da_sala(conn, id, localizacao)
     d["bens"].sort(key=lambda b: (_ORDEM_SITUACAO[b["situacao_inv"]], b["numero"]))
-    return render_template("inventario_sala.html", e=e, sala=sala, localizacao=localizacao,
+    # Seções da sala virtual: localizado aqui → Localizados; o resto dos bens da sala (inclusive os lidos em outra
+    # sala) → Pendentes; trazidos (lidos aqui, cadastrados em outra sala ou não ativos) → Divergentes.
+    fichas = {b["numero"]: _dados_bem(b, "localizado" if b["situacao_inv"] == "localizado" else "pendente") for b in d["bens"]}
+    fichas.update({t["numero"]: _dados_bem(t, "divergente") for t in d["trazidos"]})
+    return render_template("inventario_sala.html", e=e, sala=sala, localizacao=localizacao, fichas=fichas,
                            na_comissao=_na_comissao(conn, e), integrante=g.usuario["nome"],
                            conservacao=inventario.CONSERVACAO, fotos_ativas=fotos.configurado(), **d,
                            trilha=_trilha(e, (localizacao, None)))
@@ -253,7 +287,13 @@ def ler(id, localizacao):
         return jsonify({"erro": str(e), "numero": e.numero}), 404
     except db.ErroDeNegocio as e:
         return _json_erro(e)
-    return jsonify(_bem_json(r))
+    ficha = db.ficha_do_bem(conn, numero)
+    ant = r["leitura_anterior"] or {}
+    b = {**ficha, "lido_em_sala": localizacao, "lido_em": r["lido_em"], "integrante": r["integrante"],
+         "conservacao": ant.get("conservacao"), "quem_usa": ant.get("quem_usa"), "observacao": ant.get("observacao"),
+         "responsavel_centro": ficha["responsavel"], "fotos": inventario.fotos_do_bem_no_evento(conn, id, numero)}
+    secao = "localizado" if r["situacao"] == "localizado" and r["ativo"] else "divergente"
+    return jsonify({**_bem_json(r), "ficha": _dados_bem(b, secao)})
 
 
 @inventario_bp.route("/<int:id>/leitura/<int:numero>", methods=["POST"])
@@ -336,7 +376,17 @@ def foto_leitura(id, numero):
 
 @inventario_bp.route("/<int:id>/leitura/<int:numero>/foto/<int:nfoto>/excluir", methods=["POST"])
 def foto_excluir(id, numero, nfoto):
+    """Formulário comum: apaga e volta para a sala com aviso. Pedido JSON (modal do bem no Tabler): devolve
+    {"fotos": [...]} com as que sobraram, ou {"erro": ...}."""
     conn = _conn()
+    if _quer_json():
+        try:
+            _exigir_comissao(conn, id)
+            if inventario.apagar_foto(conn, id, numero, nfoto, apagar=_apagar_no_bucket) is None:
+                return jsonify({"erro": "Foto não encontrada."}), 404
+        except db.ErroDeNegocio as e:
+            return _json_erro(e)
+        return jsonify({"fotos": [{"nfoto": f["nfoto"], "url": f["url"]} for f in inventario.fotos_do_bem_no_evento(conn, id, numero)]})
     _exigir_comissao(conn, id)
     leitura = conn.execute("SELECT localizacao FROM inventario_leituras WHERE evento_id = ? AND numero = ?", (id, numero)).fetchone()
     if not leitura:

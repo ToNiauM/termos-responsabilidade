@@ -535,7 +535,7 @@ def test_adicionar_e_apagar_fotos_do_bem(dados):
     inventario.ler(dados, eid, "01 - SALA CCI", 2001, "Fulano")
     foto_falsa(dados, eid, 2001)
     t = inventario.bens_da_sala(dados, eid, "01 - SALA CCI")["trazidos"]
-    assert "fotos" not in t[0]
+    assert [f["nfoto"] for f in t[0]["fotos"]] == [1]   # Divergentes da sala virtual: ficha com as fotos
     # desfazer leva todas as urls; cascata limpa a tabela
     urls, n = inventario.desfazer_leituras(dados, eid, [1001])
     assert sorted(urls) == ["https://x/inventario2026/1-1001.webp", "https://x/inventario2026/3-1001.webp"] and n == 1

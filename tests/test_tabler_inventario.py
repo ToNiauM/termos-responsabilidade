@@ -72,7 +72,9 @@ def test_sala_no_tabler_leitura_lote_e_fotos(tabler, monkeypatch):
     assert 'id="aviso"' in html and 'id="aviso-texto"' in html and 'id="btn-sobra"' in html and 'id="form-sobra"' in html
     assert 'id="n-localizados"' in html and 'id="contadores" data-total="2"' in html
     assert 'id="form-lote"' in html and 'data-papel="selecao"' in html and 'id="selecionar-todos"' in html
-    assert 'id="lista-bens"' in html and 'class="list-group list-group-flush"' in html and 'id="grade-bens"' in html
+    for secao in ("pendentes", "divergentes", "localizados"):   # três seções, cada uma com lista (celular) e grade (desktop)
+        assert f'id="lista-{secao}"' in html and f'id="grade-{secao}"' in html and f'id="secao-{secao}"' in html
+    assert 'class="list-group list-group-flush"' in html
     assert "<style" not in html.split("<body")[1] and ' style="' not in html   # só classes nativas do Tabler
     assert "tabler-icons.min.css" in html and "ti ti-map-pin" in html and "ti ti-dots-vertical" in html
     assert "dsgov.js" not in html and "core.min.js" not in html
@@ -81,11 +83,11 @@ def test_sala_no_tabler_leitura_lote_e_fotos(tabler, monkeypatch):
     inventario.adicionar_foto(db.conectar(), eid, 1001, lambda c: "https://x/1.webp")
     inventario.adicionar_foto(db.conectar(), eid, 1001, lambda c: "https://x/2.webp")
     html = tabler.get(url).text
-    item = html.split('id="lista-bens"')[1].split('data-bem="1001"')[1].split('data-bem="')[0]
-    assert item.count('class="avatar avatar-lg avatar-square object-cover"') == 1 and "+1 foto(s)" in item and 'aria-label="Excluir foto 1"' in item
+    item = html.split('id="lista-localizados"')[1].split('data-bem="1001"')[1].split('data-bem="')[0]
+    assert item.count('class="avatar avatar-lg avatar-square object-cover"') == 1 and "+1 foto(s)" in item   # excluir foto: na ficha (modal)
     assert 'class="foto-input" hidden/>' in item and ">Localizado<" in item and "sem conservação" in item
     assert "JAQUELINE PORTELA" in item and "ti ti-armchair" not in item   # responsável do centro; tem foto, sem ícone
-    item2 = html.split('id="lista-bens"')[1].split('data-bem="1002"')[1].split('data-bem="')[0]
+    item2 = html.split('id="lista-pendentes"')[1].split('data-bem="1002"')[1].split('data-bem="')[0]
     assert 'class="foto-input" hidden disabled' in item2 and ">Pendente<" in item2 and "ti ti-package" in item2   # classificação genérica
     assert 'data-acao="desfazer" hidden' in item2
     r = tabler.post(f"{url}/lote", data={"acao": "marcar", "numeros": ["1002"]}, follow_redirects=True)
@@ -162,3 +164,111 @@ def test_excluir_no_tabler(tabler):
     assert "não confere" in r.text
     r = tabler.post(f"/inventario/{eid}/excluir", data={"nome": "Inv"}, follow_redirects=True)
     assert "Evento Inv excluído" in r.text and inventario.evento(db.conectar(), eid) is None
+
+
+def _secao(html, nome):
+    """Trecho da seção (aba) `nome` da sala virtual: do painel até o próximo painel ou os modelos."""
+    return html.split(f'id="secao-{nome}"')[1].split('data-secao-painel="')[1].split('<template id="modelo-lista"')[0].split('id="secao-')[0]
+
+
+def _fichas(html):
+    import json
+    return json.loads(html.split('<script type="application/json" id="fichas">')[1].split("</script>")[0])
+
+
+def _cenario_sala(tabler, comissao=("Fulano", "Beltrana")):
+    """1001 lido aqui (localizado); 1002 lido em outra sala (pendente aqui); 1004 de outra sala lido aqui
+    (divergente); 1003 não ativo lido aqui (em Divergentes, fora da contagem)."""
+    eid = _abrir(tabler, comissao)
+    url = f"/inventario/{eid}/sala/01 - SALA CCI"
+    assert tabler.post(f"{url}/ler", json={"numero": "1001"}).get_json()["situacao"] == "localizado"
+    assert tabler.post(f"/inventario/{eid}/sala/99 - SEM MAPA/ler", json={"numero": "1002"}).status_code == 200
+    assert tabler.post(f"{url}/ler", json={"numero": "1004"}).get_json()["situacao"] == "divergente"
+    assert tabler.post(f"{url}/ler", json={"numero": "1003"}).status_code == 200
+    return eid, url
+
+
+def test_sala_tres_secoes_com_contagens(tabler):
+    eid, url = _cenario_sala(tabler)
+    html = tabler.get(url).text
+    assert _e_tabler(html) and ' style="' not in html and "<style" not in html.split("<body")[1]
+    # cards-aba com os mesmos números de inventario.salas; Pendentes aberta por padrão; alerta em Divergentes
+    assert 'id="n-pendentes">1<' in html and 'id="n-divergentes">1<' in html and 'id="n-localizados">1<' in html
+    assert 'role="tablist"' in html and 'aria-controls="secao-pendentes" aria-selected="true"' in html
+    assert 'id="secao-divergentes" role="tabpanel" aria-labelledby="aba-divergentes" data-secao-painel="divergentes" hidden' in html
+    assert 'class="card-status-top bg-warning" data-papel="alerta-divergentes">' in html
+    pend, div, loc = _secao(html, "pendentes"), _secao(html, "divergentes"), _secao(html, "localizados")
+    # bem da sala lido em outra sala: continua Pendente, com "Encontrado em" e quem leu
+    assert 'data-bem="1002"' in pend and "Encontrado em 99 - SEM MAPA" in pend and "Lido por Fulano em" in pend and ">Pendente<" in pend
+    assert 'data-bem="1002"' not in div + loc and "Divergente<" not in pend
+    # bem de outra sala lido aqui: Divergentes, com a localização cadastrada (que não muda)
+    assert 'data-bem="1004"' in div and "Cadastrado em 99 - SEM MAPA" in div and ">Divergente<" in div and "Lido aqui por Fulano" in div
+    assert 'data-bem="1003"' in div and ">Não ativo<" in div and "BAIXADO" in div   # não ativo lido aqui
+    assert 'data-bem="1001"' in loc and ">Localizado<" in loc and 'data-bem="1001"' not in pend + div
+    # número do bem leva ao cadastro, na mesma aba
+    for n in (1001, 1002, 1003, 1004):
+        assert f'<a class="fw-bold" href="/bem?numero={n}" data-papel="numero"' in html
+    assert 'target="_blank"' not in html.split('data-papel="numero"')[1][:80]
+    # a localização cadastrada nunca muda com a leitura
+    import db
+    assert db.buscar_bem(db.conectar(), 1004)["localizacao"] == "99 - SEM MAPA"
+
+
+def test_sala_ficha_do_modal_com_fotos(tabler, monkeypatch):
+    import db, fotos, inventario
+    for v in fotos.VARIAVEIS:
+        monkeypatch.setenv(v, "x")
+    eid, url = _cenario_sala(tabler)
+    inventario.adicionar_foto(db.conectar(), eid, 1001, lambda c: "https://x/1.webp")
+    inventario.adicionar_foto(db.conectar(), eid, 1001, lambda c: "https://x/2.webp")
+    inventario.adicionar_foto(db.conectar(), eid, 1004, lambda c: "https://x/3.webp")
+    html = tabler.get(url).text
+    f = _fichas(html)
+    assert [(x["nfoto"], x["url"]) for x in f["1001"]["fotos"]] == [(1, "https://x/1.webp"), (2, "https://x/2.webp")]
+    assert f["1001"]["url_bem"] == "/bem?numero=1001" and f["1001"]["secao"] == "localizado" and f["1001"]["lido"]
+    assert f["1001"]["lido_em_sala"] == "01 - SALA CCI" and f["1001"]["integrante"] == "Fulano"
+    assert len(f["1001"]["lido_em"]) == 19 and f["1001"]["lido_em"][2] == "/" and f["1001"]["lido_em"][5] == "/"   # dd/mm/aaaa hh:mm:ss
+    assert f["1001"]["ccustos"] == "CCI" and f["1001"]["responsavel_centro"] == "JAQUELINE PORTELA" and f["1001"]["valor_atual"] == "R$ 64,54"
+    assert f["1002"]["secao"] == "pendente" and f["1002"]["lido_em_sala"] == "99 - SEM MAPA" and f["1002"]["pessoa"] == "ANA SILVA"
+    assert f["1004"]["secao"] == "divergente" and [x["url"] for x in f["1004"]["fotos"]] == ["https://x/3.webp"]
+    assert f["1003"]["situacao"] == "BAIXADO" and f["1003"]["fotos"] == []
+    # modal: campos da página do bem, bloco da leitura, galeria e ações
+    modal = html.split('id="modal-bem"')[1].split("</form>")[0]
+    for rotulo in ("Descrição", "Complemento", "Classificação", "Situação", "Localização", "Data de entrada", "Valor atual",
+                   "Centro de custo", "Responsável individual", "Sala da leitura", "Lido por", "Data/hora da leitura"):
+        assert f'<div class="datagrid-title">{rotulo}</div>' in modal
+    assert 'id="det-link"' in modal and 'id="det-fotos"' in modal and 'id="det-foto-input"' in modal
+    assert 'id="det-conservacao"' in modal and 'id="det-quem-usa"' in modal and 'id="det-observacao"' in modal
+    assert 'id="det-ler"' in modal and 'id="det-desfazer"' in modal
+    # /ler devolve a ficha para a tela atualizar sem recarregar
+    j = tabler.post(f"{url}/ler", json={"numero": "1002"}).get_json()
+    assert j["ficha"]["secao"] == "localizado" and j["ficha"]["lido_em_sala"] == "01 - SALA CCI" and j["ficha"]["url_bem"] == "/bem?numero=1002"
+
+
+def test_foto_excluir_responde_json(tabler, monkeypatch):
+    import db, fotos, inventario
+    eid, url = _cenario_sala(tabler, comissao=("Fulano",))
+    inventario.adicionar_foto(db.conectar(), eid, 1001, lambda c: "https://x/1.webp")
+    inventario.adicionar_foto(db.conectar(), eid, 1001, lambda c: "https://x/2.webp")
+    apagadas = []
+    monkeypatch.setattr(fotos, "apagar", apagadas.append)   # bucket falso: nada real é apagado
+    json_ = {"Accept": "application/json"}
+    r = tabler.post(f"/inventario/{eid}/leitura/1001/foto/1/excluir", headers=json_)
+    assert r.status_code == 200 and r.get_json() == {"fotos": [{"nfoto": 2, "url": "https://x/2.webp"}]} and apagadas == ["https://x/1.webp"]
+    r = tabler.post(f"/inventario/{eid}/leitura/1001/foto/1/excluir", headers=json_)
+    assert r.status_code == 404 and r.get_json()["erro"] and apagadas == ["https://x/1.webp"]
+    # falha no bucket: erro em JSON, a foto fica
+    monkeypatch.setattr(fotos, "apagar", lambda u: (_ for _ in ()).throw(RuntimeError("bucket fora")))
+    r = tabler.post(f"/inventario/{eid}/leitura/1001/foto/2/excluir", headers=json_)
+    assert r.status_code == 409 and "Não foi possível apagar" in r.get_json()["erro"]
+    assert [f["nfoto"] for f in inventario.fotos_do_bem_no_evento(db.conectar(), eid, 1001)] == [2]
+    # formulário comum (DSGov) continua com redirect
+    monkeypatch.setattr(fotos, "apagar", apagadas.append)
+    r = tabler.post(f"/inventario/{eid}/leitura/1001/foto/2/excluir", data={"volta": "01 - SALA CCI"})
+    assert r.status_code == 302 and apagadas[-1] == "https://x/2.webp"
+    # fora da comissão (Beltrana é inventariante, mas não deste evento): negado em JSON, nada apagado
+    inventario.adicionar_foto(db.conectar(), eid, 1001, lambda c: "https://x/4.webp")
+    tabler.post("/sair"); logar(tabler, "beltrana", SENHA_PADRAO)
+    r = tabler.post(f"/inventario/{eid}/leitura/1001/foto/3/excluir", headers=json_)
+    assert r.status_code == 403 and r.get_json()["erro"] and apagadas[-1] == "https://x/2.webp"
+    assert len(inventario.fotos_do_bem_no_evento(db.conectar(), eid, 1001)) == 1

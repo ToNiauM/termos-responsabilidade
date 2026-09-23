@@ -86,14 +86,19 @@ def csrf_campo():
     return Markup(f'<input type="hidden" name="csrf" value="{_csrf_token()}"/>')
 
 
+def _pede_json() -> bool:
+    """Rota só JSON, corpo JSON ou fetch que pede JSON (Accept: application/json, ex.: excluir foto na ficha do bem)."""
+    return request.endpoint in ROTAS_JSON or request.is_json or request.accept_mimetypes.best == "application/json"
+
+
 def _csrf_invalido():
-    if request.endpoint in ROTAS_JSON or request.is_json:
+    if _pede_json():
         return {"erro": CSRF_INVALIDO}, 400
     return render_template("403.html", trilha=[("Sessão expirada", None)], csrf=True), 400
 
 
 def _negado():
-    if request.endpoint in ROTAS_JSON or request.is_json:
+    if _pede_json():
         return {"erro": NEGADO}, 403
     return render_template("403.html", trilha=[("Acesso negado", None)]), 403
 

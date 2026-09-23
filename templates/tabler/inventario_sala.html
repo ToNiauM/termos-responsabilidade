@@ -2,11 +2,13 @@
 {% from 'tabler_macros.html' import ajuda_titulo %}
 {% block titulo %}{{ localizacao }}{% endblock %}
 
-{# Item de bem: avatar | linhas de informação | ações. O mesmo conteúdo serve à lista (celular) e à grade de cards (desktop).
-   Só componentes e classes nativos do Tabler; nenhum CSS próprio nem estilo inline. #}
-{% macro situacao_badge(b) %}
-{% if b.situacao_inv == 'localizado' %}<span class="badge flex-shrink-0 bg-green-lt" data-papel="situacao">Localizado</span>
-{% elif b.situacao_inv == 'divergente' %}<span class="badge flex-shrink-0 bg-yellow-lt" data-papel="situacao">Divergente</span>
+{# Sala virtual: três seções (Pendentes, Divergentes, Localizados) escolhidas pelos cards do topo.
+   Item de bem: avatar | linhas de informação | ações. O mesmo conteúdo serve à lista (celular) e à grade de cards (desktop).
+   secao: pendente | localizado | divergente (onde o bem aparece). Só componentes e classes nativos do Tabler. #}
+{% macro situacao_badge(b, secao) %}
+{% if secao == 'localizado' %}<span class="badge flex-shrink-0 bg-green-lt" data-papel="situacao">Localizado</span>
+{% elif secao == 'divergente' and b.situacao != 'ATIVO' %}<span class="badge flex-shrink-0 bg-red-lt" data-papel="situacao" title="{{ b.situacao }}">Não ativo</span>
+{% elif secao == 'divergente' %}<span class="badge flex-shrink-0 bg-yellow-lt" data-papel="situacao">Divergente</span>
 {% else %}<span class="badge flex-shrink-0 bg-secondary-lt" data-papel="situacao">Pendente</span>{% endif %}
 {% endmacro %}
 
@@ -14,26 +16,31 @@
 
 {% macro avatar_bem(b) %}
 {% set f = b.fotos[0] if b.fotos else None %}
-{% if f and f.url.startswith(('http://', 'https://')) %}<a href="{{ f.url }}" target="_blank" rel="noopener" data-papel="avatar"><img class="avatar avatar-lg avatar-square object-cover" src="{{ f.url }}" alt="Foto {{ f.nfoto }} do bem {{ b.numero }}"/></a>
+{% if f and f.url.startswith(('http://', 'https://')) %}<span data-papel="avatar"><img class="avatar avatar-lg avatar-square object-cover" src="{{ f.url }}" alt="Foto {{ f.nfoto }} do bem {{ b.numero }}"/></span>
 {% else %}<span class="avatar avatar-lg avatar-square" data-papel="avatar"><i class="ti {{ icone_categoria(b.classificacao) }}" aria-hidden="true"></i></span>{% endif %}
 {% endmacro %}
 
-{% macro item_bem(b, fechado) %}
+{% macro data_curta(iso) %}{{ iso[8:10] }}/{{ iso[5:7] }}/{{ iso[:4] }} {{ iso[11:16] }}{% endmacro %}
+
+{% macro item_bem(b, secao, fechado) %}
 <div class="row g-3 align-items-center">
   <div class="col-auto">{{ avatar_bem(b) }}</div>
   <div class="col text-truncate">
-    <div class="d-flex align-items-center gap-2">
-      <span class="fw-bold text-truncate">{{ b.numero }} · {{ b.descricao }}{% if b.complemento %} {{ b.complemento }}{% endif %}</span>
-      {{ situacao_badge(b) }}
+    <div class="d-flex align-items-center justify-content-between gap-2">
+      <a class="fw-bold" href="{{ url_for('bem', numero=b.numero) }}" data-papel="numero" title="Abrir o cadastro do bem {{ b.numero }}">{{ b.numero }}</a>
+      {{ situacao_badge(b, secao) }}
     </div>
-    <div class="text-secondary small text-truncate"><i class="ti ti-map-pin me-1" aria-hidden="true"></i>{{ b.localizacao }}<span data-papel="lido-em">{% if b.situacao_inv == 'divergente' %} · lido em {{ b.lido_em_sala }}{% endif %}</span></div>
-    <div class="text-secondary small text-truncate"><i class="ti ti-user me-1" aria-hidden="true"></i>{{ b.pessoa or b.responsavel_centro or '—' }}</div>
-    <div class="text-secondary small text-truncate"><i class="ti ti-calendar me-1" aria-hidden="true"></i>{{ b.data_entrada or '—' }} · {{ b.valor_atual|moeda if b.valor_atual is not none else 'valor não informado' }}</div>
+    <div class="fw-bold text-truncate" data-papel="descricao">{{ b.descricao }}{% if b.complemento %} {{ b.complemento }}{% endif %}</div>
+    <div class="text-secondary small text-truncate"><i class="ti ti-map-pin me-1" aria-hidden="true"></i><span data-papel="local">{% if secao == 'divergente' %}Cadastrado em {{ b.localizacao or '—' }}{% if b.situacao != 'ATIVO' %} · {{ b.situacao }}{% endif %}{% else %}{{ b.localizacao }}{% endif %}</span></div>
+    {% if secao == 'pendente' and b.lido_em %}<div class="text-truncate" data-papel="encontrado"><span class="badge bg-yellow-lt d-inline-block text-truncate mw-100" title="Lido em outra sala: continua pendente aqui">Encontrado em {{ b.lido_em_sala }}</span></div>{% endif %}
+    <div class="text-secondary small text-truncate" data-papel="leitura"{% if not b.lido_em %} hidden{% endif %}><i class="ti ti-scan me-1" aria-hidden="true"></i><span data-papel="leitura-texto">{% if b.lido_em %}{{ 'Lido aqui' if secao == 'divergente' else 'Lido' }} por {{ b.integrante }} em {{ data_curta(b.lido_em) }}{% endif %}</span></div>
+    <div class="text-secondary small text-truncate"><i class="ti ti-user me-1" aria-hidden="true"></i><span data-papel="responsavel">{{ b.pessoa or b.responsavel_centro or '—' }}</span></div>
+    <div class="text-secondary small text-truncate"><i class="ti ti-calendar me-1" aria-hidden="true"></i><span data-papel="entrada">{{ b.data_entrada or '—' }} · {{ b.valor_atual|moeda if b.valor_atual is not none else 'valor não informado' }}</span></div>
     <div class="d-flex flex-wrap gap-1 mt-1" data-papel="selos">
-      {% if b.conservacao %}<span class="badge bg-blue-lt" data-conservacao-selo>{{ b.conservacao }}</span>{% endif %}
-      {% if b.lido_em and not b.conservacao %}<span class="badge bg-orange-lt" data-pendencia>sem conservação</span>{% endif %}
-      {% if b.lido_em and fotos_ativas and not b.fotos %}<span class="badge bg-orange-lt" data-pendencia>sem foto</span>{% endif %}
-      {% if b.fotos|length > 1 %}<span class="badge bg-secondary-lt" title="Todas as fotos no cadastro do bem">+{{ b.fotos|length - 1 }} foto(s)</span>{% endif %}
+      {% if b.conservacao %}<span class="badge bg-blue-lt">{{ b.conservacao }}</span>{% endif %}
+      {% if b.lido_em and not b.conservacao %}<span class="badge bg-orange-lt">sem conservação</span>{% endif %}
+      {% if b.lido_em and fotos_ativas and not b.fotos %}<span class="badge bg-orange-lt">sem foto</span>{% endif %}
+      {% if b.fotos|length > 1 %}<span class="badge bg-secondary-lt" title="Todas as fotos estão nos detalhes do bem">+{{ b.fotos|length - 1 }} foto(s)</span>{% endif %}
     </div>
   </div>
   <div class="col-auto">
@@ -47,7 +54,6 @@
           <button class="dropdown-item" type="button" data-acao="ler"><i class="ti ti-check me-2" aria-hidden="true"></i>Registrar leitura nesta sala</button>
           <button class="dropdown-item text-danger" type="button" data-acao="desfazer"{% if not b.lido_em %} hidden{% endif %}><i class="ti ti-arrow-back-up me-2" aria-hidden="true"></i>Desfazer leitura</button>
           {% if fotos_ativas %}<label class="dropdown-item{% if not b.lido_em %} disabled{% endif %}" data-papel="nova-foto" aria-label="Nova foto do bem {{ b.numero }}"><i class="ti ti-camera me-2" aria-hidden="true"></i>Nova foto<input type="file" accept="image/*" capture="environment" class="foto-input" hidden{% if not b.lido_em %} disabled{% endif %}/></label>{% endif %}
-          {% for f in b.fotos[:1] %}<form method="post" action="{{ url_for('inventario.foto_excluir', id=e.id, numero=b.numero, nfoto=f.nfoto) }}">{{ csrf_campo() }}<input type="hidden" name="volta" value="{{ localizacao }}"/><button class="dropdown-item text-danger" type="submit" aria-label="Excluir foto {{ f.nfoto }}"><i class="ti ti-trash me-2" aria-hidden="true"></i>Excluir foto</button></form>{% endfor %}
           {% endif %}
         </div>
       </div>
@@ -56,8 +62,50 @@
 </div>
 {% endmacro %}
 
+{% macro atributos(b, secao) %}data-bem="{{ b.numero }}" data-secao="{{ secao }}" data-ativo="{{ 'sim' if b.situacao == 'ATIVO' else 'nao' }}" data-icone="{{ icone_categoria(b.classificacao) }}"{% endmacro %}
+
+{% macro item_lista(b, secao, fechado) %}<div class="list-group-item cursor-pointer" {{ atributos(b, secao) }}>{{ item_bem(b, secao, fechado) }}</div>{% endmacro %}
+{% macro item_grade(b, secao, fechado) %}<div class="col-sm-6 col-lg-4" {{ atributos(b, secao) }}><div class="card h-100 cursor-pointer"><div class="card-body">{{ item_bem(b, secao, fechado) }}</div></div></div>{% endmacro %}
+
+{# Uma seção: lista no celular, grade de cards no desktop; a caixa da lista some quando a seção está vazia #}
+{% macro secao_bens(nome, itens, secao, fechado) %}
+<div class="card mb-3 d-md-none" data-papel="caixa-lista"{% if not itens %} hidden{% endif %}>
+  <div class="list-group list-group-flush" id="lista-{{ nome }}">
+    {% for b in itens %}{{ item_lista(b, secao, fechado) }}{% endfor %}
+  </div>
+</div>
+<div class="row row-cards mb-3 d-none d-md-flex" id="grade-{{ nome }}">
+  {% for b in itens %}{{ item_grade(b, secao, fechado) }}{% endfor %}
+</div>
+{% endmacro %}
+
+{% macro vazio(titulo, texto, icone, mostrar) %}
+<div class="empty mb-3" data-papel="vazio"{% if not mostrar %} hidden{% endif %}><div class="empty-icon"><i class="ti {{ icone }}" aria-hidden="true"></i></div><p class="empty-title">{{ titulo }}</p><p class="empty-subtitle text-secondary">{{ texto }}</p></div>
+{% endmacro %}
+
+{# Card-aba do topo: número grande + rótulo; mostra uma seção por vez #}
+{% macro aba(nome, rotulo, numero, icone, cor, ativa) %}
+<div class="col-4">
+  <a class="card card-sm card-link card-link-pop h-100{% if ativa %} card-active{% endif %}" href="#secao-{{ nome }}" id="aba-{{ nome }}" role="tab" aria-controls="secao-{{ nome }}" aria-selected="{{ 'true' if ativa else 'false' }}" data-aba="{{ nome }}">
+    {% if nome == 'divergentes' %}<div class="card-status-top bg-warning" data-papel="alerta-divergentes"{% if not numero %} hidden{% endif %}></div>{% endif %}
+    <div class="card-body">
+      <div class="d-flex align-items-center gap-3">
+        <span class="avatar {{ cor }} d-none d-md-inline-flex"><i class="ti {{ icone }}" aria-hidden="true"></i></span>
+        <div class="text-truncate">
+          <div class="h1 mb-0" id="n-{{ nome }}">{{ numero }}</div>
+          <div class="text-secondary text-truncate">{{ rotulo }}</div>
+        </div>
+        {% if nome == 'divergentes' %}<span class="badge bg-warning text-warning-fg ms-auto d-none d-lg-inline-block" data-papel="alerta-divergentes"{% if not numero %} hidden{% endif %}>verificar</span>{% endif %}
+      </div>
+    </div>
+  </a>
+</div>
+{% endmacro %}
+
 {% block conteudo %}
 {% set fechado = e.estado != 'aberto' or not na_comissao %}
+{% set pendentes = bens|rejectattr('situacao_inv', 'equalto', 'localizado')|list %}
+{% set localizados = bens|selectattr('situacao_inv', 'equalto', 'localizado')|list %}
 <div class="page-header d-print-none mb-3">
   <div class="page-pretitle">Inventário · sala</div>
   <h1 class="page-title">{{ localizacao }}{{ ajuda_titulo(AJUDA_ANCORA) }}</h1>
@@ -81,10 +129,10 @@
 <div class="card mb-3 sticky-top" id="faixa-leitura"><div class="card-body">
   <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
     <label class="form-label mb-0" for="leitura">Plaqueta</label>
-    <div id="contadores" data-total="{{ sala.total }}" class="d-flex align-items-center gap-1" title="localizados · divergentes · pendentes de {{ sala.total }}">
-      <span class="badge bg-green-lt" title="localizados"><i class="ti ti-check me-1" aria-hidden="true"></i><span id="n-localizados">{{ sala.localizados }}</span></span>
-      <span class="badge bg-yellow-lt" title="divergentes"><i class="ti ti-arrows-exchange me-1" aria-hidden="true"></i><span id="n-divergentes">{{ sala.divergentes }}</span></span>
-      <span class="badge bg-secondary-lt" title="pendentes"><i class="ti ti-clock me-1" aria-hidden="true"></i><span id="n-pendentes">{{ sala.pendentes }}</span></span>
+    <div class="d-flex align-items-center gap-1" title="pendentes · divergentes · localizados de {{ sala.total }}">
+      <span class="badge bg-secondary-lt" title="pendentes"><i class="ti ti-clock me-1" aria-hidden="true"></i><span data-contador="pendentes">{{ sala.pendentes }}</span></span>
+      <span class="badge bg-yellow-lt" title="divergentes"><i class="ti ti-arrows-exchange me-1" aria-hidden="true"></i><span data-contador="divergentes">{{ sala.divergentes }}</span></span>
+      <span class="badge bg-green-lt" title="localizados"><i class="ti ti-check me-1" aria-hidden="true"></i><span data-contador="localizados">{{ sala.localizados }}</span></span>
     </div>
   </div>
   <div class="row g-2 align-items-center flex-nowrap">
@@ -103,35 +151,46 @@
   <div id="camera" class="mt-2" hidden><div id="leitor-camera"></div><button class="btn mt-2" type="button" id="btn-fechar-camera"><i class="ti ti-x me-2" aria-hidden="true"></i>Fechar câmera</button></div>
 </div></div>
 
-{# Busca e seleção de todos #}
+{# Seções da sala: Pendentes (padrão), Divergentes e Localizados; os números mudam a cada leitura #}
+<div class="row row-cards g-2 g-md-3 mb-3" id="contadores" data-total="{{ sala.total }}" role="tablist" aria-label="Seções da sala">
+  {{ aba('pendentes', 'Pendentes', sala.pendentes, 'ti-clock', 'bg-secondary-lt', true) }}
+  {{ aba('divergentes', 'Divergentes', sala.divergentes, 'ti-arrows-exchange', 'bg-yellow-lt', false) }}
+  {{ aba('localizados', 'Localizados', sala.localizados, 'ti-check', 'bg-green-lt', false) }}
+</div>
+
+{# Busca e seleção de todos (valem para a seção visível) #}
 <div class="d-flex align-items-center gap-2 mb-3">
-  {% if not fechado %}<label class="form-check mb-0"><input class="form-check-input" type="checkbox" id="selecionar-todos" aria-label="Selecionar todos os bens visíveis"/><span class="form-check-label">Todos</span></label>{% endif %}
+  {% if not fechado %}<label class="form-check mb-0"><input class="form-check-input" type="checkbox" id="selecionar-todos" aria-label="Selecionar todos os bens visíveis da seção"/><span class="form-check-label">Todos</span></label>{% endif %}
   <div class="input-icon flex-fill">
     <span class="input-icon-addon"><i class="ti ti-search" aria-hidden="true"></i></span>
     <input class="form-control" id="busca-bens" type="search" placeholder="Buscar bens da sala" aria-label="Buscar bens da sala"/>
   </div>
 </div>
 
-{% if bens %}
-{# Celular: lista #}
-<div class="card mb-3 d-md-none">
-  <div class="list-group list-group-flush" id="lista-bens">
-    {% for b in bens %}
-    <div class="list-group-item" data-bem="{{ b.numero }}" data-lido="{{ '1' if b.lido_em else '' }}" data-conservacao="{{ b.conservacao or '' }}" data-quem-usa="{{ b.quem_usa or '' }}" data-observacao="{{ b.observacao or '' }}">{{ item_bem(b, fechado) }}</div>
-    {% endfor %}
-  </div>
+<div id="secao-pendentes" role="tabpanel" aria-labelledby="aba-pendentes" data-secao-painel="pendentes">
+  <p class="text-secondary small mb-2">Bens cadastrados nesta sala que ainda não foram lidos aqui. Os encontrados em outra sala continuam pendentes e mostram onde foram lidos.</p>
+  {{ secao_bens('pendentes', pendentes, 'pendente', fechado) }}
+  {% if sala.total %}{{ vazio('Nenhum bem pendente', 'Todos os bens cadastrados nesta sala foram lidos aqui.', 'ti-circle-check', not pendentes) }}
+  {% else %}{{ vazio('Nenhum bem ativo cadastrado nesta sala', 'Bens lidos aqui e cadastrados em outra sala aparecem em Divergentes.', 'ti-package-off', true) }}{% endif %}
 </div>
-{# Desktop: grade de cards com o mesmo conteúdo #}
-<div class="row row-cards mb-3 d-none d-md-flex" id="grade-bens">
-  {% for b in bens %}
-  <div class="col-sm-6 col-lg-4" data-bem="{{ b.numero }}" data-lido="{{ '1' if b.lido_em else '' }}" data-conservacao="{{ b.conservacao or '' }}" data-quem-usa="{{ b.quem_usa or '' }}" data-observacao="{{ b.observacao or '' }}">
-    <div class="card h-100"><div class="card-body">{{ item_bem(b, fechado) }}</div></div>
-  </div>
-  {% endfor %}
+<div id="secao-divergentes" role="tabpanel" aria-labelledby="aba-divergentes" data-secao-painel="divergentes" hidden>
+  <p class="text-secondary small mb-2">Bens lidos nesta sala mas cadastrados em outra (ou não ativos). A localização cadastrada não muda com a leitura.</p>
+  {{ secao_bens('divergentes', trazidos, 'divergente', fechado) }}
+  {{ vazio('Nenhum bem divergente', 'Nenhum bem de outra sala foi lido aqui.', 'ti-arrows-exchange', not trazidos) }}
 </div>
-{% else %}
-<div class="empty mb-3"><div class="empty-icon"><i class="ti ti-package-off" aria-hidden="true"></i></div><p class="empty-title">Nenhum bem ativo cadastrado nesta sala</p></div>
-{% endif %}
+<div id="secao-localizados" role="tabpanel" aria-labelledby="aba-localizados" data-secao-painel="localizados" hidden>
+  <p class="text-secondary small mb-2">Bens cadastrados nesta sala e lidos aqui neste inventário.</p>
+  {{ secao_bens('localizados', localizados, 'localizado', fechado) }}
+  {{ vazio('Nenhum bem localizado ainda', 'Leia a plaqueta de um bem para ele aparecer aqui.', 'ti-scan', not localizados) }}
+</div>
+
+{# Modelos para um bem de outra sala lido agora (vai para Divergentes); __N__ vira o número #}
+{% set modelo = {'numero': '__N__', 'descricao': '', 'complemento': None, 'classificacao': None, 'localizacao': '', 'situacao': 'ATIVO',
+                 'lido_em': '0000-00-00 00:00:00', 'lido_em_sala': '', 'integrante': '', 'pessoa': None, 'responsavel_centro': None,
+                 'data_entrada': None, 'valor_atual': None, 'fotos': [], 'conservacao': None} %}
+<template id="modelo-lista">{{ item_lista(modelo, 'divergente', fechado) }}</template>
+<template id="modelo-grade">{{ item_grade(modelo, 'divergente', fechado) }}</template>
+<script type="application/json" id="fichas">{{ fichas|tojson }}</script>
 
 {# Ações em lote: aparece presa embaixo só quando há bens marcados #}
 {% if not fechado %}
@@ -144,26 +203,60 @@
 </form>
 {% endif %}
 
-{# Detalhes do bem (conservação, quem usa, observação): salvam ao mudar #}
+{# Ficha do bem: cadastro (mesmos campos da página do bem), leitura neste inventário (conservação, quem usa e
+   observação salvam ao mudar) e todas as fotos do bem no evento #}
 <div class="modal modal-blur fade" id="modal-bem" tabindex="-1" aria-labelledby="modal-bem-titulo" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
-    <div class="modal-header"><h2 class="modal-title" id="modal-bem-titulo">Bem</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
-    <div class="modal-body">
-      <p class="text-secondary" id="modal-bem-aviso" hidden>Registre a leitura do bem para preencher estes campos.</p>
-      <div class="mb-3"><label class="form-label" for="det-conservacao">Conservação</label><select class="form-select campo" id="det-conservacao" data-campo="conservacao"><option value="">—</option>{% for c in conservacao %}<option>{{ c }}</option>{% endfor %}</select></div>
-      <div class="mb-3"><label class="form-label" for="det-quem-usa">Quem usa</label><input class="form-control campo" id="det-quem-usa" data-campo="quem_usa" type="text"/></div>
-      <div class="mb-0"><label class="form-label" for="det-observacao">Observação</label><input class="form-control campo" id="det-observacao" data-campo="observacao" type="text"/></div>
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
+    <div class="modal-header">
+      <div class="d-flex align-items-center flex-wrap gap-2 pe-4">
+        <h2 class="modal-title" id="modal-bem-titulo"><a class="link-primary" href="#" id="det-link" title="Abrir o cadastro do bem">Bem</a> · <span id="det-titulo"></span></h2>
+        <span class="badge" id="det-situacao"></span>
+      </div>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
     </div>
-    <div class="modal-footer"><button type="button" class="btn btn-primary" data-bs-dismiss="modal">Concluir</button></div>
+    <div class="modal-body">
+      <div class="alert alert-danger" id="det-erro" role="alert" hidden></div>
+      <h3 class="h4 mb-3">Cadastro</h3>
+      <div class="datagrid">
+        <div class="datagrid-item"><div class="datagrid-title">Descrição</div><div class="datagrid-content" data-ficha="descricao"></div></div>
+        <div class="datagrid-item"><div class="datagrid-title">Complemento</div><div class="datagrid-content" data-ficha="complemento"></div></div>
+        <div class="datagrid-item"><div class="datagrid-title">Classificação</div><div class="datagrid-content" data-ficha="classificacao"></div></div>
+        <div class="datagrid-item"><div class="datagrid-title">Situação</div><div class="datagrid-content" data-ficha="situacao"></div></div>
+        <div class="datagrid-item"><div class="datagrid-title">Localização</div><div class="datagrid-content" data-ficha="localizacao"></div></div>
+        <div class="datagrid-item"><div class="datagrid-title">Data de entrada</div><div class="datagrid-content" data-ficha="data_entrada"></div></div>
+        <div class="datagrid-item"><div class="datagrid-title">Valor de compra</div><div class="datagrid-content" data-ficha="valor_compra"></div></div>
+        <div class="datagrid-item"><div class="datagrid-title">Valor atual</div><div class="datagrid-content" data-ficha="valor_atual"></div></div>
+        <div class="datagrid-item"><div class="datagrid-title">Centro de custo</div><div class="datagrid-content" id="det-centro"></div></div>
+        <div class="datagrid-item"><div class="datagrid-title">Responsável individual</div><div class="datagrid-content" id="det-pessoa"></div></div>
+      </div>
+      <hr class="my-4"/>
+      <h3 class="h4 mb-3">Leitura neste inventário</h3>
+      <p class="text-secondary" id="modal-bem-aviso" hidden>Ainda não lido neste inventário. Registre a leitura para preencher estes campos e fotografar.</p>
+      <div class="datagrid mb-3">
+        <div class="datagrid-item"><div class="datagrid-title">Sala da leitura</div><div class="datagrid-content" data-ficha="lido_em_sala"></div></div>
+        <div class="datagrid-item"><div class="datagrid-title">Lido por</div><div class="datagrid-content" data-ficha="integrante"></div></div>
+        <div class="datagrid-item"><div class="datagrid-title">Data/hora da leitura</div><div class="datagrid-content" data-ficha="lido_em"></div></div>
+      </div>
+      <div class="row g-3">
+        <div class="col-12 col-md-4"><label class="form-label" for="det-conservacao">Conservação</label><select class="form-select campo" id="det-conservacao" data-campo="conservacao"><option value="">—</option>{% for c in conservacao %}<option>{{ c }}</option>{% endfor %}</select></div>
+        <div class="col-12 col-md-4"><label class="form-label" for="det-quem-usa">Quem usa</label><input class="form-control campo" id="det-quem-usa" data-campo="quem_usa" type="text"/></div>
+        <div class="col-12 col-md-4"><label class="form-label" for="det-observacao">Observação</label><input class="form-control campo" id="det-observacao" data-campo="observacao" type="text"/></div>
+      </div>
+      <div class="d-flex align-items-center justify-content-between gap-2 mt-4 mb-3">
+        <h3 class="h4 mb-0">Fotos <span class="badge bg-secondary-lt ms-1" id="det-n-fotos">0</span></h3>
+        {% if fotos_ativas and not fechado %}<label class="btn btn-sm" id="det-nova-foto"><i class="ti ti-camera-plus me-2" aria-hidden="true"></i>Adicionar foto<input type="file" accept="image/*" capture="environment" id="det-foto-input" hidden/></label>{% endif %}
+      </div>
+      <div class="row g-2" id="det-fotos"></div>
+      <p class="text-secondary mb-0" id="det-sem-fotos">Nenhuma foto deste bem neste inventário.</p>
+    </div>
+    <div class="modal-footer">
+      {% if not fechado %}
+      <button type="button" class="btn btn-outline-danger me-auto" id="det-desfazer"><i class="ti ti-arrow-back-up me-2" aria-hidden="true"></i>Desfazer leitura</button>
+      <button type="button" class="btn" id="det-ler"><i class="ti ti-check me-2" aria-hidden="true"></i>Registrar leitura nesta sala</button>
+      {% endif %}
+      <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Concluir</button>
+    </div>
   </div></div>
-</div>
-
-<div class="card mb-3">
-  <div class="card-header"><h2 class="card-title">Trazidos de outras salas ou não ativos</h2></div>
-  <div class="table-responsive"><table class="table table-vcenter card-table"><thead><tr><th scope="col">Nº</th><th scope="col">Descrição</th><th scope="col" class="d-none d-md-table-cell">Cadastrado em</th><th scope="col" class="d-none d-md-table-cell">Situação</th><th scope="col" class="d-none d-md-table-cell">Lido em</th></tr></thead>
-<tbody id="tabela-trazidos">
-{% for t in trazidos %}<tr data-numero="{{ t.numero }}" data-ativo="{{ 'sim' if t.situacao == 'ATIVO' else 'nao' }}"><td class="fw-bold">{{ t.numero }}</td><td>{{ t.descricao }}<div class="text-secondary small d-md-none">{{ t.localizacao }} · {{ t.situacao }}</div></td><td class="d-none d-md-table-cell">{{ t.localizacao }}</td><td class="d-none d-md-table-cell">{{ t.situacao }}</td><td class="d-none d-md-table-cell">{{ t.lido_em[8:10] }}/{{ t.lido_em[5:7] }} {{ t.lido_em[11:16] }} · {{ t.integrante }}</td></tr>{% endfor %}
-</tbody></table></div>
 </div>
 
 <div class="card mb-3">
@@ -204,9 +297,12 @@
   var URL_LER = {{ url_for('inventario.ler', id=e.id, localizacao=localizacao)|tojson }};
   var URL_LEITURA = {{ url_for('inventario.atualizar_leitura', id=e.id, numero=0)|tojson }};   // troca o 0 pelo número
   var URL_FOTO_EXCLUIR = {{ url_for('inventario.foto_excluir', id=e.id, numero=0, nfoto=0)|tojson }};   // troca os 0 por número e nfoto
-  var SALA = {{ localizacao|tojson }};
   var FOTOS_ATIVAS = {{ 'true' if fotos_ativas else 'false' }};
+  var FECHADO = {{ 'true' if fechado else 'false' }};
   var CSRF = document.querySelector('meta[name="csrf"]').content;
+  // Ficha de cada bem na tela (cadastro + leitura + fotos), por número; atualizada a cada leitura, foto ou campo salvo.
+  var FICHAS = JSON.parse(document.getElementById("fichas").textContent);
+  var NOMES = {pendente: "pendentes", localizado: "localizados", divergente: "divergentes"};
   var campo = document.getElementById("leitura"), aviso = document.getElementById("aviso"), avisoTexto = document.getElementById("aviso-texto");
   var btnSobra = document.getElementById("btn-sobra"), cardSobra = document.getElementById("card-sobra"), formSobra = document.getElementById("form-sobra");
   var formLote = document.getElementById("form-lote");
@@ -215,65 +311,109 @@
 
   // Cada bem aparece duas vezes (lista do celular e grade do desktop): toda atualização vale para as duas cópias.
   function copias(numero) { return document.querySelectorAll('[data-bem="' + numero + '"]'); }
+  function urlLeitura(numero) { return URL_LEITURA.replace(/\/0$/, "/" + numero); }
 
   function focar() { if (!campo.disabled) { campo.value = ""; campo.focus({preventScroll: true}); } }
   function mostrar(tipo, texto, sobra) {
     aviso.className = "alert mt-2 mb-0 alert-" + tipo; avisoTexto.textContent = texto; aviso.hidden = false;
     btnSobra.hidden = !sobra; clearTimeout(timerAviso); if (!sobra) timerAviso = setTimeout(function () { aviso.hidden = true; }, 4000);
   }
+
+  // Números dos cards e da faixa; seção vazia mostra o aviso "Nenhum…" no lugar da lista.
+  function definir(nome, n) {
+    document.getElementById("n-" + nome).textContent = n;
+    document.querySelectorAll('[data-contador="' + nome + '"]').forEach(function (c) { c.textContent = n; });
+  }
   function contar() {
-    var loc = 0;
-    document.querySelectorAll("#lista-bens [data-bem]").forEach(function (el) { if (el.querySelector('[data-papel="situacao"]').textContent === "Localizado") loc++; });
-    var trazidos = document.querySelectorAll('#tabela-trazidos tr[data-ativo="sim"]').length;
-    document.getElementById("n-localizados").textContent = loc;
-    document.getElementById("n-divergentes").textContent = trazidos;
-    document.getElementById("n-pendentes").textContent = document.getElementById("contadores").dataset.total - loc;
-  }
-  function celula(texto, classe) { var td = document.createElement("td"); td.textContent = texto; if (classe) td.className = classe; return td; }
-  function trocarAvatar(el, numero, fotos) {
-    var atual = el.querySelector('[data-papel="avatar"]'); if (!atual || !fotos.length) return;
-    var a = document.createElement("a"); a.href = fotos[0].url; a.target = "_blank"; a.rel = "noopener"; a.dataset.papel = "avatar";
-    var img = document.createElement("img"); img.className = "avatar avatar-lg avatar-square object-cover"; img.src = fotos[0].url; img.alt = "Foto " + fotos[0].nfoto + " do bem " + numero;
-    a.appendChild(img); atual.replaceWith(a);
-  }
-  function marcarLido(numero, situacao) {
-    copias(numero).forEach(function (el) {
-      el.dataset.lido = "1";
-      var badge = el.querySelector('[data-papel="situacao"]');
-      badge.textContent = situacao === "localizado" ? "Localizado" : "Divergente";
-      badge.className = "badge flex-shrink-0 " + (situacao === "localizado" ? "bg-green-lt" : "bg-yellow-lt");
-      el.querySelector('[data-papel="lido-em"]').textContent = situacao === "localizado" ? "" : " · lido em " + SALA;
-      var desfazer = el.querySelector('[data-acao="desfazer"]'); if (desfazer) desfazer.hidden = false;
-      var foto = el.querySelector('[data-papel="nova-foto"]');
-      if (foto) { foto.classList.remove("disabled"); foto.querySelector("input").disabled = false; }
-      selos(el);
-      el.parentElement.prepend(el);
+    var loc = document.querySelectorAll("#lista-localizados [data-bem]").length;
+    var div = document.querySelectorAll('#lista-divergentes [data-bem][data-ativo="sim"]').length;
+    definir("localizados", loc);
+    definir("divergentes", div);
+    definir("pendentes", document.getElementById("contadores").dataset.total - loc);
+    document.querySelectorAll('[data-papel="alerta-divergentes"]').forEach(function (a) { a.hidden = !div; });
+    Object.keys(NOMES).forEach(function (s) {
+      var painel = document.getElementById("secao-" + NOMES[s]), n = painel.querySelectorAll("#lista-" + NOMES[s] + " [data-bem]").length;
+      painel.querySelector('[data-papel="caixa-lista"]').hidden = !n;
+      var vazio = painel.querySelector('[data-papel="vazio"]');
+      if (!(s === "pendente" && document.getElementById("contadores").dataset.total === "0")) vazio.hidden = !!n;   // sala sem bens: aviso fixo
     });
   }
+
+  // Abas (cards do topo): uma seção visível por vez.
+  var abas = document.querySelectorAll("[data-aba]"), todos = document.getElementById("selecionar-todos");
+  function abrirSecao(nome) {
+    abas.forEach(function (a) {
+      var ativa = a.dataset.aba === nome;
+      a.classList.toggle("card-active", ativa); a.setAttribute("aria-selected", ativa ? "true" : "false");
+      document.getElementById("secao-" + a.dataset.aba).hidden = !ativa;
+    });
+    if (todos) todos.checked = false;
+  }
+  abas.forEach(function (a) { a.addEventListener("click", function (ev) { ev.preventDefault(); abrirSecao(a.dataset.aba); }); });
+
+  function rotulo(f) {
+    if (f.secao === "localizado") return ["Localizado", "bg-green-lt"];
+    if (f.secao === "divergente") return f.situacao === "ATIVO" ? ["Divergente", "bg-yellow-lt"] : ["Não ativo", "bg-red-lt"];
+    return ["Pendente", "bg-secondary-lt"];
+  }
+  function trocarAvatar(el, numero, fotos) {
+    var atual = el.querySelector('[data-papel="avatar"]'), novo = document.createElement("span"), f = fotos[0];
+    novo.dataset.papel = "avatar";
+    if (f && /^https?:\/\//.test(f.url)) {
+      var img = document.createElement("img"); img.className = "avatar avatar-lg avatar-square object-cover"; img.src = f.url; img.alt = "Foto " + f.nfoto + " do bem " + numero;
+      novo.appendChild(img);
+    } else {
+      novo.className = "avatar avatar-lg avatar-square";
+      var i = document.createElement("i"); i.className = "ti " + (el.dataset.icone || "ti-package"); i.setAttribute("aria-hidden", "true"); novo.appendChild(i);
+    }
+    atual.replaceWith(novo);
+  }
   function selos(el) {
-    var caixa = el.querySelector('[data-papel="selos"]'); if (!caixa) return;
-    caixa.querySelectorAll("[data-pendencia], [data-conservacao-selo]").forEach(function (s) { s.remove(); });
-    function selo(classe, texto, marca) { var s = document.createElement("span"); s.className = "badge " + classe; s.textContent = texto; s.setAttribute(marca, ""); caixa.prepend(s); }
-    if (el.dataset.lido && FOTOS_ATIVAS && !el.querySelector('img[data-papel], [data-papel="avatar"] img')) selo("bg-orange-lt", "sem foto", "data-pendencia");
-    if (el.dataset.lido && !el.dataset.conservacao) selo("bg-orange-lt", "sem conservação", "data-pendencia");
-    if (el.dataset.conservacao) selo("bg-blue-lt", el.dataset.conservacao, "data-conservacao-selo");
+    var f = FICHAS[el.dataset.bem], caixa = el.querySelector('[data-papel="selos"]'); if (!caixa || !f) return;
+    caixa.textContent = "";
+    function selo(classe, texto, titulo) { var s = document.createElement("span"); s.className = "badge " + classe; s.textContent = texto; if (titulo) s.title = titulo; caixa.appendChild(s); }
+    if (f.conservacao) selo("bg-blue-lt", f.conservacao);
+    if (f.lido && !f.conservacao) selo("bg-orange-lt", "sem conservação");
+    if (f.lido && FOTOS_ATIVAS && !f.fotos.length) selo("bg-orange-lt", "sem foto");
+    if (f.fotos.length > 1) selo("bg-secondary-lt", "+" + (f.fotos.length - 1) + " foto(s)", "Todas as fotos estão nos detalhes do bem");
+  }
+  // Redesenha uma cópia do item a partir da ficha (situação, onde/quem leu, selos, menu).
+  function atualizarItem(el) {
+    var f = FICHAS[el.dataset.bem], r = rotulo(f);
+    el.dataset.secao = f.secao; el.dataset.ativo = f.situacao === "ATIVO" ? "sim" : "nao";
+    var badge = el.querySelector('[data-papel="situacao"]'); badge.textContent = r[0]; badge.className = "badge flex-shrink-0 " + r[1];
+    var encontrado = el.querySelector('[data-papel="encontrado"]'); if (encontrado && f.secao !== "pendente") encontrado.remove();
+    el.querySelector('[data-papel="leitura"]').hidden = !f.lido;
+    el.querySelector('[data-papel="leitura-texto"]').textContent = f.lido ? (f.secao === "divergente" ? "Lido aqui" : "Lido") + " por " + f.integrante + " em " + f.lido_em.slice(0, 16) : "";
+    var desfazer = el.querySelector('[data-acao="desfazer"]'); if (desfazer) desfazer.hidden = !f.lido;
+    var foto = el.querySelector('[data-papel="nova-foto"]');
+    if (foto) { foto.classList.toggle("disabled", !f.lido); foto.querySelector("input").disabled = !f.lido; }
+    selos(el);
+  }
+  // Bem de outra sala (ou não ativo) lido agora: cria as duas cópias a partir dos modelos.
+  function novoItem(f) {
+    return ["modelo-lista", "modelo-grade"].map(function (id) {
+      var caixa = document.createElement("div");
+      caixa.innerHTML = document.getElementById(id).innerHTML.split("__N__").join(String(f.numero)).trim();
+      var el = caixa.firstElementChild;
+      el.querySelector('[data-papel="descricao"]').textContent = f.descricao + (f.complemento ? " " + f.complemento : "");
+      el.querySelector('[data-papel="local"]').textContent = "Cadastrado em " + (f.localizacao || "—") + (f.situacao !== "ATIVO" ? " · " + f.situacao : "");
+      el.querySelector('[data-papel="responsavel"]').textContent = f.pessoa || f.responsavel_centro || "—";
+      el.querySelector('[data-papel="entrada"]').textContent = (f.data_entrada || "—") + " · " + (f.valor_atual || "valor não informado");
+      trocarAvatar(el, f.numero, f.fotos);
+      return el;
+    });
+  }
+  function mover(el, secao) {
+    var destino = document.getElementById((el.classList.contains("list-group-item") ? "lista-" : "grade-") + NOMES[secao]);
+    destino.prepend(el);
   }
   function aplicar(j) {
-    if (copias(j.numero).length) { marcarLido(j.numero, j.situacao); }
-    else {
-      var t = document.querySelector('#tabela-trazidos tr[data-numero="' + j.numero + '"]');
-      if (t) t.remove();
-      var novo = document.createElement("tr");
-      novo.dataset.numero = j.numero;
-      novo.dataset.ativo = j.ativo ? "sim" : "nao";
-      novo.appendChild(celula(j.numero, "fw-bold"));
-      novo.appendChild(celula(j.descricao));
-      novo.appendChild(celula(j.cadastrado_em, "d-none d-md-table-cell"));
-      novo.appendChild(celula(j.situacao_bem, "d-none d-md-table-cell"));
-      novo.appendChild(celula("agora · " + j.integrante, "d-none d-md-table-cell"));
-      document.getElementById("tabela-trazidos").prepend(novo);
-    }
+    var f = j.ficha; FICHAS[f.numero] = f;
+    var els = copias(f.numero); if (!els.length) els = novoItem(f);
+    els.forEach(function (el) { mover(el, f.secao); atualizarItem(el); });
     contar();
+    if (String(modalNumero) === String(f.numero)) preencherFicha(f.numero);
   }
   function ler(numero) {
     numero = String(numero || "").trim(); if (!numero) return;
@@ -285,7 +425,7 @@
         var j = res.j;
         if (res.status === 404) { mostrar("danger", "Bem " + numero + " não está na base.", true); return; }
         if (res.status !== 200) { mostrar("danger", j.erro || "Erro ao registrar a leitura."); return; }
-        var texto = j.situacao === "localizado" ? "Bem " + j.numero + " localizado." : "Bem " + j.numero + " cadastrado em " + j.cadastrado_em + "; registrado aqui.";
+        var texto = j.situacao === "localizado" ? "Bem " + j.numero + " localizado." : "Bem " + j.numero + " cadastrado em " + j.cadastrado_em + "; registrado aqui como divergente.";
         if (!j.ativo) texto = "Bem " + j.numero + " está " + j.situacao_bem + "; leitura registrada.";
         if (j.reler && j.leitura_anterior) texto += " Já lido em " + j.leitura_anterior.lido_em.slice(8, 10) + "/" + j.leitura_anterior.lido_em.slice(5, 7) + " por " + j.leitura_anterior.integrante + " em " + j.leitura_anterior.localizacao + ". Atualizado.";
         mostrar(!j.ativo ? "info" : (j.situacao === "localizado" ? "success" : "warning"), texto);
@@ -329,7 +469,11 @@
       copias(el.value).forEach(function (c) { var x = c.querySelector('[data-papel="selecao"]'); if (x) x.checked = el.checked; });
       atualizarLote();
     } else if (el.id === "selecionar-todos") {
-      document.querySelectorAll("[data-bem]").forEach(function (c) { var x = c.querySelector('[data-papel="selecao"]'); if (x && !c.hidden) x.checked = el.checked; });
+      // só os bens da seção aberta que a busca deixou visíveis
+      document.querySelectorAll("[data-secao-painel]:not([hidden]) [data-bem]").forEach(function (c) {
+        if (c.hidden) return;
+        copias(c.dataset.bem).forEach(function (k) { var x = k.querySelector('[data-papel="selecao"]'); if (x) x.checked = el.checked; });
+      });
       atualizarLote();
     }
   });
@@ -340,68 +484,148 @@
     formLote.querySelectorAll('input[name="numeros"]').forEach(function (i) { i.remove(); });
     nums.forEach(function (n) { var i = document.createElement("input"); i.type = "hidden"; i.name = "numeros"; i.value = n; formLote.appendChild(i); });
   });
+  function desfazer(numero) {
+    if (!formLote || !confirm("Desfazer a leitura do bem " + numero + "? Ele volta a pendente e as fotos são apagadas.")) return;
+    formLote.querySelectorAll('input[name="numeros"]').forEach(function (i) { i.remove(); });
+    var i = document.createElement("input"); i.type = "hidden"; i.name = "numeros"; i.value = numero; formLote.appendChild(i);
+    var a = document.createElement("input"); a.type = "hidden"; a.name = "acao"; a.value = "desmarcar"; formLote.appendChild(a);
+    HTMLFormElement.prototype.submit.call(formLote);
+  }
 
   // Busca local nos bens da sala
-  function normalizar(s) { return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
+  function normalizar(s) { return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
   document.getElementById("busca-bens").addEventListener("input", function () {
     var termo = normalizar(this.value.trim());
     document.querySelectorAll("[data-bem]").forEach(function (el) { el.hidden = !!termo && normalizar(el.textContent).indexOf(termo) === -1; });
   });
   document.getElementById("busca-bens").addEventListener("keydown", function (ev) { if (ev.key === "Enter") ev.preventDefault(); });
 
-  // Ações do menu de cada bem
-  var modalEl = document.getElementById("modal-bem"), modalNumero = null;
+  // Ficha do bem (modal)
+  var modalEl = document.getElementById("modal-bem"), modalNumero = null, erroFicha = document.getElementById("det-erro");
+  function erro(texto) { erroFicha.textContent = texto; erroFicha.hidden = !texto; }
+  function no(tag, classe, texto) { var n = document.createElement(tag); if (classe) n.className = classe; if (texto !== undefined) n.textContent = texto; return n; }
+  function link(href, texto) { var a = no("a", "", texto); a.href = href; return a; }
+  function desenharFotos(f) {
+    var caixa = document.getElementById("det-fotos"); caixa.textContent = "";
+    document.getElementById("det-n-fotos").textContent = f.fotos.length;
+    document.getElementById("det-sem-fotos").hidden = f.fotos.length > 0;
+    f.fotos.forEach(function (foto) {
+      var col = no("div", "col-6 col-sm-4"), card = no("div", "card card-sm"), topo;
+      if (/^https?:\/\//.test(foto.url)) {
+        topo = link(foto.url); topo.className = "d-block ratio ratio-1x1"; topo.target = "_blank"; topo.rel = "noopener";
+        topo.setAttribute("aria-label", "Abrir a foto " + foto.nfoto + " em tamanho real");
+        var img = no("img", "card-img-top object-cover"); img.src = foto.url; img.alt = "Foto " + foto.nfoto + " do bem " + f.numero; topo.appendChild(img);
+      } else {
+        topo = no("div", "ratio ratio-1x1 bg-secondary-lt");
+        var centro = no("div", "d-flex align-items-center justify-content-center"), i = no("i", "ti ti-photo-off fs-1"); i.setAttribute("aria-hidden", "true");
+        centro.appendChild(i); topo.appendChild(centro);
+      }
+      var corpo = no("div", "card-body d-flex align-items-center justify-content-between gap-2 py-2");
+      corpo.appendChild(no("span", "text-secondary small", "Foto " + foto.nfoto));
+      if (!FECHADO) {
+        var b = no("button", "btn btn-ghost-danger btn-icon btn-sm"); b.type = "button"; b.dataset.nfoto = foto.nfoto;
+        b.setAttribute("aria-label", "Excluir foto " + foto.nfoto); b.title = "Excluir foto " + foto.nfoto;
+        var t = no("i", "ti ti-trash"); t.setAttribute("aria-hidden", "true"); b.appendChild(t); corpo.appendChild(b);
+      }
+      card.appendChild(topo); card.appendChild(corpo); col.appendChild(card); caixa.appendChild(col);
+    });
+  }
+  function preencherFicha(numero) {
+    var f = FICHAS[numero], r = rotulo(f);
+    erro("");
+    var titulo = document.getElementById("det-link"); titulo.href = f.url_bem; titulo.textContent = "Bem " + f.numero;
+    document.getElementById("det-titulo").textContent = f.descricao;
+    var badge = document.getElementById("det-situacao"); badge.textContent = r[0]; badge.className = "badge " + r[1];
+    var vazio = {descricao: f.descricao, complemento: f.complemento, classificacao: f.classificacao, situacao: f.situacao,
+                 localizacao: f.localizacao, data_entrada: f.data_entrada, valor_compra: f.valor_compra, valor_atual: f.valor_atual,
+                 lido_em_sala: f.lido_em_sala, integrante: f.integrante, lido_em: f.lido_em};
+    modalEl.querySelectorAll("[data-ficha]").forEach(function (c) { c.textContent = vazio[c.dataset.ficha] || "—"; });
+    var centro = document.getElementById("det-centro"); centro.textContent = "";
+    if (f.ccustos) { centro.appendChild(link(f.url_ccustos, f.ccustos)); centro.appendChild(document.createTextNode(" — " + (f.responsavel_centro || ""))); }
+    else centro.textContent = "sem mapeamento";
+    var pessoa = document.getElementById("det-pessoa"); pessoa.textContent = "";
+    if (f.pessoa) pessoa.appendChild(link(f.url_pessoa, f.pessoa)); else pessoa.textContent = "— (responde o setor)";
+    document.getElementById("modal-bem-aviso").hidden = f.lido;
+    document.getElementById("det-conservacao").value = f.conservacao || "";
+    document.getElementById("det-quem-usa").value = f.quem_usa || "";
+    document.getElementById("det-observacao").value = f.observacao || "";
+    modalEl.querySelectorAll(".campo").forEach(function (c) { c.disabled = FECHADO || !f.lido; });
+    var nova = document.getElementById("det-nova-foto");
+    if (nova) { nova.classList.toggle("disabled", !f.lido); document.getElementById("det-foto-input").disabled = !f.lido; }
+    var btnDesfazer = document.getElementById("det-desfazer"); if (btnDesfazer) btnDesfazer.hidden = !f.lido;
+    var btnLer = document.getElementById("det-ler"); if (btnLer) btnLer.hidden = f.secao === "localizado";
+    desenharFotos(f);
+  }
+
+  // Ações do menu de cada bem; clicar no item (fora do número, da seleção e do menu) abre a ficha.
   document.addEventListener("click", function (ev) {
-    var botao = ev.target.closest("[data-acao]"); if (!botao) return;
+    var botao = ev.target.closest("[data-acao]");
+    if (!botao) {
+      var clicado = ev.target.closest("[data-bem]");
+      if (clicado && !ev.target.closest("a, button, input, label, .dropdown")) clicado.querySelector('[data-acao="detalhes"]').click();
+      return;
+    }
     var item = botao.closest("[data-bem]"), numero = item.dataset.bem;
     if (botao.dataset.acao === "ler") { ultimoLido = ""; ler(numero); }
-    else if (botao.dataset.acao === "desfazer" && formLote) {
-      if (!confirm("Desfazer a leitura do bem " + numero + "? Ele volta a pendente e as fotos são apagadas.")) return;
-      formLote.querySelectorAll('input[name="numeros"]').forEach(function (i) { i.remove(); });
-      var i = document.createElement("input"); i.type = "hidden"; i.name = "numeros"; i.value = numero; formLote.appendChild(i);
-      var a = document.createElement("input"); a.type = "hidden"; a.name = "acao"; a.value = "desmarcar"; formLote.appendChild(a);
-      HTMLFormElement.prototype.submit.call(formLote);
-    }
-    else if (botao.dataset.acao === "detalhes") {
-      modalNumero = numero;
-      var travado = {{ 'true' if fechado else 'false' }} || !item.dataset.lido;
-      document.getElementById("modal-bem-titulo").textContent = "Bem " + numero;
-      document.getElementById("modal-bem-aviso").hidden = !!item.dataset.lido;
-      document.getElementById("det-conservacao").value = item.dataset.conservacao || "";
-      document.getElementById("det-quem-usa").value = item.dataset.quemUsa || "";
-      document.getElementById("det-observacao").value = item.dataset.observacao || "";
-      modalEl.querySelectorAll(".campo").forEach(function (c) { c.disabled = travado; });
-    }
+    else if (botao.dataset.acao === "desfazer") desfazer(numero);
+    else if (botao.dataset.acao === "detalhes") { modalNumero = numero; preencherFicha(numero); }
   });
-  var MAPA = {conservacao: "conservacao", quem_usa: "quemUsa", observacao: "observacao"};
+  var btnLerFicha = document.getElementById("det-ler");
+  if (btnLerFicha) btnLerFicha.addEventListener("click", function () { ultimoLido = ""; ler(modalNumero); });
+  var btnDesfazerFicha = document.getElementById("det-desfazer");
+  if (btnDesfazerFicha) btnDesfazerFicha.addEventListener("click", function () { desfazer(modalNumero); });
   modalEl.addEventListener("change", function (ev) {
     var el = ev.target; if (!el.classList.contains("campo") || !modalNumero) return;
     var numero = modalNumero, corpo = {}; corpo[el.dataset.campo] = el.value;
-    fetch(URL_LEITURA.replace(/\/0$/, "/" + numero), {method: "POST", headers: {"Content-Type": "application/json", "X-CSRF": CSRF}, body: JSON.stringify(corpo)})
+    fetch(urlLeitura(numero), {method: "POST", headers: {"Content-Type": "application/json", "X-CSRF": CSRF}, body: JSON.stringify(corpo)})
       .then(function (r) {
-        if (!r.ok) return r.json().then(function (j) { mostrar("danger", j.erro || "Erro ao salvar."); });
-        copias(numero).forEach(function (c) { c.dataset[MAPA[el.dataset.campo]] = el.value; selos(c); });
+        if (!r.ok) return r.json().then(function (j) { erro(j.erro || "Erro ao salvar."); });
+        FICHAS[numero][el.dataset.campo] = el.value;
+        copias(numero).forEach(selos);
       })
-      .catch(function () { mostrar("danger", "Sem conexão; alteração não salva."); });
+      .catch(function () { erro("Sem conexão; alteração não salva."); });
   });
-  modalEl.addEventListener("hidden.bs.modal", focar);
-
-  // Nova foto (menu do bem)
-  document.addEventListener("change", function (ev) {
-    var el = ev.target; if (!el.classList.contains("foto-input") || !el.files[0]) return;
-    var item = el.closest("[data-bem]"), numero = item.dataset.bem;
-    var fd = new FormData(); fd.append("foto", el.files[0]);
-    fetch(URL_LEITURA.replace(/\/0$/, "/" + numero) + "/foto", {method: "POST", headers: {"X-CSRF": CSRF}, body: fd})
+  // Excluir foto na ficha: confirma, apaga e redesenha sem recarregar.
+  document.getElementById("det-fotos").addEventListener("click", function (ev) {
+    var b = ev.target.closest("[data-nfoto]"); if (!b || !modalNumero) return;
+    var numero = modalNumero, nfoto = b.dataset.nfoto;
+    if (!confirm("Excluir a foto " + nfoto + " do bem " + numero + "? Ela é apagada definitivamente.")) return;
+    b.disabled = true;
+    fetch(URL_FOTO_EXCLUIR.replace(/\/0\/foto\/0\//, "/" + numero + "/foto/" + nfoto + "/"), {method: "POST", headers: {"Accept": "application/json", "X-CSRF": CSRF}})
       .then(function (r) { return r.json().then(function (j) { return {ok: r.ok, j: j}; }); })
       .then(function (res) {
-        if (!res.ok) { mostrar("danger", res.j.erro || "Erro ao salvar."); return; }
-        copias(numero).forEach(function (c) { trocarAvatar(c, numero, res.j.fotos); selos(c); });
-        mostrar("success", "Foto enviada.");
+        if (!res.ok) { b.disabled = false; erro(res.j.erro || "Erro ao excluir a foto."); return; }
+        fotosNovas(numero, res.j.fotos);
       })
-      .catch(function () { mostrar("danger", "Sem conexão; alteração não salva."); });
+      .catch(function () { b.disabled = false; erro("Sem conexão; foto não excluída."); });
+  });
+  modalEl.addEventListener("hidden.bs.modal", function () { modalNumero = null; focar(); });
+
+  // Nova foto (menu do bem ou ficha): devolve a lista completa de fotos do bem no evento.
+  function fotosNovas(numero, fotos) {
+    FICHAS[numero].fotos = fotos.map(function (f) { return {nfoto: f.nfoto, url: f.url}; });
+    copias(numero).forEach(function (c) { trocarAvatar(c, numero, FICHAS[numero].fotos); selos(c); });
+    if (String(modalNumero) === String(numero)) desenharFotos(FICHAS[numero]);
+  }
+  function enviarFoto(numero, arquivo, input) {
+    var fd = new FormData(); fd.append("foto", arquivo);
+    fetch(urlLeitura(numero) + "/foto", {method: "POST", headers: {"X-CSRF": CSRF}, body: fd})
+      .then(function (r) { return r.json().then(function (j) { return {ok: r.ok, j: j}; }); })
+      .then(function (res) {
+        if (!res.ok) { if (modalNumero) erro(res.j.erro || "Erro ao salvar."); else mostrar("danger", res.j.erro || "Erro ao salvar."); return; }
+        fotosNovas(numero, res.j.fotos);
+        if (!modalNumero) mostrar("success", "Foto enviada.");
+      })
+      .catch(function () { if (modalNumero) erro("Sem conexão; foto não enviada."); else mostrar("danger", "Sem conexão; alteração não salva."); })
+      .finally(function () { input.value = ""; });
+  }
+  document.addEventListener("change", function (ev) {
+    var el = ev.target; if (!el.files || !el.files[0]) return;
+    if (el.classList.contains("foto-input")) enviarFoto(el.closest("[data-bem]").dataset.bem, el.files[0], el);
+    else if (el.id === "det-foto-input" && modalNumero) enviarFoto(modalNumero, el.files[0], el);
   });
 
-  document.addEventListener("click", function (ev) { if (!ev.target.closest("input, select, textarea, button, label, a, .dropdown-menu, .modal, #camera")) focar(); });
+  document.addEventListener("click", function (ev) { if (!ev.target.closest("input, select, textarea, button, label, a, .dropdown-menu, .modal, #camera, [data-bem]")) focar(); });
   atualizarLote();
   focar();
 })();

@@ -327,6 +327,10 @@ def painel(conn, evento_id: int, andar_sel: str | None = None) -> dict:
 # ---------------------------------------------------------------- leituras
 _FOTO_SQL = """(SELECT f.url FROM inventario_fotos f WHERE f.evento_id = r.evento_id AND f.numero = r.numero ORDER BY f.nfoto LIMIT 1) AS foto_url,
         (SELECT COUNT(*) FROM inventario_fotos f WHERE f.evento_id = r.evento_id AND f.numero = r.numero) AS n_fotos"""
+_RESPONSAVEIS = """(SELECT GROUP_CONCAT(a.nome, ', ') FROM atribuicoes a WHERE a.numero = b.numero) AS pessoa,
+               (SELECT rp.responsavel FROM localizacoes l JOIN responsaveis rp ON rp.ccustos = l.ccustos
+                 WHERE l.localizacao = b.localizacao) AS responsavel_centro,
+               (SELECT l.ccustos FROM localizacoes l WHERE l.localizacao = b.localizacao) AS ccustos"""
 _LEITURA = f"r.localizacao AS lido_em_sala, r.lido_em, r.integrante, r.conservacao, r.quem_usa, r.observacao, {_FOTO_SQL}"
 
 
@@ -356,27 +360,26 @@ def ler(conn, evento_id: int, localizacao: str, numero: int, integrante: str) ->
 
 def bens_da_sala(conn, evento_id: int, localizacao: str) -> dict:
     """bens: ativos cadastrados na sala (com a leitura do evento, se houver), situacao_inv e a lista de
-    fotos; trazidos: leituras feitas nesta sala de bens de outra sala ou não ativos (sem busca de fotos,
-    a tabela Trazidos não tem coluna de foto); sobras: desta sala."""
+    fotos; trazidos: leituras feitas nesta sala de bens de outra sala ou não ativos (também com fotos e
+    responsável, para a ficha do bem na tela); sobras: desta sala."""
     B = _fonte_bens(conn, evento_id)
     bens = _todos(conn, f"""
-        SELECT b.*, {_LEITURA},
-               (SELECT GROUP_CONCAT(a.nome, ', ') FROM atribuicoes a WHERE a.numero = b.numero) AS pessoa,
-               (SELECT rp.responsavel FROM localizacoes l JOIN responsaveis rp ON rp.ccustos = l.ccustos
-                 WHERE l.localizacao = b.localizacao) AS responsavel_centro
+        SELECT b.*, {_LEITURA}, {_RESPONSAVEIS}
         FROM {B} b
         LEFT JOIN inventario_leituras r ON r.numero = b.numero AND r.evento_id = ?
         WHERE b.localizacao = ? AND b.situacao = 'ATIVO' ORDER BY b.numero""", evento_id, localizacao)
     for b in bens:
         b["situacao_inv"] = "pendente" if not b["lido_em"] else ("localizado" if b["lido_em_sala"] == localizacao else "divergente")
     trazidos = _todos(conn, f"""
-        SELECT b.*, {_LEITURA} FROM inventario_leituras r JOIN {B} b ON b.numero = r.numero
+        SELECT b.*, {_LEITURA}, {_RESPONSAVEIS} FROM inventario_leituras r JOIN {B} b ON b.numero = r.numero
         WHERE r.evento_id = ? AND r.localizacao = ? AND (b.localizacao <> ? OR b.situacao <> 'ATIVO')
         ORDER BY r.lido_em DESC""", evento_id, localizacao, localizacao)
     sobras = _todos(conn, "SELECT * FROM inventario_sobras WHERE evento_id = ? AND localizacao = ? ORDER BY id DESC",
                     evento_id, localizacao)
     for b in bens:
         b["fotos"] = fotos_do_bem_no_evento(conn, evento_id, b["numero"]) if b["lido_em"] else []
+    for t in trazidos:
+        t["fotos"] = fotos_do_bem_no_evento(conn, evento_id, t["numero"])
     return {"bens": bens, "trazidos": trazidos, "sobras": sobras}
 
 
