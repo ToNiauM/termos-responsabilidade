@@ -121,3 +121,23 @@ Origem de cada número:
 - O de-para de localizações (`dados/depara_localizacoes_2026.csv`) foi derivado por regra de maioria e
   contém quatro casos ambíguos (setores desmembrados) e um sem correspondência clara (DEPEV → Sala
   Diretoria, 16 dos 27 bens); qualquer mudança nele altera o 280 (8,1%).
+
+## Conferência sistema × TCC (25 set. 2026, após a carga e o encerramento)
+
+Feita com `conferir_sistema.py` (só lê o banco; usa o snapshot congelado no encerramento do evento).
+
+| Número | TCC | Sistema | Situação |
+|---|---|---|---|
+| Leituras / sobras (= 3.457 conferidos) | 3.456 / 1 | 3.456 / 1 | igual |
+| Divergentes após o de-para | 280 (8,1%) | 280 | igual |
+| Salas do evento | 98 | 98 | igual |
+| Abertura (primeira leitura) | 18 ago. 2026 | 18 ago. 2026 14:16 | igual |
+| Período; dias de campo; servidores | 18 ago. a 22 set.; 15; 4 | 18 ago. 14:17 a 22 set. 11:34; 15; 4 | igual |
+| Baixados/doados localizados | 29 | 29 | igual |
+| Conservação | 3.457 × "Bom" | 3.456 × "Bom" (+ a sobra) | igual |
+| Cobertura do acervo ativo | 97,4% | 3.427 ÷ 3.520 = 97,4% | igual |
+| Base patrimonial: registros / ativos / localizações | 7.428 / 3.519 / 97 (posição 22 set.) | 7.429 / 3.520 / 98 (SPW de 25 set.) | um bem entrou depois; as 98 salas são as do cadastro reestruturado (E) |
+| Pendentes | 91 | 93 | o bem novo + a sobra sem tombamento, que o relatório antigo contava como ativo conferido |
+| Divergentes com os nomes antigos das salas | 569 (16,6%) | não existe | o sistema só conhece os nomes novos; o TCC apresenta 569 e 280 e explica a reconciliação |
+| Painel do sistema: lidos / divergentes / cobertura | — | 3.167 / 260 / 90,0% | definição da tela: "lido" = ativo encontrado na própria sala; divergentes só entre ativos |
+| Tempo efetivo, produtividade, etapas | 28,2 h; 113 bens/h; 3 etapas | não conferível | dependem dos lotes de sincronização do sistema antigo (R), não migrados |
