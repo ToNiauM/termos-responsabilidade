@@ -69,6 +69,11 @@ O histórico do Git é o registro primário; os números abaixo saem dele.
 
 ### O que a pesquisa encontrou
 
+Cada número abaixo está conferido, item a item e com a origem, em
+[`docs/tcc/numeros-da-pesquisa.md`](docs/tcc/numeros-da-pesquisa.md); os agregados estão em
+`docs/tcc/metricas_campanha_2026.json`, gerado por `docs/tcc/recalcular_metricas.py` a partir do relatório
+de campo (não versionado por conter nomes de servidores).
+
 - **Piloto:** 94 bens/hora, 37 s por bem (mediana), 94,4% de concordância entre local físico e cadastro.
   A simulação de Monte Carlo projetou 37,6 h para os 3.518 bens ativos (IC 95%: 30,6–46,6 h).
 - **Campanha censitária:** 3.457 bens conferidos (97,4% do acervo ativo) em 28,2 h efetivas — 113 bens/hora

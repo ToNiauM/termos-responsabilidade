@@ -1,0 +1,705 @@
+{
+ "registros": 7428,
+ "situacao": {
+  "ATIVO": 3519,
+  "BAIXADO": 2051,
+  "DOADO": 1854,
+  "INSERVÍVEL": 4
+ },
+ "ativos": 3519,
+ "localizacoes": 97,
+ "classes_ativos": {
+  "MÓVEIS E UTENSÍLIOS DE ESCRITÓRIO": 1906,
+  "EQUIPAMENTOS DE PROCESSAMENTO DE DADOS": 1189,
+  "MÁQUINAS E EQUIPAMENTOS": 342,
+  "UTENSÍLIOS DE COPA E COZINHA": 39,
+  "MUSEU E OBRAS DE ARTE": 13,
+  "OUTROS SOFTWARES": 11,
+  "VEÍCULOS": 5,
+  "SOFTWARE CONCLUÍDO": 5,
+  "INSTALAÇÕES": 3,
+  "TERRENOS": 2,
+  "SOFTWARES": 2,
+  "SEDE": 1
+ },
+ "valor_ativos_M": 102.77,
+ "moveis_n": 3513,
+ "valor_moveis_M": 15.58,
+ "idade_media": 14.1,
+ "idade_mediana": 13.7,
+ "pct_mais_10_anos": 60.0,
+ "n_desde_2020": 1124,
+ "n_antes_2000": 521,
+ "conferidos": 3457,
+ "conferidos_sit": {
+  "ATIVO": 3428,
+  "BAIXADO": 27,
+  "DOADO": 2
+ },
+ "ativos_conferidos": 3428,
+ "cobertura": 97.4,
+ "pendentes": 91,
+ "dias_campo": 15,
+ "servidores": 4,
+ "pct_dois_servidores": 98.7,
+ "conservacao": {
+  "Bom": 3457
+ },
+ "concordantes": 2859,
+ "divergentes": 569,
+ "concordancia_pct": 83.4,
+ "divergencia_pct": 16.6,
+ "cobertura_valor_moveis_pct": 95.4,
+ "valor_moveis_conferido_M": 14.87,
+ "diario": [
+  {
+   "dia": "2026-08-18",
+   "etapa": 1,
+   "bens": 450,
+   "ativos": 450,
+   "lotes": 40,
+   "tempo_h": 2.29,
+   "bens_medidos": 449,
+   "prod": 196.0
+  },
+  {
+   "dia": "2026-08-19",
+   "etapa": 1,
+   "bens": 341,
+   "ativos": 339,
+   "lotes": 34,
+   "tempo_h": 2.1,
+   "bens_medidos": 303,
+   "prod": 144.6
+  },
+  {
+   "dia": "2026-08-20",
+   "etapa": 1,
+   "bens": 428,
+   "ativos": 427,
+   "lotes": 38,
+   "tempo_h": 1.82,
+   "bens_medidos": 405,
+   "prod": 222.3
+  },
+  {
+   "dia": "2026-08-21",
+   "etapa": 1,
+   "bens": 327,
+   "ativos": 325,
+   "lotes": 25,
+   "tempo_h": 1.61,
+   "bens_medidos": 287,
+   "prod": 178.0
+  },
+  {
+   "dia": "2026-08-24",
+   "etapa": 2,
+   "bens": 115,
+   "ativos": 115,
+   "lotes": 9,
+   "tempo_h": 1.07,
+   "bens_medidos": 113,
+   "prod": 105.8
+  },
+  {
+   "dia": "2026-08-25",
+   "etapa": 2,
+   "bens": 279,
+   "ativos": 271,
+   "lotes": 21,
+   "tempo_h": 2.36,
+   "bens_medidos": 261,
+   "prod": 110.8
+  },
+  {
+   "dia": "2026-08-26",
+   "etapa": 2,
+   "bens": 547,
+   "ativos": 540,
+   "lotes": 40,
+   "tempo_h": 2.96,
+   "bens_medidos": 510,
+   "prod": 172.2
+  },
+  {
+   "dia": "2026-08-27",
+   "etapa": 2,
+   "bens": 430,
+   "ativos": 429,
+   "lotes": 45,
+   "tempo_h": 3.01,
+   "bens_medidos": 404,
+   "prod": 134.3
+  },
+  {
+   "dia": "2026-08-28",
+   "etapa": 2,
+   "bens": 222,
+   "ativos": 214,
+   "lotes": 24,
+   "tempo_h": 3.84,
+   "bens_medidos": 215,
+   "prod": 56.0
+  },
+  {
+   "dia": "2026-09-01",
+   "etapa": 3,
+   "bens": 111,
+   "ativos": 111,
+   "lotes": 30,
+   "tempo_h": 3.5,
+   "bens_medidos": 99,
+   "prod": 28.3
+  },
+  {
+   "dia": "2026-09-02",
+   "etapa": 3,
+   "bens": 1,
+   "ativos": 1,
+   "lotes": 1,
+   "tempo_h": 0.0,
+   "bens_medidos": 0,
+   "prod": null
+  },
+  {
+   "dia": "2026-09-03",
+   "etapa": 3,
+   "bens": 45,
+   "ativos": 45,
+   "lotes": 15,
+   "tempo_h": 1.49,
+   "bens_medidos": 41,
+   "prod": 27.5
+  },
+  {
+   "dia": "2026-09-10",
+   "etapa": 3,
+   "bens": 82,
+   "ativos": 82,
+   "lotes": 6,
+   "tempo_h": 0.21,
+   "bens_medidos": 65,
+   "prod": 314.5
+  },
+  {
+   "dia": "2026-09-21",
+   "etapa": 3,
+   "bens": 39,
+   "ativos": 39,
+   "lotes": 9,
+   "tempo_h": 1.34,
+   "bens_medidos": 26,
+   "prod": 19.4
+  },
+  {
+   "dia": "2026-09-22",
+   "etapa": 3,
+   "bens": 40,
+   "ativos": 40,
+   "lotes": 8,
+   "tempo_h": 0.62,
+   "bens_medidos": 20,
+   "prod": 32.3
+  }
+ ],
+ "lotes": 345,
+ "tempo_efetivo_h": 28.2,
+ "bens_medidos": 3198,
+ "produtividade": 113.3,
+ "seg_por_bem": 31.8,
+ "etapas": [
+  {
+   "etapa": 1,
+   "dias": 4,
+   "bens": 1546,
+   "ativos": 1541,
+   "lotes": 137,
+   "tempo_h": 7.82,
+   "medidos": 1444,
+   "prod": 184.7,
+   "seg_bem": 19.5
+  },
+  {
+   "etapa": 2,
+   "dias": 5,
+   "bens": 1593,
+   "ativos": 1569,
+   "lotes": 139,
+   "tempo_h": 13.24,
+   "medidos": 1503,
+   "prod": 113.5,
+   "seg_bem": 31.7
+  },
+  {
+   "etapa": 3,
+   "dias": 6,
+   "bens": 318,
+   "ativos": 318,
+   "lotes": 69,
+   "tempo_h": 7.16,
+   "medidos": 251,
+   "prod": 35.1,
+   "seg_bem": 102.7
+  }
+ ],
+ "seg_por_bem_mediana_lote": 26.4,
+ "lote_mediano": 10.0,
+ "horas_para_concluir_ritmo_e3": 2.6,
+ "horas_total_projetado": 30.8,
+ "div_categorias": {
+  "Remanejamento entre pavimentos": 267,
+  "Recolhimento a depósito, almoxarifado ou arquivo": 150,
+  "Remanejamento entre setores do mesmo pavimento": 103,
+  "Granularidade cadastral (sala de reunião ou corredor do mesmo setor)": 40,
+  "Origem em localização lógica (bens novos, termos, CFC)": 9
+ },
+ "div_pares_n": 187,
+ "div_top10": [
+  [
+   "S3 - DEPÓSITO RAMPA",
+   "S3 - DEPÓSITO SEPAT",
+   37
+  ],
+  [
+   "10 - COTEC - SALA DE REUNIÃO",
+   "10 - COTEC",
+   30
+  ],
+  [
+   "BENS NOVOS",
+   "S2 - ALMOXARIFADO",
+   29
+  ],
+  [
+   "07 - DEPES",
+   "07 - DEGEP",
+   17
+  ],
+  [
+   "04 - SALA DIRETORIA",
+   "04 - DEPEV",
+   13
+  ],
+  [
+   "13 - PLENÁRIO",
+   "S3 - DEPÓSITO SEPAT",
+   13
+  ],
+  [
+   "S2 - ARQUIVO DESLIZANTE",
+   "S2 - ARQUIVO CENTRAL",
+   12
+  ],
+  [
+   "03 - CGTI",
+   "S3 - DEPÓSITO SEPAT",
+   10
+  ],
+  [
+   "09 - EGC",
+   "06 - GABINETE",
+   9
+  ],
+  [
+   "08 - CGOV",
+   "08 - CGE",
+   9
+  ]
+ ],
+ "div_top10_sum": 179,
+ "div_pares_ate5": 167,
+ "div_bens_pares_ate5": 320,
+ "div_taxa_pavimento": {
+  "7º pavimento": 28.1,
+  "Localizações lógicas": 26.2,
+  "10º pavimento": 24.8,
+  "4º pavimento": 24.2,
+  "8º pavimento": 22.2,
+  "13º pavimento": 19.2,
+  "2º pavimento": 17.9,
+  "9º pavimento": 15.2,
+  "Subsolo 3": 14.5,
+  "Térreo": 13.6,
+  "6º pavimento": 11.7,
+  "Subsolo 2": 9.0,
+  "Subsolo 1": 8.5,
+  "3º pavimento": 7.9,
+  "5º pavimento": 6.1,
+  "11º pavimento": 1.9,
+  "12º pavimento": 0.0,
+  "14º pavimento": 0.0
+ },
+ "div_taxa_classe": {
+  "MÓVEIS E UTENSÍLIOS DE ESCRITÓRIO": 17.6,
+  "EQUIPAMENTOS DE PROCESSAMENTO DE DADOS": 17.4,
+  "MÁQUINAS E EQUIPAMENTOS": 10.3,
+  "UTENSÍLIOS DE COPA E COZINHA": 10.5,
+  "MUSEU E OBRAS DE ARTE": 8.3
+ },
+ "cobertura_pavimento": [
+  {
+   "pav": "14º pavimento",
+   "ativos": 5,
+   "conf": 5,
+   "cob": 100.0
+  },
+  {
+   "pav": "12º pavimento",
+   "ativos": 4,
+   "conf": 4,
+   "cob": 100.0
+  },
+  {
+   "pav": "6º pavimento",
+   "ativos": 145,
+   "conf": 145,
+   "cob": 100.0
+  },
+  {
+   "pav": "8º pavimento",
+   "ativos": 234,
+   "conf": 234,
+   "cob": 100.0
+  },
+  {
+   "pav": "5º pavimento",
+   "ativos": 181,
+   "conf": 181,
+   "cob": 100.0
+  },
+  {
+   "pav": "3º pavimento",
+   "ativos": 291,
+   "conf": 291,
+   "cob": 100.0
+  },
+  {
+   "pav": "Térreo",
+   "ativos": 81,
+   "conf": 81,
+   "cob": 100.0
+  },
+  {
+   "pav": "7º pavimento",
+   "ativos": 387,
+   "conf": 385,
+   "cob": 99.5
+  },
+  {
+   "pav": "9º pavimento",
+   "ativos": 278,
+   "conf": 276,
+   "cob": 99.3
+  },
+  {
+   "pav": "10º pavimento",
+   "ativos": 226,
+   "conf": 222,
+   "cob": 98.2
+  },
+  {
+   "pav": "11º pavimento",
+   "ativos": 111,
+   "conf": 108,
+   "cob": 97.3
+  },
+  {
+   "pav": "Subsolo 2",
+   "ativos": 172,
+   "conf": 167,
+   "cob": 97.1
+  },
+  {
+   "pav": "Subsolo 1",
+   "ativos": 134,
+   "conf": 130,
+   "cob": 97.0
+  },
+  {
+   "pav": "13º pavimento",
+   "ativos": 124,
+   "conf": 120,
+   "cob": 96.8
+  },
+  {
+   "pav": "4º pavimento",
+   "ativos": 215,
+   "conf": 207,
+   "cob": 96.3
+  },
+  {
+   "pav": "Subsolo 3",
+   "ativos": 592,
+   "conf": 559,
+   "cob": 94.4
+  },
+  {
+   "pav": "Localizações lógicas",
+   "ativos": 157,
+   "conf": 145,
+   "cob": 92.4
+  },
+  {
+   "pav": "2º pavimento",
+   "ativos": 182,
+   "conf": 168,
+   "cob": 92.3
+  }
+ ],
+ "cobertura_classe": [
+  {
+   "classe": "MÓVEIS E UTENSÍLIOS DE ESCRITÓRIO",
+   "ativos": 1906,
+   "conf": 1850,
+   "cob": 97.1
+  },
+  {
+   "classe": "EQUIPAMENTOS DE PROCESSAMENTO DE DADOS",
+   "ativos": 1189,
+   "conf": 1163,
+   "cob": 97.8
+  },
+  {
+   "classe": "MÁQUINAS E EQUIPAMENTOS",
+   "ativos": 342,
+   "conf": 339,
+   "cob": 99.1
+  },
+  {
+   "classe": "UTENSÍLIOS DE COPA E COZINHA",
+   "ativos": 39,
+   "conf": 38,
+   "cob": 97.4
+  },
+  {
+   "classe": "MUSEU E OBRAS DE ARTE",
+   "ativos": 13,
+   "conf": 12,
+   "cob": 92.3
+  },
+  {
+   "classe": "OUTROS SOFTWARES",
+   "ativos": 11,
+   "conf": 7,
+   "cob": 63.6
+  },
+  {
+   "classe": "VEÍCULOS",
+   "ativos": 5,
+   "conf": 5,
+   "cob": 100.0
+  },
+  {
+   "classe": "SOFTWARE CONCLUÍDO",
+   "ativos": 5,
+   "conf": 5,
+   "cob": 100.0
+  },
+  {
+   "classe": "INSTALAÇÕES",
+   "ativos": 3,
+   "conf": 3,
+   "cob": 100.0
+  },
+  {
+   "classe": "TERRENOS",
+   "ativos": 2,
+   "conf": 2,
+   "cob": 100.0
+  },
+  {
+   "classe": "SOFTWARES",
+   "ativos": 2,
+   "conf": 2,
+   "cob": 100.0
+  },
+  {
+   "classe": "SEDE",
+   "ativos": 1,
+   "conf": 1,
+   "cob": 100.0
+  }
+ ],
+ "loc_100": 74,
+ "loc_90": 91,
+ "loc_n": 97,
+ "cobertura_top20": [
+  {
+   "loc_sis": "S3 - DEPÓSITO RAMPA",
+   "ativos": 256,
+   "conf": 228,
+   "cob": 89.1
+  },
+  {
+   "loc_sis": "S3 - DEPÓSITO SEPAT",
+   "ativos": 253,
+   "conf": 248,
+   "cob": 98.0
+  },
+  {
+   "loc_sis": "03 - CGTI",
+   "ativos": 223,
+   "conf": 223,
+   "cob": 100.0
+  },
+  {
+   "loc_sis": "02 - CCOM",
+   "ativos": 174,
+   "conf": 160,
+   "cob": 92.0
+  },
+  {
+   "loc_sis": "06 - GABINETE",
+   "ativos": 145,
+   "conf": 145,
+   "cob": 100.0
+  },
+  {
+   "loc_sis": "09 - CDPROF",
+   "ativos": 132,
+   "conf": 132,
+   "cob": 100.0
+  },
+  {
+   "loc_sis": "13 - PLENÁRIO",
+   "ativos": 121,
+   "conf": 117,
+   "cob": 96.7
+  },
+  {
+   "loc_sis": "05 - BIBLIOTECA",
+   "ativos": 103,
+   "conf": 103,
+   "cob": 100.0
+  },
+  {
+   "loc_sis": "10 - CCI",
+   "ativos": 86,
+   "conf": 84,
+   "cob": 97.7
+  },
+  {
+   "loc_sis": "TERMOS INDIVIDUAIS",
+   "ativos": 81,
+   "conf": 81,
+   "cob": 100.0
+  },
+  {
+   "loc_sis": "04 - DIGEO",
+   "ativos": 81,
+   "conf": 77,
+   "cob": 95.1
+  },
+  {
+   "loc_sis": "08 - COFIS",
+   "ativos": 78,
+   "conf": 78,
+   "cob": 100.0
+  },
+  {
+   "loc_sis": "05 - PROJUR",
+   "ativos": 75,
+   "conf": 75,
+   "cob": 100.0
+  },
+  {
+   "loc_sis": "10 - COTEC",
+   "ativos": 71,
+   "conf": 70,
+   "cob": 98.6
+  },
+  {
+   "loc_sis": "11 - REFEITÓRIO",
+   "ativos": 70,
+   "conf": 68,
+   "cob": 97.1
+  },
+  {
+   "loc_sis": "07 - COLOG",
+   "ativos": 69,
+   "conf": 69,
+   "cob": 100.0
+  },
+  {
+   "loc_sis": "03 - CPD",
+   "ativos": 65,
+   "conf": 65,
+   "cob": 100.0
+  },
+  {
+   "loc_sis": "08 - CGE",
+   "ativos": 62,
+   "conf": 62,
+   "cob": 100.0
+  },
+  {
+   "loc_sis": "S2 - ALMOXARIFADO",
+   "ativos": 61,
+   "conf": 59,
+   "cob": 96.7
+  },
+  {
+   "loc_sis": "07 - SEPAT",
+   "ativos": 60,
+   "conf": 60,
+   "cob": 100.0
+  }
+ ],
+ "demais_locs": {
+  "n": 77,
+  "ativos": 1252
+ },
+ "pendentes_loc": {
+  "S3 - DEPÓSITO RAMPA": 28,
+  "02 - CCOM": 14,
+  "S3 - DEPÓSITO SEPAT": 5,
+  "13 - PLENÁRIO": 4,
+  "04 - DIGEO": 4,
+  "AMORTIZADOS AGUARDANDO BAIXA": 4,
+  "APURAÇÃO DE RESPONSABILIDADE": 4,
+  "BENS NOVOS": 4
+ },
+ "pendentes_classe": {
+  "MÓVEIS E UTENSÍLIOS DE ESCRITÓRIO": 56,
+  "EQUIPAMENTOS DE PROCESSAMENTO DE DADOS": 26,
+  "OUTROS SOFTWARES": 4,
+  "MÁQUINAS E EQUIPAMENTOS": 3,
+  "UTENSÍLIOS DE COPA E COZINHA": 1,
+  "MUSEU E OBRAS DE ARTE": 1
+ },
+ "pendentes_valor_k": 715.7,
+ "pendentes_logicos": 12,
+ "pendentes_valor_softwares_k": 610.6,
+ "abc": [
+  {
+   "abc": "A",
+   "n": 352,
+   "conf": 343,
+   "cob": 97.4,
+   "pct_n": 10.0
+  },
+  {
+   "abc": "B",
+   "n": 1068,
+   "conf": 1043,
+   "cob": 97.7,
+   "pct_n": 30.4
+  },
+  {
+   "abc": "C",
+   "n": 2092,
+   "conf": 2035,
+   "cob": 97.3,
+   "pct_n": 59.6
+  }
+ ],
+ "nao_ativos_encontrados": {
+  "n": 29,
+  "sit": {
+   "BAIXADO": 27,
+   "DOADO": 2
+  },
+  "em_deposito": 12
+ }
+}
