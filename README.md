@@ -140,7 +140,8 @@ o Claude Code produziu um sistema de 8 mil linhas com testes, integrações por 
 governamentais (SPW e SEI), controle de acesso e empacotamento — e, dentro desses mesmos dez dias, três
 gerações de modelo se sucederam nos commits (Fable 5.1, Opus 5, Opus 5.5). A migração do inventário
 para este sistema, a derivação automática do de-para de localizações e a regeneração completa do
-esqueleto do TCC a partir dos dados foram feitas em sessões de 22 a 24 de setembro.
+esqueleto do TCC a partir dos dados foram feitas em sessões de 22 a 24 de setembro; a carga efetiva das
+3.456 leituras no banco, em 25 de setembro, reproduziu os números do ensaio (`docs/tcc/numeros-da-pesquisa.md`).
 
 Duas ressalvas honestas. A velocidade não veio acompanhada, sozinha, de rigor: a auditoria de 21/09
 encontrou defeitos de integridade fora dos 3.632 testes que a própria IA escreveu, e a extrapolação
@@ -286,6 +287,9 @@ A porta pode ser trocada com a variável `TERMOS_PORTA` (padrão 12345), útil p
 com outra instância já rodando.
 
 Migração inicial a partir das planilhas antigas: `python importar_planilhas.py acervo.xlsx geral.xlsx`.
+Migração de um inventário em andamento vindo de outro sistema: `dados/migrar_evento_2026.py` (uso na docstring;
+renomeia integrantes, traduz salas pelo `dados/depara_localizacoes_2026.csv`, preserva leituras já feitas aqui — ou as
+descarta com `--descartar-feitas-aqui`, caso de testes — e, com `--gravar`, carrega pela mesma validação tudo-ou-nada da tela).
 
 ## Gerar o executável (Windows)
 
@@ -403,7 +407,7 @@ falhou` e Atualizar base lista as últimas execuções. Segredos em `secrets/spw
 Crontab (`crontab -e`, usuário dono de `dados/termos.db`); o script já grava em `dados/robo_spw.log` (o container
 `robo` precisa estar de pé — `docker compose up -d` — para o cron funcionar):
 
-    0 3 * * 1-5 /opt/web/termos-responsabilidade/scripts/atualizar_base.sh >/dev/null 2>>/opt/web/termos-responsabilidade/dados/robo_spw.log
+    0 3 * * 1-5 /opt/web/sistema-inventario/scripts/atualizar_base.sh >/dev/null 2>>/opt/web/sistema-inventario/dados/robo_spw.log
 
 O robô não importa se o export vier com menos de 90% dos bens da base (protege contra export vazio ou truncado);
 nesse caso registra erro e a baixa em massa, se for real, passa por Atualizar base. Um upload manual entre

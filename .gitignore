@@ -21,7 +21,10 @@ __pycache__/
 *.egg-info/
 
 # Dados do programa (banco, termos gerados) e build
-dados/
+dados/*
+!dados/migrar_evento_2026.py
+!dados/relatorio_para_base.py
+!dados/depara_localizacoes_2026.csv
 build/
 dist/
 *.spec

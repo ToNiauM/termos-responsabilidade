@@ -2,7 +2,7 @@
 
 Registro de conferência dos números usados no TCC *"Automação de inventários no setor público com Data
 Science e infraestrutura open source replicável"* (MBA Data Science e Analytics, USP/Esalq, 2026).
-Posição dos dados: 22 set. 2026 (campanha) e 24 set. 2026 (ensaio de carga). Escrito para que qualquer
+Posição dos dados: 22 set. 2026 (campanha), 24 set. 2026 (ensaio de carga) e 25 set. 2026 (carga efetiva no banco). Escrito para que qualquer
 pessoa — banca, auditoria ou o próprio autor daqui a anos — consiga refazer a conta.
 
 Origem de cada número:
@@ -11,7 +11,7 @@ Origem de cada número:
 |---|---|---|
 | **R** | Relatório exportado do sistema de conferência em campo (`relatorio_20260922_211049.xlsx`, 7.428 linhas, uma por bem; não versionado porque traz nomes de servidores) | `recalcular_metricas.py` gera `metricas_campanha_2026.json` (versionado aqui) e as figuras |
 | **P** | Inventário-piloto de 26 maio 2026 (setor de TI) e simulação de Monte Carlo, etapa anterior do TCC | Esqueleto 10 do TCC; não recalculado nesta etapa |
-| **E** | Ensaio de carga das leituras neste sistema, contra o cadastro do SPW de 24 set. 2026 | `dados/migrar_evento_2026.py` + `dados/depara_localizacoes_2026.csv` (saída impressa pelo script) |
+| **E** | Ensaio de carga das leituras neste sistema, contra o cadastro do SPW de 24 set. 2026; a carga efetiva, em 25 set. 2026 com `--gravar`, deu os mesmos números | `dados/migrar_evento_2026.py` + `dados/depara_localizacoes_2026.csv` (saída impressa pelo script); entrada = `relatorio_20260922_211049.xlsx` convertido por `dados/relatorio_para_base.py` |
 | **L** | Literatura (Paul et al., 2024; Madeira Junior e Silveira, 2024): redução de 70–80% do tempo com automação | Cálculo: 37,6 h ÷ 0,30 e ÷ 0,20 |
 | **C** | Cálculo derivado de números acima | Indicado na linha |
 
@@ -108,6 +108,8 @@ Origem de cada número:
 | Leituras aceitas / rejeitadas na carga | 3.456 / 0 | E |
 | Registro tratado como sobra | 1 (bem sem número de tombamento) | E |
 | Bens fora da base atual | 0 | E |
+| Carga efetiva no banco (25 set. 2026): leituras / divergentes / salas / sobras | 3.456 / 280 / 98 / 1 (iguais ao ensaio); as 11 leituras feitas neste sistema em 24–25 set. eram testes e foram descartadas (`--descartar-feitas-aqui`): a última leitura no banco é de 22 set. 2026 11:34. Evento encerrado em 25 set. 2026 13:33 com o nome "Inventário Eventual 2026"; o snapshot de encerramento congelou 3.549 bens (3.520 ativos das salas + 29 baixados/doados lidos), e os 280 divergentes se mantêm contra ele | E (`--gravar`; `inventario.encerrar_evento`) |
+| Painel do sistema após a carga: lidos / divergentes / cobertura | 3.167 / 260 / 90,0% — definição diferente do TCC: *lido* = bem ativo lido na própria sala do SPW; *divergente* só conta ativos (os 280 incluem 20 baixados/doados); 97,4% do TCC = conferidos ÷ ativos | E (`inventario.resumo`) |
 
 ## O que não está em nenhum arquivo versionado (e por quê)
 
