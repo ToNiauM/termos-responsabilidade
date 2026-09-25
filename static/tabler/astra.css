@@ -122,3 +122,11 @@ table.tabela-fixa th, table.tabela-fixa td { overflow: hidden; text-overflow: el
   table.tabela-fixa { table-layout: auto !important; width: auto !important; }
   table.tabela-fixa th { width: auto !important; }
 }
+/* Celular: sem alças e sem largura salva — a tabela volta ao layout automático e rola na horizontal
+   dentro do contêiner (largura ajustada no computador não espreme colunas numa tela de 390px). */
+@media (max-width: 767.98px) {
+  table[data-tabela] .tabela-alca { display: none !important; }
+  table.tabela-fixa { table-layout: auto !important; width: auto !important; }
+  table.tabela-fixa th { width: auto !important; }
+  table.tabela-fixa th, table.tabela-fixa td { overflow: visible; text-overflow: clip; }
+}

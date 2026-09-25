@@ -119,3 +119,17 @@ def test_ordem_antes_do_limite_no_recorte(cliente):
     conn = db.conectar()
     r = db.recorte(conn, {"situacao": ""}, limite=2, ordem="valor", direcao="desc")
     assert r["truncado"] and _numeros(r["bens"]) == [1002, 1004]
+
+
+@pytest.mark.parametrize("css", ["static/dsgov/css/dsgov.css", "static/tabler/astra.css"])
+def test_celular_volta_ao_layout_automatico_sem_alcas(css):
+    """Largura ajustada no computador (localStorage) não pode valer na tela do celular: abaixo de 768px as alças
+    somem e a tabela fixa volta ao layout automático — sem isso, a 390px colunas ficavam cortadas."""
+    from pathlib import Path
+    texto = (Path(__file__).resolve().parent.parent / css).read_text(encoding="utf8")
+    bloco = texto.split("@media (max-width: 767.98px) {\n  table[data-tabela] .tabela-alca", 1)
+    assert len(bloco) == 2, "falta o bloco de celular das tabelas"
+    regra = bloco[1].split("\n}\n", 1)[0]
+    assert "display: none !important" in regra
+    assert "table.tabela-fixa { table-layout: auto !important; width: auto !important; }" in regra
+    assert "table.tabela-fixa th { width: auto !important; }" in regra
