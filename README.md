@@ -1,8 +1,148 @@
-# Sistema de Patrimônio — CFC
+# Sistema de Inventário Patrimonial — CFC
 
-Programa local (Windows) da Gerência de Serviços Administrativos (Gersev) para emitir Termos de Responsabilidade (por centro de
-custo e individuais) e Termos de Devolução, com botão **Copiar para o SEI** e download em `.docx`.
-Os dados ficam num SQLite (`dados/termos.db`) mantido pelo próprio programa.
+Sistema de gestão patrimonial da Gerência de Serviços Administrativos (Gersev) do Conselho Federal de
+Contabilidade: inventário físico por evento (comissão, salas, leitura por plaqueta, fotos, sobras, painel e
+relatório), Termos de Responsabilidade (por centro de custo e individuais) e Termos de Devolução, com
+**Copiar para o SEI**, envio ao SEI por robô, download em `.docx` e atualização automática da base a partir
+do SPW. Roda como programa local (Windows) ou na web (Docker). Os dados ficam num SQLite
+(`dados/termos.db`) mantido pelo próprio sistema.
+
+## Trabalho de Conclusão de Curso — MBA USP/Esalq
+
+Este repositório é o produto técnico do Trabalho de Conclusão de Curso **"Automação de inventários no
+setor público com Data Science e infraestrutura open source replicável"**, de Antônio Rodrigues de Sousa
+Júnior, MBA em Data Science e Analytics da USP/Esalq (turma 2025–2026), sob orientação do Prof. PhD.
+Gabriel Gomes de Oliveira. Esta seção é o registro permanente, no próprio código, de como o sistema foi
+construído, do que a pesquisa encontrou e do que não deu certo. Foi escrita em 24 set. 2026, ao final da
+campanha censitária de inventário, e não deve ser reescrita para parecer melhor do que foi.
+
+### A pesquisa
+
+Pesquisa-ação no CFC, autarquia federal em Brasília com 7.428 registros patrimoniais (3.519 bens ativos em
+97 localizações). O inventário anual era manual: listagens impressas, anotação à mão, digitação depois. A
+pergunta do TCC foi medir — em produtividade e acurácia — o efeito de uma arquitetura progressiva de
+automação feita só com software livre: (1) conferência em campo por sistema web em celular, com
+sincronização em lotes; (2) pipeline de dados em Python, indicadores, painéis e carga no sistema de gestão
+patrimonial (este repositório); (3) RFID UHF como evolução futura. O método combinou um inventário-piloto
+cronometrado (26 maio 2026, setor de TI, 266 bens), uma simulação de Monte Carlo com reamostragem
+bootstrap dos lotes para projetar o esforço do acervo inteiro, e uma campanha censitária de validação
+(18 ago. a 22 set. 2026, 15 dias de campo, quatro servidores).
+
+### Como o sistema foi desenvolvido
+
+O histórico do Git é o registro primário; os números abaixo saem dele.
+
+- **Abril de 2025 — primeira versão.** Cinco commits em 16/04/2025: um Flask de 150 linhas e dois
+  geradores `.docx` (476 linhas de Python no total), lendo duas planilhas Excel, publicados no Render.
+  Só emitia termos de responsabilidade. Nenhum commit traz coautoria de IA.
+- **14 a 23 de setembro de 2026 — reconstrução completa.** 309 commits em dez dias. O sistema passou a
+  ter SQLite, cadastros, processos SEI, histórico de termos, módulo de inventário por evento (comissão,
+  salas, leituras, fotos em bucket R2, sobras, relatório e planilha de intercâmbio), usuários e matriz de
+  permissões, robô do SPW (Playwright), robô do SEI, painel com gráficos, duas aparências (DSGov 3.7.0 e
+  Tabler) e empacotamento Docker. Ao final: cerca de 8,3 mil linhas de Python de aplicação, 8,7 mil de
+  testes (3.632 casos coletados pelo pytest) e 83 templates.
+- **Spec-driven development com Superpowers.** Cada funcionalidade seguiu o fluxo do conjunto de skills
+  *Superpowers* para Claude Code: *brainstorming* com o autor → especificação escrita e aprovada
+  (`docs/superpowers/specs/`, 16 arquivos datados) → plano de implementação em tarefas pequenas
+  (`docs/superpowers/plans/`, 17) → execução por subagentes com desenvolvimento orientado a testes →
+  revisão. Os *spikes* de integração (acesso ao SPW, escrita no SEI) estão em `docs/superpowers/notes/`
+  com os scripts e as evidências (capturas de tela e JSON) do que funcionou. A especificação sempre
+  antecedeu o código; quando a implementação divergiu, a spec foi ajustada e o ajuste registrado no commit.
+- **GSD (Get Shit Done).** O conjunto de skills GSD (`gsd-new-project`, `gsd-plan-phase`,
+  `gsd-execute-phase`, `gsd-code-review` etc.) estava instalado e foi avaliado, mas o fluxo de trabalho
+  efetivamente usado foi o Superpowers; não há `.planning/` nem artefatos GSD no histórico. A auditoria
+  ASTRA (abaixo) leu o `gsd-code-review` e optou por não executá-lo, por ser orientado a fases GSD.
+- **Modelos de IA e coautoria.** Os commits de setembro de 2026 trazem o trailer `Co-Authored-By` de três
+  gerações sucessivas de modelos da Anthropic, usadas pelo Claude Code: **Claude Fable 5.1** (157 commits,
+  14 a 18/09), **Claude Opus 5** (14 commits, 20/09) e **Claude Opus 5.5** (27 commits, 22 e 23/09).
+  Outros 111 commits do mesmo período não têm o trailer — sessões em que ele não foi acrescentado ou
+  commits manuais — e não devem ser lidos como "feitos sem IA". Toda decisão de produto (o que o sistema
+  faz, regras de negócio, textos dos termos, o que vai para o SEI) e toda validação em campo foram
+  humanas; a escrita do código foi majoritariamente da IA sob especificação e revisão do autor.
+- **Auditoria técnica independente.** Em 21/09/2026 uma sessão de IA separada, sem acesso ao banco de
+  produção, auditou o código (`ASTRA.md`): não encontrou vulnerabilidade classificada como crítica, mas
+  apontou riscos P0 de integridade e concorrência — planilha vazia capaz de apagar bens, possibilidade de
+  dois termos com o mesmo número, fotos simultâneas com a mesma chave, leitura gravada após finalização
+  do evento, `finally` que grava documento mesmo com número inválido. A suíte de 3.632 testes não cobria
+  esses cenários. O backlog está no próprio arquivo, priorizado; o que foi corrigido consta nos commits
+  posteriores.
+
+### O que a pesquisa encontrou
+
+- **Piloto:** 94 bens/hora, 37 s por bem (mediana), 94,4% de concordância entre local físico e cadastro.
+  A simulação de Monte Carlo projetou 37,6 h para os 3.518 bens ativos (IC 95%: 30,6–46,6 h).
+- **Campanha censitária:** 3.457 bens conferidos (97,4% do acervo ativo) em 28,2 h efetivas — 113 bens/hora
+  na média, com **rendimentos fortemente decrescentes**: 185 bens/h nos pavimentos administrativos
+  (etapa 1), 114 nos depósitos e áreas técnicas (etapa 2) e 35 na varredura residual dos bens que não
+  estavam onde deveriam (etapa 3). Projeção para 100% do acervo: ≈ 31 h, dentro do intervalo do modelo.
+- **Divergências de localização:** 569 (16,6%) contra o cadastro que valia durante a campanha. A
+  concordância caiu dos 94,4% do piloto (setor de TI, bem acompanhado) para 83,4% no órgão inteiro.
+- **O achado mais importante veio depois da coleta:** o órgão passou por uma reestruturação
+  administrativa durante o inventário. Setores foram renomeados, fundidos e desmembrados, e o SPW só
+  refletiu a nova estrutura ao final. 38 das 91 localizações lidas deixaram de existir com o nome usado
+  em campo (1.970 leituras, 57% do total). Ao reconciliar as mesmas leituras com o cadastro atualizado —
+  por uma tabela de correspondência derivada automaticamente de onde cada bem passou a figurar — as
+  divergências caíram de 569 para 280 (8,1%). **Cerca de metade das "divergências" era o cadastro
+  correndo atrás da reorganização, não bem fora do lugar.** Isso foi o que a experiência de campo
+  provou: o problema central do inventário público não é achar o bem, é a instabilidade da estrutura
+  administrativa e das localizações contra as quais ele é conferido — e só um registro estruturado
+  (data, hora, responsável, local físico por leitura) permite reconciliar isso retroativamente sem voltar
+  a campo.
+- **Carga de validação neste sistema:** as 3.456 leituras com número de tombamento foram aceitas pela
+  importação atômica (bem existente, sala do cadastro, integrante, data e conservação válidos); nenhuma
+  foi rejeitada, e as 98 salas resultantes coincidiram com as localizações ativas do cadastro. Foi a
+  validação de ponta a ponta da arquitetura: dados de quatro operadores, 15 dias e uma reestruturação
+  chegaram íntegros ao sistema de gestão sem redigitação.
+- **Outros achados:** 29 bens já baixados ou doados ainda estavam fisicamente no órgão (12 em
+  depósitos); o cadastro tinha 2.051 baixados e 1.854 doados acumulados (52,6% dos registros); 352 bens
+  (10% do acervo móvel) concentram 80% do valor.
+
+### Dificuldades e limitações — sem maquiagem
+
+- **Não há medição do processo manual.** O tempo do cenário anterior (125 a 188 h) foi estimado a partir
+  da literatura (70–80% de redução com automação), não cronometrado. A comparação é indicativa.
+- **A extrapolação otimista estava errada.** Ao final da primeira etapa, com 185 bens/h, o acervo inteiro
+  parecia caber em 19 h; a campanha levou 28,2 h para 97,4%. Projetar o esforço total a partir dos setores
+  fáceis subestimou em quase 40%. O modelo de Monte Carlo do piloto, mais conservador, acertou.
+- **A campanha não tirou fotos** (o piloto tirou). Foi decisão operacional para manter o ritmo com equipe
+  reduzida; a evidência de inventário ficou restrita a local, estado, responsável e hora.
+- **Os 3.457 bens receberam estado "Bom".** A escala não discriminou nada; é limitação de procedimento e
+  de parametrização, a corrigir nos próximos ciclos.
+- **Produtividade medida por lote de sincronização, não por bem.** A regra de descartar pausas maiores
+  que uma hora é uma convenção; dias com poucos lotes produzem números instáveis (10/09: 315 bens/h em
+  0,2 h). Marcações de início e fim por bem seriam necessárias para rigor maior.
+- **Nomes de pessoas e salas não bateram entre sistemas.** A conferência foi feita no sistema de
+  primeira geração; ao migrar para este, os integrantes vinham com nomes diferentes dos usuários
+  cadastrados e as salas com os nomes antigos. Foi preciso um de-para de 38 localizações, decidido por
+  regra de maioria, com quatro casos ambíguos (setores desmembrados) e um sem correspondência clara.
+- **Restaram 91 bens pendentes** (12 em localizações lógicas, como licenças de software amortizadas), e o
+  desfecho das 280 divergências (movimentação legítima, erro de cadastro, bem não localizado) ainda não
+  foi classificado.
+- **A parte acadêmica atrasou em relação à técnica.** Os Resultados Preliminares de junho de 2026 foram
+  avaliados com nota 7,0 e o comentário de que faltavam resultados, figuras e tabelas; o autor não
+  conseguiu aplicar as correções do orientador a tempo. O trabalho técnico avançou muito mais rápido do
+  que a escrita, e o esqueleto final do TCC só foi refeito, a partir dos dados da campanha, em 22–24 set.
+  2026 — também com auxílio de IA, a partir de scripts que recalculam todos os números e figuras.
+- **Um único órgão.** É pesquisa-ação; a generalização exige cautela, ainda que a solução seja livre,
+  conteinerizada e replicável.
+
+### A evolução da IA no período, vista deste repositório
+
+O contraste entre as duas versões do sistema é a medida mais concreta que este repositório oferece.
+Em abril de 2025 o autor, gestor de patrimônio sem formação em desenvolvimento, produziu 476 linhas de
+Python que emitiam termos a partir de planilhas. Em setembro de 2026, em dez dias e com o mesmo autor,
+o Claude Code produziu um sistema de 8 mil linhas com testes, integrações por robô com dois sistemas
+governamentais (SPW e SEI), controle de acesso e empacotamento — e, dentro desses mesmos dez dias, três
+gerações de modelo se sucederam nos commits (Fable 5.1, Opus 5, Opus 5.5). A migração do inventário
+para este sistema, a derivação automática do de-para de localizações e a regeneração completa do
+esqueleto do TCC a partir dos dados foram feitas em sessões de 22 a 24 de setembro.
+
+Duas ressalvas honestas. A velocidade não veio acompanhada, sozinha, de rigor: a auditoria de 21/09
+encontrou defeitos de integridade fora dos 3.632 testes que a própria IA escreveu, e a extrapolação
+otimista de esforço foi corrigida pela realidade do campo, não pela ferramenta. E o que sustentou o
+resultado foi o método — especificação antes do código, testes antes da implementação, validação em
+campo antes da conclusão — mais do que o modelo do momento. A IA acelerou a construção e a análise; a
+pesquisa continuou dependendo de servidores lendo plaquetas em depósitos.
 
 ## Uso
 
