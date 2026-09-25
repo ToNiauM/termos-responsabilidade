@@ -14,7 +14,7 @@
   <div class="table-header"><div class="top-bar"><div class="table-title">Bens com {{ nome }} (sugestão)</div>
     <form method="post" class="ml-auto">{{ csrf_campo() }}<input type="hidden" name="nome" value="{{ nome }}"/><input type="hidden" name="todos" value="1"/>
       <button class="br-button small" type="submit"><i class="fas fa-plus mr-1" aria-hidden="true"></i>Adicionar todos</button></form></div></div>
-  <table>
+  <table id="tabela-sugeridos" data-tabela>
     <caption class="sr-only">Bens atribuídos a {{ nome }} ainda não incluídos na devolução</caption>
     <thead><tr><th scope="col">Patrimônio</th><th scope="col">Descrição</th><th scope="col">Complemento</th><th scope="col" class="dsgov-numero">Valor atual</th><th scope="col" class="dsgov-acoes">Ações</th></tr></thead>
     <tbody>
@@ -30,7 +30,7 @@
 {% if bens %}
 <div class="br-table mb-3">
   <div class="table-header"><div class="top-bar"><div class="table-title">Bens a devolver</div></div></div>
-  <table>
+  <table id="tabela-devolver" data-tabela>
     <caption class="sr-only">Bens a devolver</caption>
     <thead><tr><th scope="col">Patrimônio</th><th scope="col">Descrição</th><th scope="col">Complemento</th><th scope="col" class="dsgov-numero">Valor atual</th><th scope="col" class="dsgov-acoes">Ações</th></tr></thead>
     <tbody>

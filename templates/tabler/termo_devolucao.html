@@ -20,7 +20,7 @@
       <button class="btn btn-sm btn-outline-primary" type="submit"><i class="fas fa-plus me-2" aria-hidden="true"></i>Adicionar todos</button></form>
   </div>
   <div class="table-responsive">
-  <table class="table table-vcenter card-table">
+  <table class="table table-vcenter card-table" id="tabela-sugeridos" data-tabela>
     <caption class="visually-hidden">Bens atribuídos a {{ nome }} ainda não incluídos na devolução</caption>
     <thead><tr><th scope="col">Patrimônio</th><th scope="col">Descrição</th><th scope="col" class="d-none d-md-table-cell">Complemento</th><th scope="col" class="text-end">Valor atual</th><th scope="col" class="astra-acoes">Ações</th></tr></thead>
     <tbody>
@@ -38,7 +38,7 @@
 <div class="card mb-3">
   <div class="card-header"><h2 class="card-title">Bens a devolver</h2></div>
   <div class="table-responsive">
-  <table class="table table-vcenter card-table">
+  <table class="table table-vcenter card-table" id="tabela-devolver" data-tabela>
     <caption class="visually-hidden">Bens a devolver</caption>
     <thead><tr><th scope="col">Patrimônio</th><th scope="col">Descrição</th><th scope="col" class="d-none d-md-table-cell">Complemento</th><th scope="col" class="text-end">Valor atual</th><th scope="col" class="astra-acoes">Ações</th></tr></thead>
     <tbody>

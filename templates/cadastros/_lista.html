@@ -3,7 +3,7 @@
 {% endmacro %}
 <div class="br-table"{% if aba == 'localizacoes' %} data-selection="data-selection"{% endif %}>
   <div class="table-header"><div class="top-bar"><div class="table-title">{{ lista.total }} registro(s) encontrado(s)</div></div>{% if aba == 'localizacoes' %}<div class="selected-bar"><div class="info"><span class="count">0</span><span class="text">item selecionado</span></div></div>{% endif %}</div>
-  <table><caption class="sr-only">{{ areas[aba][0] }}</caption>
+  <table id="tabela-cadastro" data-tabela><caption class="sr-only">{{ areas[aba][0] }}</caption>
     <thead><tr>
       {% if aba == 'responsaveis' %}{{ coluna('ccustos', 'Centro de custo') }}{{ coluna('responsavel', 'Responsável') }}{{ coluna('funcao', 'Função') }}
       {% elif aba == 'pessoas' %}{{ coluna('nome', 'Nome') }}{{ coluna('email', 'E-mail') }}{{ coluna('quantidade', 'Bens atribuídos') }}

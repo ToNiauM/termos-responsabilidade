@@ -1,5 +1,5 @@
 {% extends "tabler_base.html" %}
-{% from 'tabler_macros.html' import ajuda_titulo, cabecalho_tabela, fechar_tabela %}
+{% from 'tabler_macros.html' import ajuda_titulo, cabecalho_tabela, fechar_tabela, th_ordem %}
 {% block titulo %}{% if filtro %}Bens de {{ chave }}{% else %}Pesquisa{% endif %}{% endblock %}
 {% block conteudo %}
 {% set termo_url = url_for('termo', tipo=filtro, chave=chave) if filtro else None %}
@@ -75,8 +75,8 @@
   <div><strong>Muitos resultados.</strong> Só os {{ bens|length }} primeiros aparecem; refine a pesquisa.</div></div>
 </div>
 {% endif %}
-{{ cabecalho_tabela('Bens encontrados', 'bens') }}
-  <thead><tr><th scope="col">Número</th><th scope="col">Descrição</th><th scope="col">Complemento</th><th scope="col">Localização</th><th scope="col">Situação</th>{% if not filtro %}<th scope="col">Centro</th><th scope="col">Pessoa</th>{% endif %}</tr></thead>
+{{ cabecalho_tabela('Bens encontrados', 'bens', servidor=truncado) }}
+  <thead><tr>{{ th_ordem('Número', 'numero') }}{{ th_ordem('Descrição', 'descricao') }}{{ th_ordem('Complemento', 'complemento') }}{{ th_ordem('Localização', 'localizacao') }}{{ th_ordem('Situação', 'situacao') }}{% if not filtro %}{{ th_ordem('Centro', 'centro') }}{{ th_ordem('Pessoa', 'pessoa') }}{% endif %}</tr></thead>
   <tbody>
   {% for b in bens %}
   <tr>

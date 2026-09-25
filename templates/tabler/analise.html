@@ -1,5 +1,5 @@
 {% extends "tabler_base.html" %}
-{% from "tabler_macros.html" import ajuda_titulo, select, grafico, tag_termo, cabecalho_tabela, fechar_tabela %}
+{% from "tabler_macros.html" import ajuda_titulo, select, grafico, tag_termo, cabecalho_tabela, fechar_tabela, th_ordem %}
 {% block titulo %}Análise{% endblock %}
 {% block conteudo %}
 {% set mostra_termo_completo = termo_de and pode('termo') %}
@@ -76,8 +76,8 @@
 <div class="alert alert-warning mb-3" role="alert"><div class="d-flex"><i class="fas fa-exclamation-triangle me-2 mt-1" aria-hidden="true"></i>
   <div><strong>Muitos bens.</strong> A tabela mostra os {{ r.bens|length }} primeiros de {{ r.quantidade }}; refine o recorte ou exporte o .xlsx completo.</div></div></div>
 {% endif %}
-{{ cabecalho_tabela('Bens do recorte', 'bens') }}
-  <thead><tr><th scope="col">Número</th><th scope="col">Descrição</th><th scope="col">Complemento</th><th scope="col">Localização</th><th scope="col">Centro</th><th scope="col">Pessoa</th><th scope="col">Classificação</th><th scope="col">Entrada</th><th scope="col" class="text-end">Valor</th></tr></thead>
+{{ cabecalho_tabela('Bens do recorte', 'bens', servidor=r.truncado) }}
+  <thead><tr>{{ th_ordem('Número', 'numero') }}{{ th_ordem('Descrição', 'descricao') }}{{ th_ordem('Complemento', 'complemento') }}{{ th_ordem('Localização', 'localizacao') }}{{ th_ordem('Centro', 'centro') }}{{ th_ordem('Pessoa', 'pessoa') }}{{ th_ordem('Classificação', 'classificacao') }}{{ th_ordem('Entrada', 'entrada') }}{{ th_ordem('Valor', 'valor', 'text-end') }}</tr></thead>
   <tbody>
   {% for b in r.bens %}
   <tr><td><a href="{{ url_for('bem', numero=b.numero) }}">{{ b.numero }}</a></td><td>{{ b.descricao }}</td><td>{{ b.complemento or '' }}</td><td>{{ b.localizacao or '' }}</td><td>{{ b.ccustos or '' }}</td><td>{{ b.pessoa or '' }}</td><td>{{ b.classificacao or '' }}</td><td class="text-nowrap">{{ b.data_entrada or '' }}</td><td class="text-end astra-numero text-nowrap">{{ 'Não informado' if b.valor_atual is none else moeda(b.valor_atual) }}</td></tr>

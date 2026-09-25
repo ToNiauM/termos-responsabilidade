@@ -182,3 +182,26 @@ a.dsgov-kpi:hover { box-shadow: var(--surface-shadow-md); }
 .dsgov-atalhos a.dsgov-atalho { display: block; color: inherit; text-decoration: none; text-align: center; }
 .dsgov-atalhos a.dsgov-atalho:hover { box-shadow: var(--surface-shadow-md); }
 .dsgov-atalho-icone { font-size: var(--font-size-scale-up-05); color: var(--interactive); margin-bottom: var(--spacing-scale-base); }
+
+/* Tabelas ordenáveis e com largura ajustável (static/js/tabelas.js, <table data-tabela>).
+   Ordenar: botão sem moldura no cabeçalho, ícone fa-sort/-up/-down na cor interativa do DS; foco no padrão do DS. */
+.br-table th .tabela-ordenar { display: inline-flex; align-items: center; gap: var(--spacing-scale-base); padding: 0; margin: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: inherit; cursor: pointer; }
+.br-table th .tabela-ordenar:hover { text-decoration: underline; }
+.br-table th .tabela-ordenar:focus-visible { outline: var(--focus-width, 4px) var(--focus-style, dashed) var(--focus-color, var(--focus)); outline-offset: var(--focus-offset, 4px); }
+.br-table th .tabela-ordenar-icone { color: var(--gray-40); font-size: var(--font-size-scale-down-01); }
+.br-table th[aria-sort] .tabela-ordenar-icone { color: var(--interactive); }
+/* Alça de largura na borda direita do cabeçalho. */
+table[data-tabela] thead th { position: relative; }
+table[data-tabela] .tabela-alca { position: absolute; top: 0; right: -4px; bottom: 0; width: 9px; z-index: 2; cursor: col-resize; touch-action: none; }
+table[data-tabela] .tabela-alca::after { content: ""; position: absolute; top: 25%; bottom: 25%; left: 4px; width: var(--surface-width-sm, 1px); background: var(--gray-20); }
+table[data-tabela] thead th:last-child .tabela-alca { right: 0; }
+table[data-tabela] .tabela-alca:hover::after, table[data-tabela].tabela-redimensionando .tabela-alca::after { top: 0; bottom: 0; width: var(--surface-width-md, 2px); left: 3px; background: var(--interactive); }
+table[data-tabela] .tabela-alca:focus-visible { outline: var(--focus-width, 4px) var(--focus-style, dashed) var(--focus-color, var(--focus)); outline-offset: 0; }
+table.tabela-redimensionando { cursor: col-resize; user-select: none; }
+table.tabela-fixa { table-layout: fixed; }
+table.tabela-fixa th, table.tabela-fixa td { overflow: hidden; text-overflow: ellipsis; }
+@media print {
+  table[data-tabela] .tabela-alca, table[data-tabela] .tabela-ordenar-icone { display: none !important; }
+  table.tabela-fixa { table-layout: auto !important; width: auto !important; }
+  table.tabela-fixa th { width: auto !important; }
+}

@@ -35,8 +35,10 @@
 </div>
 {% endmacro %}
 
-{% macro cabecalho_tabela(titulo, id, selecao=False) %}
-{# abre um br-table com busca (e seleção de linhas, se selecao); quem chama fecha com </table></div> #}
+{% macro cabecalho_tabela(titulo, id, selecao=False, servidor=False) %}
+{# abre um br-table com busca (e seleção de linhas, se selecao); quem chama fecha com </table></div>.
+   data-tabela: colunas ordenáveis e com largura ajustável (static/js/tabelas.js). servidor=True quando a lista
+   veio cortada (só os N primeiros): a ordenação volta ao servidor pelos th_ordem. #}
 <div class="br-table" data-search="data-search"{% if selecao %} data-selection="data-selection"{% endif %}>
   <div class="table-header">
     <div class="top-bar">
@@ -59,9 +61,15 @@
     </div>
     {% endif %}
   </div>
-  <table>
+  <table id="dados-{{ id }}" data-tabela{% if servidor %} data-tabela-ordem="servidor"{% endif %}>
     <caption class="sr-only">{{ titulo }}</caption>
 {% endmacro %}
+
+{% macro th_ordem(rotulo, campo, classe='') %}
+{# cabeçalho de tabela ordenada no servidor (cabecalho_tabela(..., servidor=True)): tabelas.js troca ?ordem=campo&dir= #}
+<th scope="col"{% if classe %} class="{{ classe }}"{% endif %} data-ordem="{{ campo }}"{% if request.args.get('ordem') == campo %} aria-sort="{{ 'descending' if request.args.get('dir') == 'desc' else 'ascending' }}"{% endif %}>{{ rotulo }}</th>
+{% endmacro %}
+
 
 {% macro th_selecao(id) %}
 <th class="column-checkbox" scope="col"><div class="br-checkbox hidden-label"><input id="check-all-{{ id }}" name="check-all-{{ id }}" type="checkbox" aria-label="Selecionar tudo" data-parent="check-{{ id }}"/><label for="check-all-{{ id }}">Selecionar todas as linhas</label></div></th>
@@ -106,7 +114,7 @@
         </div>
         <div class="content" id="acc-{{ g.id }}-dados">
           <div class="br-table small"><div class="table-header"></div>
-            <table>
+            <table data-tabela>
               <caption class="sr-only">{{ g.titulo }} — dados</caption>
               <thead><tr>{% for c in g.tabela.colunas %}<th scope="col"{% if not loop.first %} class="dsgov-numero"{% endif %}>{{ c }}</th>{% endfor %}</tr></thead>
               <tbody>

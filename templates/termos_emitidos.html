@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from '_macros.html' import ajuda_titulo %}
-{% from "_macros.html" import select, cabecalho_tabela %}
+{% from "_macros.html" import select, cabecalho_tabela, th_ordem %}
 {% block titulo %}Termos emitidos{% endblock %}
 {% block conteudo %}
 <div class="d-flex align-items-center mb-4"><h1 class="mb-0">Termos emitidos</h1>{{ ajuda_titulo(AJUDA_ANCORA) }}</div>
@@ -9,8 +9,8 @@
   <div class="col-md-4 mb-3"><div class="br-input"><label for="chave">Centro de custo ou pessoa</label><input id="chave" name="chave" type="text" value="{{ chave or '' }}" placeholder="contém..."/></div></div>
   <div class="col-md-2 mb-3 d-flex align-items-end"><button class="br-button secondary" type="submit"><i class="fas fa-filter mr-1" aria-hidden="true"></i>Filtrar</button></div>
 </form>
-{{ cabecalho_tabela('Registros de emissão', 'emitidos') }}
-  <thead><tr><th scope="col">Emitido em</th><th scope="col">Tipo</th><th scope="col">Centro / pessoa</th><th scope="col" class="dsgov-numero">Bens</th><th scope="col" class="dsgov-numero">Valor</th><th scope="col">Número</th><th scope="col">Processo SEI</th><th scope="col">Documento · bloco</th><th scope="col">E-mail</th></tr></thead>
+{{ cabecalho_tabela('Registros de emissão', 'emitidos', servidor=truncado) }}
+  <thead><tr>{{ th_ordem('Emitido em', 'emitido') }}{{ th_ordem('Tipo', 'tipo') }}{{ th_ordem('Centro / pessoa', 'chave') }}{{ th_ordem('Bens', 'bens', 'dsgov-numero') }}{{ th_ordem('Valor', 'valor', 'dsgov-numero') }}{{ th_ordem('Número', 'numero') }}{{ th_ordem('Processo SEI', 'processo') }}{{ th_ordem('Documento · bloco', 'documento') }}{{ th_ordem('E-mail', 'email') }}</tr></thead>
   <tbody>
   {% for t in termos %}
   <tr>

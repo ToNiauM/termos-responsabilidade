@@ -9,7 +9,7 @@
 <div class="card mb-3">
   <div class="card-header"><h2 class="card-title">Confira os registros afetados</h2></div>
   <div class="table-responsive">
-  <table class="table table-vcenter card-table"><caption class="visually-hidden">Revisão da alteração</caption><thead><tr><th scope="col">Registro</th><th scope="col">Situação atual / origem</th><th scope="col">Após confirmar / destino</th></tr></thead>
+  <table class="table table-vcenter card-table" id="tabela-confirmar" data-tabela><caption class="visually-hidden">Revisão da alteração</caption><thead><tr><th scope="col">Registro</th><th scope="col">Situação atual / origem</th><th scope="col">Após confirmar / destino</th></tr></thead>
   <tbody>{% for linha in linhas %}<tr>{% for valor in linha %}<td>{{ valor }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
   </div>
 </div>

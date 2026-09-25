@@ -100,3 +100,25 @@ button[aria-expanded="true"] > .astra-seta { transform: rotate(180deg); }
 .navbar-vertical .nav-link-title, .navbar-vertical .astra-submenu .nav-link, .astra-marca span { white-space: nowrap; }
 /* Item de grupo ocupa a largura toda: a seta vai para a direita, longe do rótulo */
 .navbar-vertical .navbar-nav > .nav-item > .nav-link { width: 100%; }
+
+/* ---------- Tabelas ordenáveis e com largura ajustável (static/js/tabelas.js, <table data-tabela>) ---------- */
+/* Ordenar: o botão é o .table-sort do próprio Tabler (setas e estados asc/desc vêm de tabler.min.css). */
+.table thead th .table-sort { cursor: pointer; }
+.table thead th .table-sort:focus-visible { outline: 2px solid var(--tblr-primary); outline-offset: -2px; border-radius: var(--tblr-border-radius-sm, 2px); }
+/* Alça de largura na borda direita do cabeçalho: linha fina que acende com a cor primária. */
+table[data-tabela] thead th { position: relative; }
+table[data-tabela] .tabela-alca { position: absolute; top: 0; right: -4px; bottom: 0; width: 9px; z-index: 2; cursor: col-resize; touch-action: none; }
+table[data-tabela] .tabela-alca::after { content: ""; position: absolute; top: 25%; bottom: 25%; left: 4px; width: 1px; background: var(--tblr-border-color); transition: background-color .15s; }
+table[data-tabela] thead th:last-child .tabela-alca { right: 0; }
+table[data-tabela] .tabela-alca:hover::after, table[data-tabela] .tabela-alca:focus-visible::after,
+table[data-tabela].tabela-redimensionando .tabela-alca::after { top: 0; bottom: 0; width: 2px; left: 3px; background: var(--tblr-primary); }
+table[data-tabela] .tabela-alca:focus-visible { outline: none; }
+table.tabela-redimensionando { cursor: col-resize; user-select: none; }
+/* Largura ajustada: layout fixo, texto longo corta com reticências em vez de empurrar a coluna. */
+table.tabela-fixa { table-layout: fixed; }
+table.tabela-fixa th, table.tabela-fixa td { overflow: hidden; text-overflow: ellipsis; }
+@media print {
+  table[data-tabela] .tabela-alca, table[data-tabela] .table-sort::after { display: none !important; }
+  table.tabela-fixa { table-layout: auto !important; width: auto !important; }
+  table.tabela-fixa th { width: auto !important; }
+}

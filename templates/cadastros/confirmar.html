@@ -7,7 +7,7 @@
 {% if erro %}<div class="br-message warning"><div class="content" role="alert">{{ erro }}</div></div>{% endif %}
 {% if linhas %}
 <div class="br-table mb-4"><div class="table-header"><div class="top-bar"><div class="table-title">Confira os registros afetados</div></div></div>
-  <table><caption class="sr-only">Revisão da alteração</caption><thead><tr><th scope="col">Registro</th><th scope="col">Situação atual / origem</th><th scope="col">Após confirmar / destino</th></tr></thead>
+  <table id="tabela-confirmar" data-tabela><caption class="sr-only">Revisão da alteração</caption><thead><tr><th scope="col">Registro</th><th scope="col">Situação atual / origem</th><th scope="col">Após confirmar / destino</th></tr></thead>
   <tbody>{% for linha in linhas %}<tr>{% for valor in linha %}<td>{{ valor }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
 </div>
 {% endif %}

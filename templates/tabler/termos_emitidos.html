@@ -1,5 +1,5 @@
 {% extends "tabler_base.html" %}
-{% from 'tabler_macros.html' import titulo_pagina, select %}
+{% from 'tabler_macros.html' import titulo_pagina, select, th_ordem %}
 {% block titulo %}Termos emitidos{% endblock %}
 {% block conteudo %}
 {{ titulo_pagina('Termos emitidos', AJUDA_ANCORA, 'Termos de Responsabilidade') }}
@@ -19,9 +19,9 @@
     </form>
   </div>
   <div class="table-responsive">
-    <table class="table table-vcenter card-table" id="tabela-emitidos">
+    <table class="table table-vcenter card-table" id="tabela-emitidos" data-tabela{% if truncado %} data-tabela-ordem="servidor"{% endif %}>
       <caption class="visually-hidden">Registros de emissão</caption>
-      <thead><tr><th scope="col">Emitido em</th><th scope="col">Tipo</th><th scope="col">Centro / pessoa</th><th scope="col" class="text-end">Bens</th><th scope="col" class="text-end">Valor</th><th scope="col">Número</th><th scope="col">Processo SEI</th><th scope="col">Documento · bloco</th><th scope="col">E-mail</th></tr></thead>
+      <thead><tr>{{ th_ordem('Emitido em', 'emitido') }}{{ th_ordem('Tipo', 'tipo') }}{{ th_ordem('Centro / pessoa', 'chave') }}{{ th_ordem('Bens', 'bens', 'text-end') }}{{ th_ordem('Valor', 'valor', 'text-end') }}{{ th_ordem('Número', 'numero') }}{{ th_ordem('Processo SEI', 'processo') }}{{ th_ordem('Documento · bloco', 'documento') }}{{ th_ordem('E-mail', 'email') }}</tr></thead>
       <tbody>
       {% for t in termos %}
       <tr>

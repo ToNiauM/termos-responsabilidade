@@ -65,14 +65,14 @@
 </table></div>
 
 <h2 class="text-up-01 mt-4 mb-2">Trazidos de outras salas ou não ativos</h2>
-<div class="br-table"><table><thead><tr><th scope="col">Nº</th><th scope="col">Descrição</th><th scope="col">Cadastrado em</th><th scope="col">Situação</th><th scope="col">Lido em</th></tr></thead>
+<div class="br-table"><table id="dados-trazidos" data-tabela><thead><tr><th scope="col">Nº</th><th scope="col">Descrição</th><th scope="col">Cadastrado em</th><th scope="col">Situação</th><th scope="col">Lido em</th></tr></thead>
 <tbody id="tabela-trazidos">
 {% for t in trazidos %}<tr data-numero="{{ t.numero }}" data-ativo="{{ 'sim' if t.situacao == 'ATIVO' else 'nao' }}"><td>{{ t.numero }}</td><td>{{ t.descricao }}</td><td>{{ t.localizacao }}</td><td>{{ t.situacao }}</td><td>{{ t.lido_em[8:10] }}/{{ t.lido_em[5:7] }} {{ t.lido_em[11:16] }} · {{ t.integrante }}</td></tr>{% endfor %}
 </tbody></table></div>
 
 <h2 class="text-up-01 mt-4 mb-2">Sobras (bens sem cadastro)</h2>
 {% if sobras %}
-<div class="br-table"><table><thead><tr><th scope="col">Descrição</th><th scope="col">Observação</th><th scope="col">Foto</th><th scope="col">Por</th>{% if not fechado %}<th scope="col" class="dsgov-acoes">Ações</th>{% endif %}</tr></thead><tbody>
+<div class="br-table"><table id="dados-sobras" data-tabela><thead><tr><th scope="col">Descrição</th><th scope="col">Observação</th><th scope="col">Foto</th><th scope="col">Por</th>{% if not fechado %}<th scope="col" class="dsgov-acoes">Ações</th>{% endif %}</tr></thead><tbody>
 {% for s in sobras %}<tr><td>{{ s.descricao }}{% if s.complemento %} <span class="text-gray-70">{{ s.complemento }}</span>{% endif %}</td><td>{{ s.observacao }}</td>
   <td>{% if s.foto_url %}<a href="{{ s.foto_url }}" target="_blank" rel="noopener"><img src="{{ s.foto_url }}" alt="Foto da sobra" class="dsgov-miniatura"/></a>{% else %}—{% endif %}</td><td>{{ s.integrante }}</td>
   {% if not fechado %}<td class="dsgov-acoes"><form method="post" action="{{ url_for('inventario.sobra_excluir', id=e.id, sobra_id=s.id) }}">{{ csrf_campo() }}<button class="br-button circle small" type="submit" aria-label="Excluir sobra"><i class="fas fa-trash" aria-hidden="true"></i></button></form></td>{% endif %}</tr>{% endfor %}

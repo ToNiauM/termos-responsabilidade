@@ -16,7 +16,7 @@
   </form>
 </div></div>
 <div class="br-table"><div class="table-header"><div class="top-bar"><div class="table-title">Bens atribuídos</div></div></div>
-<table><caption class="sr-only">Bens de {{ nome }}</caption><thead><tr><th scope="col">Patrimônio</th><th scope="col">Descrição</th><th scope="col">Complemento</th><th scope="col" class="dsgov-numero">Valor atual</th><th scope="col" class="dsgov-acoes">Ações</th></tr></thead>
+<table id="tabela-bens-pessoa" data-tabela><caption class="sr-only">Bens de {{ nome }}</caption><thead><tr><th scope="col">Patrimônio</th><th scope="col">Descrição</th><th scope="col">Complemento</th><th scope="col" class="dsgov-numero">Valor atual</th><th scope="col" class="dsgov-acoes">Ações</th></tr></thead>
 <tbody>{% for b in bens_pessoa %}<tr><td><a href="{{ url_for('bem', numero=b.numero) }}">{{ b.numero }}</a></td><td>{{ b.descricao }}</td><td>{{ b.complemento }}</td><td class="dsgov-numero">{{ (b.valor_atual or 0)|moeda }}</td><td class="dsgov-acoes">{{ acao('pessoas_desatribuir', 'Remover vínculo', origem, {'nome': nome, 'numero': b.numero}) }}</td></tr>{% else %}<tr><td colspan="5">Nenhum bem atribuído. Consulte um patrimônio acima para começar.</td></tr>{% endfor %}</tbody>
 </table></div>
 <p class="mt-4">{{ acao('pessoas_excluir', 'Excluir pessoa', origem, {'nome': nome}) }}</p>

@@ -690,7 +690,7 @@ def _clausula(campos: list[str], termos: list[str]) -> tuple[str, list]:
     return sql, [_padrao_like(t).upper() for t in termos for _ in campos]
 
 
-def pesquisar(conn, q: str, limite: int = 200) -> dict:
+def pesquisar(conn, q: str, limite: int = 200, ordem: str | None = None, direcao: str | None = None) -> dict:
     """Busca rápida em centros de custo (sigla/responsável), pessoas (nome) e bens (descrição, complemento,
     localização, centro, pessoa). Sem distinguir maiúsculas, inclusive acentuadas (MAIUSC = str.upper)."""
     conn.create_function("MAIUSC", 1, lambda v: v.upper() if isinstance(v, str) else v)
@@ -707,7 +707,7 @@ def pesquisar(conn, q: str, limite: int = 200) -> dict:
     bens = _todos(conn, f"""
         SELECT b.*, l.ccustos AS ccustos, a.nome AS pessoa FROM bens b
         LEFT JOIN localizacoes l ON l.localizacao = b.localizacao LEFT JOIN atribuicoes a ON a.numero = b.numero
-        WHERE {sql} ORDER BY b.numero LIMIT ?""", *params, limite + 1)
+        WHERE {sql} ORDER BY {_ordem_sql(conn, ORDEM_BENS, ordem, direcao, "b.numero")} LIMIT ?""", *params, limite + 1)
     return {"centros": centros, "pessoas": pessoas, "bens": bens[:limite], "truncado": len(bens) > limite}
 
 
@@ -970,7 +970,8 @@ def registrar_emissao(conn, tipo: str, chave: str, bens: list) -> dict:
     return termo_emitido(conn, cur.lastrowid)
 
 
-def termos_emitidos(conn, tipo: str | None = None, chave: str | None = None, limite: int = 200) -> list[dict]:
+def termos_emitidos(conn, tipo: str | None = None, chave: str | None = None, limite: int = 200,
+                    ordem: str | None = None, direcao: str | None = None) -> list[dict]:
     sql = """SELECT t.*, p.descricao AS processo, p.numero_sei, p.id_procedimento FROM termos_emitidos t
              JOIN processos_sei p ON p.id = t.processo_id WHERE 1"""
     params: list = []
@@ -981,7 +982,8 @@ def termos_emitidos(conn, tipo: str | None = None, chave: str | None = None, lim
         sql += " AND MAIUSC(t.chave) LIKE ?"
         params.append(f"%{chave.upper()}%")
     conn.create_function("MAIUSC", 1, lambda v: v.upper() if isinstance(v, str) else v)
-    return _todos(conn, sql + " ORDER BY t.emitido_em DESC, t.id DESC LIMIT ?", *params, limite)
+    ordenar = _ordem_sql(conn, ORDEM_TERMOS, ordem, direcao, "t.emitido_em DESC, t.id DESC")
+    return _todos(conn, sql + f" ORDER BY {ordenar} LIMIT ?", *params, limite)
 
 
 def termo_emitido(conn, id: int) -> dict | None:
@@ -1371,6 +1373,32 @@ _DE = ("FROM bens b LEFT JOIN localizacoes l ON l.localizacao = b.localizacao "
        "LEFT JOIN atribuicoes a ON a.numero = b.numero")
 _DATA_ISO = ("CASE WHEN b.data_entrada LIKE '__/__/____' THEN substr(b.data_entrada,7,4)||'-'||"
              "substr(b.data_entrada,4,2)||'-'||substr(b.data_entrada,1,2) END")
+# Ordenação no servidor das listas cortadas (só os N primeiros): a tela manda ?ordem=campo&dir=asc|desc
+# (static/js/tabelas.js) e o ORDER BY sai de uma lista branca — nunca do texto da URL.
+ORDEM_BENS = {"numero": "b.numero", "descricao": "b.descricao", "complemento": "b.complemento",
+              "localizacao": "b.localizacao", "situacao": "b.situacao", "centro": "l.ccustos", "pessoa": "a.nome",
+              "classificacao": "b.classificacao", "entrada": _DATA_ISO, "valor": "b.valor_atual"}
+ORDEM_TERMOS = {"emitido": "t.emitido_em", "tipo": "t.tipo", "chave": "t.chave", "bens": "t.quantidade",
+                "valor": "t.valor_total", "numero": "t.numero_termo", "processo": "p.numero_sei",
+                "documento": "t.documento_sei", "email": "t.email_enviado_em"}
+
+
+def _comparar_pt(a: str, b: str) -> int:
+    """Collation PTBR: sem diferenciar maiúsculas e acentos (é junto de e, não depois do z); empate pelo texto."""
+    ka, kb = (_chave_localizacao(a), a), (_chave_localizacao(b), b)
+    return (ka > kb) - (ka < kb)
+
+
+def _ordem_sql(conn, colunas: dict, ordem, direcao, padrao: str) -> str:
+    """Expressão de ORDER BY: coluna da lista branca (senão o padrão), vazios sempre por último, desempate pelo padrão."""
+    expr = colunas.get(ordem or "")
+    if not expr:
+        return padrao
+    conn.create_collation("PTBR", _comparar_pt)
+    sentido = "DESC" if direcao == "desc" else "ASC"
+    return f"(({expr}) IS NULL OR ({expr}) = ''), ({expr}) COLLATE PTBR {sentido}, {padrao}"
+
+
 _IDADE = f"(julianday('now') - julianday({_DATA_ISO})) / 365.25"
 _FAIXA_IDADE = (f"CASE WHEN {_DATA_ISO} IS NULL THEN 'semdata' WHEN {_IDADE} < 5 THEN 'ate5' "
                 f"WHEN {_IDADE} < 10 THEN '5a10' WHEN {_IDADE} < 20 THEN '10a20' ELSE 'mais20' END")
@@ -1554,9 +1582,10 @@ def painel(conn) -> dict:
     return d
 
 
-def recorte(conn, f: dict, limite: int | None = 1000) -> dict:
+def recorte(conn, f: dict, limite: int | None = 1000, ordem: str | None = None, direcao: str | None = None) -> dict:
     where, p = _where(f)
-    sql = f"SELECT b.*, l.ccustos AS ccustos, a.nome AS pessoa {_DE} WHERE {where} ORDER BY b.numero"
+    sql = (f"SELECT b.*, l.ccustos AS ccustos, a.nome AS pessoa {_DE} WHERE {where} "
+           f"ORDER BY {_ordem_sql(conn, ORDEM_BENS, ordem, direcao, 'b.numero')}")
     bens = _todos(conn, sql + (f" LIMIT {limite + 1}" if limite else ""), *p)
     totais = dict(conn.execute(f"""SELECT
       count(*) AS quantidade,

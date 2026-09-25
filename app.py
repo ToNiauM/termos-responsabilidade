@@ -293,7 +293,7 @@ def recorte_xlsx():
 def analise():
     conn = obter_conn()
     f = _filtros_recorte()
-    r = db.recorte(conn, f)
+    r = db.recorte(conn, f, ordem=request.args.get("ordem"), direcao=request.args.get("dir"))
     omitir = tuple(k for k in ("situacao", "ccusto", "classificacao", "localizacao", "idade", "ano", "faixa", "pessoa")
                    if f.get(k) and f.get(k) not in ("imoveis", "sem-imoveis"))
     nomes = {"idade": dict(db.FAIXAS_IDADE).get(f.get("idade")), "faixa": dict(db.FAIXAS_VALOR).get(f.get("faixa"))}
@@ -349,7 +349,7 @@ def pesquisa():
                                trilha=[("Pesquisa", url_for("pesquisa", q=chave)), (f"Bens de {chave}", None)])
     if q.isdigit() and db.buscar_bem(conn, int(q)):
         return redirect(url_for("bem", numero=q))
-    r = db.pesquisar(conn, q) if q else {"centros": [], "pessoas": [], "bens": [], "truncado": False}
+    r = db.pesquisar(conn, q, ordem=request.args.get("ordem"), direcao=request.args.get("dir")) if q else {"centros": [], "pessoas": [], "bens": [], "truncado": False}
     return render_template("pesquisa.html", q=q, filtro=None, trilha=[("Pesquisa", None)], **r)
 
 
@@ -568,10 +568,14 @@ def termo_emitido_tela(id):
                            trilha=[("Termos emitidos", url_for("termos_emitidos_tela")), (f"Registro {id}", None)])
 
 
+LIMITE_TERMOS_EMITIDOS = 200  # a tela lista os mais recentes; com a lista cortada, a ordenação vai ao SQL (?ordem=&dir=)
+
+
 @app.route("/termos-emitidos")
 def termos_emitidos_tela():
     tipo, chave = request.args.get("tipo") or None, request.args.get("chave", "").strip() or None
-    return render_template("termos_emitidos.html", termos=db.termos_emitidos(obter_conn(), tipo, chave),
+    termos = db.termos_emitidos(obter_conn(), tipo, chave, LIMITE_TERMOS_EMITIDOS, request.args.get("ordem"), request.args.get("dir"))
+    return render_template("termos_emitidos.html", termos=termos, truncado=len(termos) >= LIMITE_TERMOS_EMITIDOS,
                            tipo=tipo, chave=chave, rotulos=db.ROTULO_TIPO, enviando=db.termos_com_pedido_ativo(obter_conn()),
                            trilha=[("Termos emitidos", None)])
 

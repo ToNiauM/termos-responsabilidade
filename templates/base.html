@@ -1,3 +1,4 @@
+{% set VERSAO_ESTILO = '2026-09-25a' %}{# trocar a cada mudança em dsgov.css/tabelas.js: força o navegador a baixar de novo #}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -8,7 +9,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/css/fontes.css') }}"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/vendor/govbr-ds/core.min.css') }}"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/vendor/fontawesome/css/all.min.css') }}"/>
-  <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/css/dsgov.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dsgov/css/dsgov.css', v=VERSAO_ESTILO) }}"/>
 </head>
 <body>
 <div class="template-base">
@@ -138,6 +139,7 @@
 <script src="{{ url_for('static', filename='dsgov/vendor/govbr-ds/core.min.js') }}"></script>
 <script src="{{ url_for('static', filename='dsgov/js/dsgov.js') }}"></script>
 <script src="{{ url_for('static', filename='js/menu-estado.js') }}"></script>
+<script src="{{ url_for('static', filename='js/tabelas.js', v=VERSAO_ESTILO) }}" data-aparencia="dsgov"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>
